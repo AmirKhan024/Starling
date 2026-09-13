@@ -22,6 +22,12 @@ class PerceptionConfig(BaseModel):
     device: str = "auto"
     save_crops: bool = False
     crop_interval_s: float = 10.0
+    # D-01 fix: selectable ReID backend. "osnet" (Market-1501-trained, falls
+    # back to "pooled" if weights/torchreid are unavailable) is the only
+    # backend permitted in a production node config. "v1_broken" is the
+    # preserved untrained head, for starling_eval.reid_benchmark only.
+    backend: str = "osnet"
+    weights_path: str | None = None
 
 
 class MatchConfig(BaseModel):
@@ -87,6 +93,8 @@ perception:
   device: "auto"             # auto | cuda | cpu
   save_crops: false          # D-14: off by default, privacy + disk usage
   crop_interval_s: 10.0      # min seconds between saved crops per identity
+  backend: "osnet"           # osnet (falls back to pooled) | pooled | v1_broken
+  weights_path: null         # Market-1501-trained OSNet weights (D-01 fix)
 
 match:
   sim_threshold: 0.60        # cosine similarity cutoff for identity match
