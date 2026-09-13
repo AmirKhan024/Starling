@@ -13,11 +13,22 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 import numpy as np
+import torch
 from ultralytics import YOLO
 
 from starling_node.config import PerceptionConfig
 
 PERSON_CLASS_ID = 0
+
+
+def resolve_device(device: str) -> str:
+    """Ultralytics doesn't understand "auto" (unlike torch); resolve it to
+    a concrete device string here so PerceptionConfig.device="auto" — the
+    documented default — doesn't crash the first real YOLO call.
+    """
+    if device == "auto":
+        return "cuda" if torch.cuda.is_available() else "cpu"
+    return device
 
 
 @dataclass
@@ -32,6 +43,7 @@ class PersonDetector:
 
     def __init__(self, cfg: PerceptionConfig) -> None:
         self.cfg = cfg
+        self.device = resolve_device(cfg.device)
         self.model = YOLO(cfg.yolo_model)
 
     def detect(self, frame: np.ndarray) -> list[Detection]:
@@ -39,7 +51,7 @@ class PersonDetector:
             frame,
             classes=[PERSON_CLASS_ID],
             conf=self.cfg.conf,
-            device=self.cfg.device,
+            device=self.device,
             verbose=False,
         )
         r = results[0]

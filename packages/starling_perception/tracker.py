@@ -14,7 +14,7 @@ import numpy as np
 from ultralytics import YOLO
 
 from starling_node.config import PerceptionConfig
-from starling_perception.detector import PERSON_CLASS_ID, Detection
+from starling_perception.detector import PERSON_CLASS_ID, Detection, resolve_device
 
 
 @dataclass
@@ -41,6 +41,7 @@ class LocalTracker:
 
     def __init__(self, cfg: PerceptionConfig) -> None:
         self.cfg = cfg
+        self.device = resolve_device(cfg.device)
         self.model = YOLO(cfg.yolo_model)
         self._hits: dict[int, int] = {}
 
@@ -60,7 +61,7 @@ class LocalTracker:
             conf=self.cfg.conf,
             tracker="bytetrack.yaml",
             verbose=False,
-            device=self.cfg.device,
+            device=self.device,
         )
         r = results[0]
         tracks: list[Track] = []

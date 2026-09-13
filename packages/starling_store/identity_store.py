@@ -1,13 +1,36 @@
 """
 database/identity_store.py
 --------------------------
-SQLite-backed identity store for multi-camera re-identification.
+SQLite-backed per-node identity store.
 
-Tables
-------
-  persons   – one row per unique global identity (global_id, status, embeddings …)
-  sightings – every frame-level detection linked to a person
-  events    – lifecycle log (first_seen, lost, reappeared, resolved, …)
+This module now serves two roles from one class (`LocalStore`, renamed
+from `IdentityStore` — WP-03):
+
+1. The V1-compatible `persons` / `sightings` / `events` API
+   (`match_or_create`, `promote_lost`, `search_by_time`, `get_person`,
+   `resolve`, `reactivate`, `add_note`, ...), used ONLY by the frozen
+   `apps/baseline.py` control condition and its companion
+   `apps/dashboard/app.py`, via the `IdentityStore` alias at the bottom of
+   this file. This is genuinely centralized cross-camera matching against
+   one shared database — that's correct for baseline, since it IS the
+   centralized control condition (CLAUDE.md: never change its behaviour).
+
+2. The new node-local `claims` API (`append_local_observation`,
+   `local_observations`, `recent_tracks`) used by the decentralized
+   `apps/node.py` path. This does NO cross-camera matching at all — it
+   just appends the raw claim this node observed. Cross-node identity
+   resolution lives in `starling_crdt` (a later work package), operating
+   over the *merged* claim sets from every node's replica, never inside a
+   single node's own store. `apps/node.py` never calls `match_or_create`.
+
+Ambiguous-choice note (CLAUDE.md: take the first option, comment, continue):
+the WP-03 prompt describes `LocalStore` as if it were a strictly reduced
+API, but also says "keep IdentityStore as a thin alias" — those two
+instructions are in tension once you note `apps/baseline.py` needs the full
+V1 method set. Resolved here by keeping ONE class with both APIs, and
+enforcing the *behavioural* separation (no cross-node matching on the node
+path) by construction: `apps/node.py` simply never calls the persons-table
+methods. `tests/test_no_coordinator.py` guards this from regressing.
 
 All embedding comparisons use cosine similarity.
 
@@ -21,6 +44,11 @@ own call sites, which is behaviourally identical to the old internal call.
 The one deliberate exception is operator actions (`resolve`, `reactivate`,
 `add_note`) — those log a human decision made *now*, not an observation of
 the world, so they keep `time.time()`. Do not "fix" that; it's correct.
+
+D-07 fix: global/claim identifiers are ULIDs generated locally (via
+`python-ulid`), never derived from `SELECT COUNT(*)` — that collides the
+moment two processes insert concurrently, which decentralization makes the
+normal case.
 """
 
 from __future__ import annotations
@@ -32,6 +60,10 @@ import threading
 import numpy as np
 from pathlib import Path
 from typing import Optional, List, Tuple, Dict, Any
+
+from ulid import ULID
+
+from starling_net.hlc import HLCClock
 
 
 # ── helpers ────────────────────────────────────────────────────────────────────
@@ -52,10 +84,11 @@ def _blob_to_emb(blob: bytes) -> np.ndarray:
     return np.frombuffer(blob, dtype=np.float32)
 
 
-def _next_global_id(conn: sqlite3.Connection) -> str:
-    cur = conn.execute("SELECT COUNT(*) FROM persons")
-    n = cur.fetchone()[0]
-    return f"GID-{n + 1:04d}"
+def _next_global_id() -> str:
+    """D-07: a locally-generated ULID, never a COUNT(*)-derived counter —
+    the latter collides the instant two processes insert concurrently.
+    """
+    return f"GID-{ULID()}"
 
 
 # ── schema ─────────────────────────────────────────────────────────────────────
@@ -101,25 +134,68 @@ CREATE INDEX IF NOT EXISTS idx_sightings_gid  ON sightings(global_id);
 CREATE INDEX IF NOT EXISTS idx_sightings_time ON sightings(seen_at);
 CREATE INDEX IF NOT EXISTS idx_events_gid     ON events(global_id);
 CREATE INDEX IF NOT EXISTS idx_events_time    ON events(occurred_at);
+
+-- ── Node-local claims (WP-03 / STARLING_BUILD_STATE.md §5.1 IdentityClaim) ──
+-- One row per observation this node made. Never cross-camera-matched here —
+-- that is starling_crdt's job, over the union of every node's claims.
+CREATE TABLE IF NOT EXISTS claims (
+    claim_id        TEXT PRIMARY KEY,             -- ULID, generated locally
+    node_id         INTEGER NOT NULL,
+    seq             INTEGER NOT NULL,              -- per-node monotonic, persisted
+    hlc_physical_ms INTEGER NOT NULL,
+    hlc_logical     INTEGER NOT NULL,
+    local_track_id  INTEGER NOT NULL,              -- NODE-SCOPED ONLY (CLAUDE.md rule 5):
+                                                    -- never interpreted by another node
+    t_media         REAL NOT NULL,                 -- seconds; kept alongside hlc_physical_ms
+                                                    -- for convenient time-range queries
+    embedding       BLOB NOT NULL,
+    embed_scale     REAL NOT NULL DEFAULT 1.0,      -- placeholder: no int8 wire quantization yet
+    world_x         REAL,                           -- nullable: filled by geometry (WP-05)
+    world_y         REAL,
+    pos_sigma       REAL,
+    anchor_type     TEXT NOT NULL DEFAULT 'UNANCHORED',  -- FACE_ANCHOR | PROPAGATED | UNANCHORED
+    identity_ref    TEXT,                           -- set only when anchor_type=FACE_ANCHOR
+    last_anchor_t   REAL,
+    confidence      REAL NOT NULL,
+    quality         REAL NOT NULL,
+    signature       BLOB                            -- placeholder: no signing until gossip (Prompt 4)
+);
+
+CREATE INDEX IF NOT EXISTS idx_claims_seq     ON claims(node_id, seq);
+CREATE INDEX IF NOT EXISTS idx_claims_t_media ON claims(t_media);
+
+CREATE TABLE IF NOT EXISTS node_meta (
+    key   TEXT PRIMARY KEY,
+    value INTEGER NOT NULL
+);
 """
 
 
-# ── IdentityStore ──────────────────────────────────────────────────────────────
+# ── LocalStore ─────────────────────────────────────────────────────────────────
 
-class IdentityStore:
+class LocalStore:
     """
-    Thread-safe SQLite store for global person identities.
+    Thread-safe, per-process SQLite store. See the module docstring for the
+    two APIs this one class serves (V1-compatible persons/sightings/events
+    for `apps/baseline.py` via the `IdentityStore` alias; node-local claims
+    for `apps/node.py`).
 
     Parameters
     ----------
     db_path             : path to the SQLite file (created if absent)
     lost_threshold_secs : seconds of absence before marking a person LOST
+                          (persons-table API only)
     similarity_threshold: cosine-similarity cutoff for matching (0–1)
+                          (persons-table API only)
     ema_alpha           : blend weight for the running embedding average,
                            `emb = (1 - ema_alpha) * old + ema_alpha * new`
                            (D-06 fix: was hardcoded 0.9/0.1 in code while the
                            README claimed 0.7/0.3; now a single documented
                            config value, default 0.10, matching MatchConfig)
+                           (persons-table API only)
+    node_id             : this node's id (claims API only; default 0 so the
+                           persons-table API's callers, which don't care
+                           about node identity, need not pass it)
     """
 
     def __init__(
@@ -128,11 +204,13 @@ class IdentityStore:
         lost_threshold_secs: float = 120.0,
         similarity_threshold: float = 0.60,
         ema_alpha: float = 0.10,
+        node_id: int = 0,
     ) -> None:
         self.db_path = db_path
         self.lost_threshold = lost_threshold_secs
         self.sim_threshold = similarity_threshold
         self.ema_alpha = ema_alpha
+        self.node_id = node_id
         self._lock = threading.Lock()
 
         Path(db_path).parent.mkdir(parents=True, exist_ok=True)
@@ -141,7 +219,41 @@ class IdentityStore:
         self._conn.executescript(_SCHEMA)
         self._conn.commit()
 
-    # ── Core matching ──────────────────────────────────────────────────────────
+        self._hlc_clock = HLCClock(node_id=node_id)
+        self._next_seq = self._recover_seq()
+
+    def _recover_seq(self) -> int:
+        """D-07: the per-node claim sequence counter is persisted in the DB
+        (`node_meta`), so it survives a process restart instead of risking
+        reuse/collision.
+        """
+        row = self._conn.execute(
+            "SELECT value FROM node_meta WHERE key='next_seq'"
+        ).fetchone()
+        if row is None:
+            self._conn.execute(
+                "INSERT INTO node_meta (key, value) VALUES ('next_seq', 0)"
+            )
+            self._conn.commit()
+            return 0
+        return row["value"]
+
+    def _allocate_seq(self) -> int:
+        """Caller must hold self._lock."""
+        seq = self._next_seq
+        self._next_seq += 1
+        self._conn.execute(
+            "UPDATE node_meta SET value=? WHERE key='next_seq'", (self._next_seq,)
+        )
+        return seq
+
+    def close(self) -> None:
+        """Flush and close the underlying SQLite connection."""
+        with self._lock:
+            self._conn.commit()
+            self._conn.close()
+
+    # ── Core matching (persons-table API — apps/baseline.py only) ──────────────
 
     def match_or_create(
         self,
@@ -194,7 +306,7 @@ class IdentityStore:
 
             if best_gid is None or best_sim < self.sim_threshold:
                 # ── Create new identity ────────────────────────────────────
-                global_id = _next_global_id(self._conn)
+                global_id = _next_global_id()
                 self._conn.execute(
                     """INSERT INTO persons
                        (global_id, status, embedding, first_seen_at,
@@ -341,7 +453,7 @@ class IdentityStore:
     # ── Queries ────────────────────────────────────────────────────────────────
 
     def stats(self) -> Dict[str, int]:
-        """Return aggregate counts."""
+        """Return aggregate counts (both APIs: persons-table + claims)."""
         with self._lock:
             active    = self._conn.execute(
                 "SELECT COUNT(*) FROM persons WHERE status='active'"
@@ -358,13 +470,74 @@ class IdentityStore:
             reappear  = self._conn.execute(
                 "SELECT COUNT(*) FROM events WHERE event_type='reappeared'"
             ).fetchone()[0]
+            claims    = self._conn.execute(
+                "SELECT COUNT(*) FROM claims"
+            ).fetchone()[0]
         return {
             "active":        active,
             "lost":          lost,
             "resolved":      resolved,
             "sightings":     sightings,
             "reappearances": reappear,
+            "claims":        claims,
         }
+
+    # ── Node-local claims (claims API — apps/node.py only) ──────────────────────
+
+    def append_local_observation(self, obs) -> str:
+        """Append one `starling_perception.pipeline.Observation` as a claim
+        in this node's own `claims` table. Does NO cross-camera identity
+        matching whatsoever — that is the entire point of the node path
+        (STARLING_BUILD_STATE.md §4.2: replicate the evidence, derive the
+        decision — the deriving happens in starling_crdt, not here).
+
+        Returns the new claim's id.
+        """
+        claim_id = str(ULID())
+        physical_ms = int(obs.t_media * 1000)
+        hlc = self._hlc_clock.now(physical_ms)
+
+        with self._lock:
+            seq = self._allocate_seq()
+            self._conn.execute(
+                """INSERT INTO claims
+                   (claim_id, node_id, seq, hlc_physical_ms, hlc_logical,
+                    local_track_id, t_media, embedding, embed_scale,
+                    world_x, world_y, pos_sigma, anchor_type, identity_ref,
+                    last_anchor_t, confidence, quality, signature)
+                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                (
+                    claim_id, self.node_id, seq, hlc.physical_ms, hlc.logical,
+                    int(obs.local_track_id), float(obs.t_media),
+                    _emb_to_blob(obs.embedding), 1.0,
+                    None, None, None, "UNANCHORED", None,
+                    None, float(obs.conf), float(obs.quality), None,
+                ),
+            )
+            self._conn.commit()
+        return claim_id
+
+    def local_observations(self, since: float, until: float) -> List[Dict[str, Any]]:
+        """Claims this node made with `t_media` in `[since, until]`, oldest first."""
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT * FROM claims WHERE t_media BETWEEN ? AND ? ORDER BY t_media ASC",
+                (since, until),
+            ).fetchall()
+        return [dict(r) for r in rows]
+
+    def recent_tracks(self, limit: int = 50) -> List[Dict[str, Any]]:
+        """Most recently-appended claims (one row per observation, not
+        deduplicated by local_track_id) — a lightweight "what has this node
+        seen lately" view.
+        """
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT * FROM claims ORDER BY seq DESC LIMIT ?", (limit,)
+            ).fetchall()
+        return [dict(r) for r in rows]
+
+    # ── Queries (persons-table API — apps/baseline.py / dashboard only) ─────────
 
     def get_all(self, status: Optional[str] = None) -> List[Dict[str, Any]]:
         """Return all persons, optionally filtered by status."""
@@ -506,3 +679,15 @@ class IdentityStore:
                VALUES (?,?,?,?,?)""",
             (global_id, event_type, t, camera_id, detail),
         )
+
+
+# `apps/baseline.py` (and its companion `apps/dashboard/app.py`) are the only
+# sanctioned callers of the persons-table API above (match_or_create,
+# promote_lost, search_by_time, resolve, ...) — kept under this name so
+# their imports need no change. The decentralized node path (`apps/node.py`)
+# imports `LocalStore` directly and uses ONLY append_local_observation /
+# local_observations / recent_tracks / stats; it never imports
+# `IdentityStore` or calls `match_or_create` (STARLING_BUILD_STATE.md §4.1:
+# no cross-camera matching happens on the node path — that's starling_crdt's
+# job, a later work package). tests/test_no_coordinator.py guards this.
+IdentityStore = LocalStore

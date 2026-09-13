@@ -30,3 +30,4 @@ matplotlib>=3.7.0
 
 # ── Database ───────────────────────────────────────────
 # sqlite3 is in Python stdlib — no install needed
+python-ulid>=1.1.0           # D-07: locally-generated, collision-free node claim/identity ids
