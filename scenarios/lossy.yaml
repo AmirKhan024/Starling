@@ -1,0 +1,16 @@
+# Degraded (not partitioned) link: node 2 gets 30% packet loss and 200ms
+# latency from t=60s onward — this exercises the difference between a
+# hard partition and a merely unreliable one (gossip should keep limping
+# through; anti-entropy should still eventually converge, just slower).
+name: lossy
+duration_s: 300
+stream_epoch: 1750000000.0
+speed: 1.0
+nodes: [0, 1, 2, 3]
+videos:
+  0: data/videos/cam0.mp4
+  1: data/videos/cam1.mp4
+  2: data/videos/cam2.mp4
+  3: data/videos/cam3.mp4
+events:
+  - {t: 60, action: degrade, nodes: [2], loss_pct: 30, latency_ms: 200}

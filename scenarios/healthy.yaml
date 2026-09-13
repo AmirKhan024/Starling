@@ -1,0 +1,13 @@
+# Baseline scenario: 4 healthy nodes, no partitions or degradation. This is
+# the control run every other scenario is compared against.
+name: healthy
+duration_s: 300
+stream_epoch: 1750000000.0
+speed: 1.0
+nodes: [0, 1, 2, 3]
+videos:
+  0: data/videos/cam0.mp4
+  1: data/videos/cam1.mp4
+  2: data/videos/cam2.mp4
+  3: data/videos/cam3.mp4
+events: []
