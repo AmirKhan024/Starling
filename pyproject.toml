@@ -1,0 +1,46 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "starling"
+version = "0.1.0"
+description = "Starling — decentralized multi-camera identity network"
+requires-python = ">=3.10"
+dependencies = [
+    "torch>=2.0.0",
+    "torchvision>=0.15.0",
+    "ultralytics>=8.0.200",
+    "opencv-python>=4.8.0",
+    "Pillow>=10.0.0",
+    "numpy>=1.24.0",
+    "pandas>=2.0.0",
+    "streamlit>=1.32.0",
+    "tqdm>=4.65.0",
+    "matplotlib>=3.7.0",
+    "pydantic>=2",
+    "pyyaml",
+    "structlog",
+]
+
+[project.optional-dependencies]
+dev = ["pytest", "pytest-cov", "hypothesis", "ruff", "mypy"]
+
+[tool.setuptools.packages.find]
+where = ["packages"]
+
+[tool.setuptools.package-dir]
+"" = "packages"
+
+[tool.ruff]
+line-length = 100
+
+[tool.mypy]
+python_version = "3.10"
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "integration: requires model weights or a dataset; skip cleanly when absent",
+]

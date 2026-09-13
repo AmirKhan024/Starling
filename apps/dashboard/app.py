@@ -10,7 +10,7 @@ from pathlib import Path
 from datetime import datetime, timedelta
 from PIL import Image
 
-from database.identity_store import IdentityStore
+from starling_store.identity_store import IdentityStore
 
 # ── Page config ──────────────────────────────────────────────────────────────
 st.set_page_config(
