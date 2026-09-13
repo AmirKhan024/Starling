@@ -1,7 +1,6 @@
-# Starling node config — node-01 (Docker variant: neighbours use
-# container hostnames, resolved via deploy/docker-compose.yml's
-# starling-net bridge network — see configs/nodes/local/ for the
-# 127.0.0.1 variant used to run without Docker)
+# Starling node config — node-01 (LOCAL variant: 127.0.0.1 neighbours,
+# for running without Docker — see configs/nodes/node-01.yaml for the
+# container-hostname variant used by deploy/docker-compose.yml)
 # Every threshold below has a documented default in
 # packages/starling_node/config.py. Edit here, not in code.
 
@@ -48,5 +47,5 @@ match:
 
 net:
   listen_port: 5556          # this node's gossip PUB port
-  neighbours: ["node-00:5555", "node-02:5557"]  # ring topology (CLAUDE.md rule 4)
+  neighbours: ["127.0.0.1:5555", "127.0.0.1:5557"]  # ring topology (CLAUDE.md rule 4)
   gossip_interval_s: 2.0       # anti-entropy gossip round interval

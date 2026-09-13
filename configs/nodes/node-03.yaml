@@ -1,4 +1,7 @@
-# Starling node config — node-03
+# Starling node config — node-03 (Docker variant: neighbours use
+# container hostnames, resolved via deploy/docker-compose.yml's
+# starling-net bridge network — see configs/nodes/local/ for the
+# 127.0.0.1 variant used to run without Docker)
 # Every threshold below has a documented default in
 # packages/starling_node/config.py. Edit here, not in code.
 
@@ -18,6 +21,12 @@ db_path: "data/nodes/node-03/local.db"
 # Path to this camera's intrinsics/extrinsics YAML (WP-05). Null until
 # calibration is done.
 calib_path: null
+
+# Unix seconds marking t=0 of this node's recorded source. ALL nodes
+# replaying the same scenario must use the SAME stream_epoch, or their
+# media times sit on different timelines (D-03). A scenario runner injects
+# one shared value per run; 0.0 here is only a single-node-testing default.
+stream_epoch: 0.0
 
 perception:
   yolo_model: "yolov8n.pt"   # YOLOv8 variant: n/s/m/l/x.pt
@@ -39,5 +48,5 @@ match:
 
 net:
   listen_port: 5558          # this node's gossip PUB port
-  neighbours: ["127.0.0.1:5557", "127.0.0.1:5555"]  # ring topology (CLAUDE.md rule 4)
+  neighbours: ["node-02:5557", "node-00:5555"]  # ring topology (CLAUDE.md rule 4)
   gossip_interval_s: 2.0       # anti-entropy gossip round interval

@@ -1,0 +1,107 @@
+# Starling node isolation — WP-03 Part 5.
+#
+# The volume list on each node-NN service is the physical enforcement of
+# CLAUDE.md rule 2 ("no module may read another node's database,
+# filesystem directory, or in-memory state"): every node mounts ONLY its
+# own ./data/nodes/node-0N subdirectory, never the shared ./data/nodes
+# parent. Double-check this on every edit — mounting the parent would
+# silently let every node see every other node's SQLite replica, which
+# destroys the architectural claim without any code change ever showing it.
+#
+# `dashboard` is still the V1 legacy Streamlit viewer (WP-13 rebuilds it as
+# a read-only gossip observer). It watches ONLY the frozen baseline's
+# centralized database/ directory and — same rule — is never given a
+# data/nodes/ mount at all.
+
+x-node-image: &node-image
+  build:
+    context: ..
+    dockerfile: Dockerfile
+  image: starling-node:latest
+
+services:
+  node-00:
+    <<: *node-image
+    container_name: starling-node-00
+    environment:
+      STARLING_CONFIG: /app/configs/nodes/node-00.yaml
+    volumes:
+      - ../configs:/app/configs:ro
+      - ../data/videos:/app/data/videos:ro
+      - ../data/nodes/node-00:/app/data/nodes/node-00
+    cap_add:
+      - NET_ADMIN
+    networks:
+      starling-net:
+        ipv4_address: 172.28.0.10
+    restart: "no"
+
+  node-01:
+    <<: *node-image
+    container_name: starling-node-01
+    environment:
+      STARLING_CONFIG: /app/configs/nodes/node-01.yaml
+    volumes:
+      - ../configs:/app/configs:ro
+      - ../data/videos:/app/data/videos:ro
+      - ../data/nodes/node-01:/app/data/nodes/node-01
+    cap_add:
+      - NET_ADMIN
+    networks:
+      starling-net:
+        ipv4_address: 172.28.0.11
+    restart: "no"
+
+  node-02:
+    <<: *node-image
+    container_name: starling-node-02
+    environment:
+      STARLING_CONFIG: /app/configs/nodes/node-02.yaml
+    volumes:
+      - ../configs:/app/configs:ro
+      - ../data/videos:/app/data/videos:ro
+      - ../data/nodes/node-02:/app/data/nodes/node-02
+    cap_add:
+      - NET_ADMIN
+    networks:
+      starling-net:
+        ipv4_address: 172.28.0.12
+    restart: "no"
+
+  node-03:
+    <<: *node-image
+    container_name: starling-node-03
+    environment:
+      STARLING_CONFIG: /app/configs/nodes/node-03.yaml
+    volumes:
+      - ../configs:/app/configs:ro
+      - ../data/videos:/app/data/videos:ro
+      - ../data/nodes/node-03:/app/data/nodes/node-03
+    cap_add:
+      - NET_ADMIN
+    networks:
+      starling-net:
+        ipv4_address: 172.28.0.13
+    restart: "no"
+
+  dashboard:
+    <<: *node-image
+    container_name: starling-dashboard
+    command: ["streamlit", "run", "apps/dashboard/app.py", "--server.address=0.0.0.0"]
+    environment:
+      REID_DB_PATH: /app/database/identities.db
+    ports:
+      - "8501:8501"
+    volumes:
+      - ../database:/app/database
+    networks:
+      starling-net:
+        ipv4_address: 172.28.0.20
+    restart: "no"
+
+networks:
+  starling-net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/24

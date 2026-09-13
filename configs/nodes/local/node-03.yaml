@@ -1,22 +1,21 @@
-# Starling node config — node-01 (Docker variant: neighbours use
-# container hostnames, resolved via deploy/docker-compose.yml's
-# starling-net bridge network — see configs/nodes/local/ for the
-# 127.0.0.1 variant used to run without Docker)
+# Starling node config — node-03 (LOCAL variant: 127.0.0.1 neighbours,
+# for running without Docker — see configs/nodes/node-03.yaml for the
+# container-hostname variant used by deploy/docker-compose.yml)
 # Every threshold below has a documented default in
 # packages/starling_node/config.py. Edit here, not in code.
 
-node_id: 1
-name: "node-01"
+node_id: 3
+name: "node-03"
 
 # Video source: file path, RTSP URL, or webcam index (as a string)
-source: "data/videos/cam1.mp4"
+source: "data/videos/cam3.mp4"
 
 # Set true only for a node whose FOV covers a chokepoint (WP-12: face
 # recognition runs there and nowhere else).
 is_chokepoint: false
 
 # Per-node SQLite replica. Never shared with another node (CLAUDE.md rule 1).
-db_path: "data/nodes/node-01/local.db"
+db_path: "data/nodes/node-03/local.db"
 
 # Path to this camera's intrinsics/extrinsics YAML (WP-05). Null until
 # calibration is done.
@@ -47,6 +46,6 @@ match:
   threshold_source: "UNCALIBRATED-GUESS"
 
 net:
-  listen_port: 5556          # this node's gossip PUB port
-  neighbours: ["node-00:5555", "node-02:5557"]  # ring topology (CLAUDE.md rule 4)
+  listen_port: 5558          # this node's gossip PUB port
+  neighbours: ["127.0.0.1:5557", "127.0.0.1:5555"]  # ring topology (CLAUDE.md rule 4)
   gossip_interval_s: 2.0       # anti-entropy gossip round interval
