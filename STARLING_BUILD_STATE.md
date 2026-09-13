@@ -690,7 +690,7 @@ Not everything needs replacing. Protect these:
 Update this as you go. The rubric in §3 is derived from these.
 
 ### Perception & foundations
-- [ ] WP-00 Repo restructure, gitignore fix, logging, config, tests scaffold
+- [x] WP-00 Repo restructure, gitignore fix, logging, config, tests scaffold
 - [ ] WP-01 ReID embedder fixed (D-01) and benchmarked on Market-1501 / MSMT17
 - [ ] WP-01 `sim_threshold` chosen from a plotted ROC, not guessed
 - [ ] WP-02 Media timestamps replace `time.time()` everywhere (D-03)
