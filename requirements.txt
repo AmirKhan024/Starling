@@ -31,3 +31,9 @@ matplotlib>=3.7.0
 # ── Database ───────────────────────────────────────────
 # sqlite3 is in Python stdlib — no install needed
 python-ulid>=1.1.0           # D-07: locally-generated, collision-free node claim/identity ids
+
+# ── Network layer (WP-04) ──────────────────────────────
+protobuf>=5.26.1,<6          # wire schema runtime; generated bindings are committed
+pyzmq>=25                    # gossip transport (PUB/SUB), not a central broker
+pynacl>=1.5.0                # ed25519 signing of every gossiped message
+# grpcio-tools>=1.71.0,<2    # dev-only, regenerates packages/starling_proto/generated/

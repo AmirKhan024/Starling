@@ -1,0 +1,115 @@
+syntax = "proto3";
+
+// starling_proto/starling.proto
+// --------------------------------
+// Wire schemas for Starling's gossip mesh (STARLING_BUILD_STATE.md §5).
+// Field names and numbers here are frozen exactly as the spec states them —
+// later work packages (CRDT merge in starling_crdt, C2 reputation in
+// starling_consensus, C4 attestation in starling_attest, C6 topology in
+// starling_topology) reference these names directly. Do not rename fields
+// to "clean them up"; add new ones instead.
+//
+// CLAUDE.md rule 3: raw video, frames, and crops NEVER cross the wire —
+// only claims, attestations, reputation updates, topology observations,
+// and queries. tests/test_wire_contract.py enforces this mechanically by
+// reflecting over every message's field names for "image"/"frame"/"crop"/
+// "jpeg"/"png"/"video" substrings, and by asserting a hard size cap.
+//
+// `world_pos` on IdentityClaim is spec-mandatory once geometry (a later
+// work package) exists, but this work package's node path has no
+// homography yet and publishes claims with it unset. Proto3 message-typed
+// fields are presence-tracked (unlike scalars), so "unset" is a real,
+// distinguishable state — it is the resolver's job (a later work package)
+// to reject a claim where `HasField("world_pos")` is false, not this
+// schema's job to forbid the field from ever being absent on the wire.
+
+package starling;
+
+message HLC {
+  uint64 physical_ms = 1;
+  uint32 logical = 2;
+  uint32 node_id = 3;
+}
+
+message Point2D {
+  float x = 1;  // metres, floor frame
+  float y = 2;
+}
+
+// AnchorType: proto3 requires the zero value to be the default, so
+// UNANCHORED (the common case before any face re-anchor exists) is 0.
+enum AnchorType {
+  UNANCHORED = 0;
+  FACE_ANCHOR = 1;
+  PROPAGATED = 2;
+}
+
+// §5.1 — 1-4 KB, the main wire object.
+message IdentityClaim {
+  bytes claim_id = 1;         // 16B: hash(node_id, seq)
+  uint32 node_id = 2;
+  uint64 seq = 3;             // per-node monotonic; (node_id,seq) is the CRDT key
+  HLC t_start = 4;            // hybrid logical clock, media time
+  HLC t_end = 5;
+  uint32 local_track_id = 6;  // node-scoped ONLY. never global.
+  bytes embedding = 7;        // 512 x int8, scale factor separate = 516 B
+  float embed_scale = 8;
+  Point2D world_pos = 9;      // metres, floor frame, from homography
+  float pos_sigma = 10;       // metres, 1 sigma
+  AnchorType anchor = 11;
+  string identity_ref = 12;   // set only when anchor == FACE_ANCHOR
+  HLC last_anchor_t = 13;
+  float confidence = 14;      // [0,1]
+  float quality = 15;         // crop quality: blur, size, truncation
+  bytes signature = 16;       // ed25519 over all fields above
+}
+
+// §5.2 — < 200 B, the C4 object.
+message CoverageAttestation {
+  uint32 node_id = 1;
+  HLC t_start = 2;
+  HLC t_end = 3;
+  repeated uint32 region_ids = 4;   // navmesh regions / boundary segments claimed covered
+  float occlusion_ratio = 5;        // [0,1] fraction of ROI obscured
+  float illumination_score = 6;     // [0,1]
+  float detector_health = 7;        // [0,1]
+  bool crossing_observed = 8;       // false = the negative-evidence assertion
+  float attest_confidence = 9;      // = min(1-occl, illum, health)
+  bytes signature = 10;
+}
+
+// §5.3 — < 100 B.
+message ReputationUpdate {
+  uint32 from_node = 1;
+  uint32 about_node = 2;
+  HLC window_start = 3;
+  HLC window_end = 4;
+  float score = 5;                       // observer's local [0,1] assessment
+  repeated bytes evidence_claim_ids = 6;  // <= 3, for auditability
+  bytes signature = 7;
+}
+
+// §5.3 — < 500 B.
+message TopologyObservation {
+  uint32 node_a = 1;
+  uint32 node_b = 2;
+  float transit_secs = 3;
+  float handoff_confidence = 4;
+  bytes signature = 5;
+}
+
+// The single message type that actually crosses the wire. `oneof payload`
+// is intentional: exactly one gossip-able fact per envelope, never a
+// mixed batch, so the size invariants above apply per-message on the wire.
+message Envelope {
+  bytes msg_id = 1;
+  uint32 sender_node_id = 2;
+  HLC sent_hlc = 3;
+
+  oneof payload {
+    IdentityClaim claim = 10;
+    CoverageAttestation attestation = 11;
+    ReputationUpdate reputation = 12;
+    TopologyObservation topology = 13;
+  }
+}
