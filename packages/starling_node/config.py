@@ -54,6 +54,13 @@ class NodeConfig(BaseModel):
     is_chokepoint: bool = False
     db_path: str
     calib_path: str | None = None
+    # D-03 (starling_net.timebase.MediaClock): unix seconds marking t=0 of
+    # this node's recorded source. ALL nodes replaying the same scenario
+    # must share the same stream_epoch, or their media times sit on
+    # different timelines and no cross-camera reasoning is meaningful. A
+    # scenario runner is what injects one shared value into every node's
+    # config for a given run; 0.0 here is only a single-node-testing default.
+    stream_epoch: float = 0.0
     perception: PerceptionConfig = Field(default_factory=PerceptionConfig)
     match: MatchConfig = Field(default_factory=MatchConfig)
     net: NetConfig = Field(default_factory=NetConfig)
@@ -84,6 +91,12 @@ db_path: "data/nodes/node-{node_id:02d}/local.db"
 # Path to this camera's intrinsics/extrinsics YAML (WP-05). Null until
 # calibration is done.
 calib_path: null
+
+# Unix seconds marking t=0 of this node's recorded source. ALL nodes
+# replaying the same scenario must use the SAME stream_epoch, or their
+# media times sit on different timelines (D-03). A scenario runner injects
+# one shared value per run; 0.0 here is only a single-node-testing default.
+stream_epoch: 0.0
 
 perception:
   yolo_model: "yolov8n.pt"   # YOLOv8 variant: n/s/m/l/x.pt

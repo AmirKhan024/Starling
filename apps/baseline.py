@@ -166,10 +166,14 @@ class CameraWorker:
     def _process_frame(self, frame: np.ndarray, writer) -> List[dict]:
         # ── Steps 1-2: detect + track + crop + embed (starling_perception
         # .pipeline.NodePerception — WP-01 split of the formerly-inline
-        # YOLO+ByteTrack+embedding logic). `t_media` is not yet real media
-        # time (D-03 fix is WP-02 scope, not this session); frame_idx is
-        # passed through only to satisfy the pipeline's signature and is
-        # not consumed by the identity store, which is untouched here.
+        # YOLO+ByteTrack+embedding logic). Baseline stays centralized and
+        # sequential by design (CLAUDE.md: it is the frozen control
+        # condition), so it has no real MediaClock/stream_epoch of its own;
+        # frame_idx is passed through only to satisfy the pipeline's
+        # signature. It is not consumed below — match_or_create is called
+        # with an explicit time.time() instead, matching V1's original
+        # wall-clock timestamps exactly (D-03's fix changes how that time
+        # is threaded through, not what value baseline supplies).
         observations = self.perception.process(frame, t_media=float(self.frame_idx))
 
         frame_dets = []
@@ -177,12 +181,17 @@ class CameraWorker:
         # ── Step 3: resolve against global identity store ─────────
         for obs in observations:
             bbox = list(obs.bbox)
+            # D-03: identity_store.match_or_create no longer reads the wall
+            # clock internally — baseline (the frozen control condition)
+            # supplies time.time() explicitly here, which is exactly the
+            # value it used to read internally, so behaviour is unchanged.
             global_id, is_new, was_lost = self.store.match_or_create(
                 embedding=obs.embedding,
                 camera_id=self.camera_id,
                 frame_idx=self.frame_idx,
                 bbox=bbox,
                 conf=float(obs.conf),
+                t=time.time(),
                 crop_path=None,
             )
 
@@ -228,7 +237,7 @@ class CameraWorker:
 
         # ── Step 5: periodic lost-person promotion ────────────────────
         if self.frame_idx % self.promote_every == 0:
-            self.store.promote_lost()
+            self.store.promote_lost(now=time.time())
 
         self.frame_idx += 1
         return frame_dets
@@ -400,7 +409,7 @@ class GlobalTracker:
         for worker in self.workers:
             all_tracks[worker.camera_id] = worker.run_sync()
         # Final lost check
-        self.store.promote_lost()
+        self.store.promote_lost(now=time.time())
         return all_tracks
 
     def run_live(self):
@@ -414,7 +423,7 @@ class GlobalTracker:
         try:
             while any(w.running for w in self.workers):
                 time.sleep(1)
-                self.store.promote_lost()
+                self.store.promote_lost(now=time.time())
         except KeyboardInterrupt:
             print("\n[GlobalTracker] Stopping ...")
             for w in self.workers:

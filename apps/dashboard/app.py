@@ -125,7 +125,7 @@ with st.sidebar:
 
     # ── Lost-check trigger ────────────────────────────────────────────
     if st.button("🔍 Check Lost Persons Now", use_container_width=True):
-        promoted = store.promote_lost()
+        promoted = store.promote_lost(now=time.time())
         if promoted:
             st.warning(f"Promoted: {', '.join(promoted)}")
         else:
@@ -168,7 +168,7 @@ with tab_ov:
         When st.rerun() is called inside here, ONLY this fragment reruns.
         The rest of the page (Lost tab inputs, Search tab, etc.) is untouched.
         """
-        store.promote_lost()
+        store.promote_lost(now=time.time())
         stats = store.stats()
 
         # ── Metrics row ───────────────────────────────────────────────
@@ -182,7 +182,7 @@ with tab_ov:
         c5.metric("🔄 Reappearances", stats["reappearances"])
 
         # ── Reappearance alerts ───────────────────────────────────────
-        reappearances = store.get_recent_reappearances(since_seconds=600)
+        reappearances = store.get_recent_reappearances(now=time.time(), since_seconds=600)
         if reappearances:
             st.markdown("---")
             st.subheader(f"🔄 Recent Reappearances  ({len(reappearances)})")
@@ -238,7 +238,7 @@ with tab_ov:
             st.success("✅ No lost persons.")
 
         # ── Recent activity table ─────────────────────────────────────
-        recent = [r for r in store.search_by_time(since=time.time() - 1800) if r]
+        recent = [r for r in store.search_by_time(since=time.time() - 1800, until=time.time()) if r]
         if recent:
             st.markdown("---")
             st.subheader("Recent Activity (last 30 min)")
@@ -490,6 +490,7 @@ with tab_search:
             results = [
                 r for r in store.search_by_time(
                     since=time.time() - hrs * 3600,
+                    until=time.time(),
                     camera_id=int(cam_id),
                 )
                 if r

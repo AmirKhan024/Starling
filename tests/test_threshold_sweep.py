@@ -60,14 +60,14 @@ def test_stored_embedding_norm_holds_at_one_after_100_ema_updates(tmp_path: Path
 
     base = _unit(rng.normal(size=dim)).astype(np.float32)
     global_id, is_new, _ = store.match_or_create(
-        embedding=base, camera_id=0, frame_idx=0, bbox=[0, 0, 10, 10], conf=0.9,
+        embedding=base, camera_id=0, frame_idx=0, bbox=[0, 0, 10, 10], conf=0.9, t=0.0,
     )
     assert is_new
 
     for i in range(1, 101):
         noisy = _unit(base + rng.normal(scale=0.05, size=dim)).astype(np.float32)
         gid, is_new, _ = store.match_or_create(
-            embedding=noisy, camera_id=0, frame_idx=i, bbox=[0, 0, 10, 10], conf=0.9,
+            embedding=noisy, camera_id=0, frame_idx=i, bbox=[0, 0, 10, 10], conf=0.9, t=float(i),
         )
         assert gid == global_id
         assert not is_new

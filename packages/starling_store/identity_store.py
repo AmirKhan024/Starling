@@ -10,6 +10,17 @@ Tables
   events    – lifecycle log (first_seen, lost, reappeared, resolved, …)
 
 All embedding comparisons use cosine similarity.
+
+D-03 fix (STARLING_BUILD_STATE.md §2 / CLAUDE.md: "No wall-clock reads
+(time.time()) anywhere in the identity path"): every method that writes or
+evaluates a *sighting/claim* timestamp now takes that time as an explicit
+parameter from the caller instead of reading `time.time()` internally. The
+node path (Prompt 3 / apps/node.py) passes real media time; the frozen
+`apps/baseline.py` control condition passes `time.time()` explicitly at its
+own call sites, which is behaviourally identical to the old internal call.
+The one deliberate exception is operator actions (`resolve`, `reactivate`,
+`add_note`) — those log a human decision made *now*, not an observation of
+the world, so they keep `time.time()`. Do not "fix" that; it's correct.
 """
 
 from __future__ import annotations
@@ -139,17 +150,24 @@ class IdentityStore:
         frame_idx: int,
         bbox: list,
         conf: float,
+        t: float,
         crop_path: Optional[str] = None,
     ) -> Tuple[str, bool, bool]:
         """
         Find the best matching identity or create a new one.
+
+        Parameters
+        ----------
+        t : the time this sighting depicts (D-03: media time for the node
+            path; `apps/baseline.py` passes `time.time()` explicitly at its
+            call site, preserving its original wall-clock behaviour).
 
         Returns
         -------
         (global_id, is_new, was_lost)
         """
         emb = np.array(embedding, dtype=np.float32)
-        now = time.time()
+        now = t
 
         with self._lock:
             # D-02 fix: 'resolved' persons are excluded from matching — a
@@ -186,7 +204,7 @@ class IdentityStore:
                      now, now, camera_id, crop_path),
                 )
                 self._log_event(global_id, "first_seen", camera_id,
-                                f"Conf={conf:.2f}")
+                                f"Conf={conf:.2f}", t=now)
                 is_new = True
             else:
                 global_id = best_gid
@@ -220,7 +238,7 @@ class IdentityStore:
 
                 if was_lost:
                     self._log_event(global_id, "reappeared", camera_id,
-                                    f"Conf={conf:.2f}  sim={best_sim:.3f}")
+                                    f"Conf={conf:.2f}  sim={best_sim:.3f}", t=now)
 
             # ── Write sighting ─────────────────────────────────────────────
             self._conn.execute(
@@ -237,12 +255,13 @@ class IdentityStore:
 
     # ── Lost promotion ─────────────────────────────────────────────────────────
 
-    def promote_lost(self) -> List[str]:
+    def promote_lost(self, now: float) -> List[str]:
         """
-        Mark as LOST any active person not seen within lost_threshold seconds.
+        Mark as LOST any active person not seen within lost_threshold seconds
+        of `now` (D-03: caller-supplied time, not an internal wall-clock read).
         Returns list of newly-promoted global_ids.
         """
-        cutoff = time.time() - self.lost_threshold
+        cutoff = now - self.lost_threshold
         promoted: List[str] = []
 
         with self._lock:
@@ -260,7 +279,7 @@ class IdentityStore:
                     (gid,),
                 )
                 self._log_event(gid, "lost", row["last_camera_id"],
-                                "Auto-promoted by lost threshold")
+                                "Auto-promoted by lost threshold", t=now)
                 promoted.append(gid)
 
             if promoted:
@@ -271,37 +290,52 @@ class IdentityStore:
     # ── Operator actions ───────────────────────────────────────────────────────
 
     def resolve(self, global_id: str, note: str = "") -> None:
-        """Mark a person as resolved (found / case closed)."""
+        """Mark a person as resolved (found / case closed).
+
+        Operator action, not an observation — wall-clock is correct here
+        (D-03's exception; see module docstring).
+        """
+        operator_now = time.time()
         with self._lock:
             self._conn.execute(
                 """UPDATE persons
                    SET status='resolved', resolved_at=?,
                        notes=COALESCE(NULLIF(?,''), notes)
                    WHERE global_id=?""",
-                (time.time(), note, global_id),
+                (operator_now, note, global_id),
             )
-            self._log_event(global_id, "resolved", None, note)
+            self._log_event(global_id, "resolved", None, note, t=operator_now)
             self._conn.commit()
 
     def reactivate(self, global_id: str) -> None:
-        """Re-mark a person as active (undo a lost/resolved marking)."""
+        """Re-mark a person as active (undo a lost/resolved marking).
+
+        Operator action, not an observation — wall-clock is correct here
+        (D-03's exception; see module docstring).
+        """
+        operator_now = time.time()
         with self._lock:
             self._conn.execute(
                 "UPDATE persons SET status='active', resolved_at=NULL WHERE global_id=?",
                 (global_id,),
             )
             self._log_event(global_id, "reactivated", None,
-                            "Manually reactivated via dashboard")
+                            "Manually reactivated via dashboard", t=operator_now)
             self._conn.commit()
 
     def add_note(self, global_id: str, note: str) -> None:
-        """Append an operator note."""
+        """Append an operator note.
+
+        Operator action, not an observation — wall-clock is correct here
+        (D-03's exception; see module docstring).
+        """
+        operator_now = time.time()
         with self._lock:
             self._conn.execute(
                 "UPDATE persons SET notes=? WHERE global_id=?",
                 (note, global_id),
             )
-            self._log_event(global_id, "note", None, note)
+            self._log_event(global_id, "note", None, note, t=operator_now)
             self._conn.commit()
 
     # ── Queries ────────────────────────────────────────────────────────────────
@@ -399,13 +433,16 @@ class IdentityStore:
         return [dict(r) for r in rows]
 
     def get_recent_reappearances(
-        self, since_seconds: float = 600
+        self, now: float, since_seconds: float = 600
     ) -> List[Dict[str, Any]]:
         """
         Return persons that have a 'reappeared' event in the last
-        `since_seconds` seconds, enriched with the person's best_crop_path.
+        `since_seconds` seconds before `now` (D-03: caller-supplied,
+        typically the dashboard's own `time.time()` at render time — that's
+        an operator query, not an observation, but the identity-store
+        internals still never read the wall clock themselves).
         """
-        since = time.time() - since_seconds
+        since = now - since_seconds
         with self._lock:
             rows = self._conn.execute(
                 """SELECT e.global_id, e.camera_id, e.occurred_at, e.detail,
@@ -421,14 +458,16 @@ class IdentityStore:
     def search_by_time(
         self,
         since: float,
-        until: Optional[float] = None,
+        until: float,
         camera_id: Optional[int] = None,
     ) -> List[Optional[Dict[str, Any]]]:
         """
         Return persons that had at least one sighting in [since, until].
         Optionally filter by camera_id.
+
+        `until` is required (D-03): callers supply the current time
+        explicitly rather than this method defaulting to a wall-clock read.
         """
-        until = until or time.time()
         with self._lock:
             if camera_id is not None:
                 rows = self._conn.execute(
@@ -453,10 +492,17 @@ class IdentityStore:
         event_type: str,
         camera_id: Optional[int],
         detail: str = "",
+        *,
+        t: float,
     ) -> None:
-        """Insert an event row. Caller must hold self._lock and commit."""
+        """Insert an event row. Caller must hold self._lock and commit.
+
+        `t` (D-03): every caller supplies the relevant time explicitly —
+        observation time for identity-path events, `time.time()` for
+        operator actions — this helper never reads the wall clock itself.
+        """
         self._conn.execute(
             """INSERT INTO events (global_id, event_type, occurred_at, camera_id, detail)
                VALUES (?,?,?,?,?)""",
-            (global_id, event_type, time.time(), camera_id, detail),
+            (global_id, event_type, t, camera_id, detail),
         )
