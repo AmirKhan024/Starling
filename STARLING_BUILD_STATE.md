@@ -705,11 +705,11 @@ Update this as you go. The rubric in §3 is derived from these.
 - [x] WP-03 `apps/node.py` (D-04) — `GlobalTracker` intentionally kept in `apps/baseline.py` only (this session's rule 2 overrides WP-03's original "delete it": baseline must stay centralized); `tests/test_no_coordinator.py` guards it from appearing anywhere else
 - [x] WP-03 Per-node SQLite; ULID global/claim IDs (D-07)
 - [x] WP-03 `docker compose config` validates 4 isolated nodes + dashboard, per-node volumes verified to never cross-mount (`tests/test_docker_compose.py`); `docker compose up` itself not run in this session
-- [ ] WP-04 ZeroMQ gossip mesh with configured neighbour sets
-- [ ] WP-04 Version-vector anti-entropy / delta sync
-- [ ] WP-04 ed25519 signing on all messages
-- [ ] WP-04 Declarative partition scenarios via iptables/netem
-- [ ] WP-04 Per-message-type byte accounting
+- [x] WP-04 ZeroMQ gossip mesh with configured neighbour sets — verified live with 4 local `GossipNode`s over the real ring topology in `configs/nodes/local/`: each node received exactly its 2 ring neighbours' claims, zero drops
+- [x] WP-04 Version-vector anti-entropy / delta sync — `tests/test_anti_entropy.py`, no real transport needed (on_digest/on_delta are pure)
+- [x] WP-04 ed25519 signing on all messages — every `Envelope` payload type (including `VVDigest`/`VVDelta`, a WP-04 addition) carries a `signature` field verified by `GossipNode`; unsigned/malformed/unenrolled-sender messages are dropped and counted
+- [x] WP-04 Declarative partition scenarios via iptables/netem — `scenarios/{healthy,east_wing_drop,lossy}.yaml`; `deploy/netem/apply.py --dry-run` verified; real execution needs a running `docker compose up`, not exercised this session
+- [x] WP-04 Per-message-type byte accounting — `GossipNode.stats()`, confirmed increasing in the live 4-node smoke test above
 
 ### C1 — CRDT identity ⭐
 - [ ] WP-06 `ClaimSet` G-Set with delta sync and retention pruning
