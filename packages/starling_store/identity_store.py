@@ -484,21 +484,46 @@ class LocalStore:
 
     # ── Node-local claims (claims API — apps/node.py only) ──────────────────────
 
-    def append_local_observation(self, obs) -> str:
+    def append_local_observation(self, obs) -> Dict[str, Any]:
         """Append one `starling_perception.pipeline.Observation` as a claim
         in this node's own `claims` table. Does NO cross-camera identity
         matching whatsoever — that is the entire point of the node path
         (STARLING_BUILD_STATE.md §4.2: replicate the evidence, derive the
         decision — the deriving happens in starling_crdt, not here).
 
-        Returns the new claim's id.
+        Returns the full claim record as stored (WP-04: this is the single
+        authoritative source of the seq/HLC/embedding this node just
+        persisted, so `apps/node.py` builds its outgoing gossip
+        `IdentityClaim` from this return value instead of recomputing —
+        and potentially diverging from — the same values independently).
         """
         claim_id = str(ULID())
         physical_ms = int(obs.t_media * 1000)
         hlc = self._hlc_clock.now(physical_ms)
 
+        record = {
+            "claim_id": claim_id,
+            "node_id": self.node_id,
+            "hlc_physical_ms": hlc.physical_ms,
+            "hlc_logical": hlc.logical,
+            "local_track_id": int(obs.local_track_id),
+            "t_media": float(obs.t_media),
+            "embedding": _emb_to_blob(obs.embedding),
+            "embed_scale": 1.0,
+            "world_x": None,
+            "world_y": None,
+            "pos_sigma": None,
+            "anchor_type": "UNANCHORED",
+            "identity_ref": None,
+            "last_anchor_t": None,
+            "confidence": float(obs.conf),
+            "quality": float(obs.quality),
+            "signature": None,
+        }
+
         with self._lock:
             seq = self._allocate_seq()
+            record["seq"] = seq
             self._conn.execute(
                 """INSERT INTO claims
                    (claim_id, node_id, seq, hlc_physical_ms, hlc_logical,
@@ -507,15 +532,18 @@ class LocalStore:
                     last_anchor_t, confidence, quality, signature)
                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                 (
-                    claim_id, self.node_id, seq, hlc.physical_ms, hlc.logical,
-                    int(obs.local_track_id), float(obs.t_media),
-                    _emb_to_blob(obs.embedding), 1.0,
-                    None, None, None, "UNANCHORED", None,
-                    None, float(obs.conf), float(obs.quality), None,
+                    record["claim_id"], record["node_id"], record["seq"],
+                    record["hlc_physical_ms"], record["hlc_logical"],
+                    record["local_track_id"], record["t_media"],
+                    record["embedding"], record["embed_scale"],
+                    record["world_x"], record["world_y"], record["pos_sigma"],
+                    record["anchor_type"], record["identity_ref"],
+                    record["last_anchor_t"], record["confidence"],
+                    record["quality"], record["signature"],
                 ),
             )
             self._conn.commit()
-        return claim_id
+        return record
 
     def local_observations(self, since: float, until: float) -> List[Dict[str, Any]]:
         """Claims this node made with `t_media` in `[since, until]`, oldest first."""
