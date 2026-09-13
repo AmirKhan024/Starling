@@ -25,3 +25,8 @@ wandb/
 !scenarios/**
 !data/floorplan/**
 !data/gt/**
+
+# WP-04: node keypairs (starling_net.keys) are generated per-deployment via
+# `python -m starling_net.keys --generate N`, never committed — this
+# re-excludes them even though the negation above un-ignores configs/**.
+configs/keys/
