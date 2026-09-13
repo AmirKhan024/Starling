@@ -1,0 +1,43 @@
+# Starling node config — node-00
+# Every threshold below has a documented default in
+# packages/starling_node/config.py. Edit here, not in code.
+
+node_id: 0
+name: "node-00"
+
+# Video source: file path, RTSP URL, or webcam index (as a string)
+source: "data/videos/cam0.mp4"
+
+# Set true only for a node whose FOV covers a chokepoint (WP-12: face
+# recognition runs there and nowhere else).
+is_chokepoint: false
+
+# Per-node SQLite replica. Never shared with another node (CLAUDE.md rule 1).
+db_path: "data/nodes/node-00/local.db"
+
+# Path to this camera's intrinsics/extrinsics YAML (WP-05). Null until
+# calibration is done.
+calib_path: null
+
+perception:
+  yolo_model: "yolov8n.pt"   # YOLOv8 variant: n/s/m/l/x.pt
+  conf: 0.35                 # detection confidence threshold
+  embed_dim: 512             # ReID embedding dimensionality
+  batch_size: 8              # embedding extraction batch size
+  device: "auto"             # auto | cuda | cpu
+  save_crops: false          # D-14: off by default, privacy + disk usage
+  crop_interval_s: 10.0      # min seconds between saved crops per identity
+
+match:
+  sim_threshold: 0.60        # cosine similarity cutoff for identity match
+  margin_threshold: 0.10     # required separation over the second-best match
+  lost_threshold_s: 120.0    # seconds absent before a person is marked LOST
+  ema_alpha: 0.10            # embedding running-average blend weight
+  # "UNCALIBRATED-GUESS" until Prompt 2 (WP-01) picks sim_threshold from a
+  # plotted ROC curve. Do not treat 0.60 above as measured until this changes.
+  threshold_source: "UNCALIBRATED-GUESS"
+
+net:
+  listen_port: 5555          # this node's gossip PUB port
+  neighbours: ["127.0.0.1:5558", "127.0.0.1:5556"]  # ring topology (CLAUDE.md rule 4)
+  gossip_interval_s: 2.0       # anti-entropy gossip round interval

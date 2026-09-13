@@ -34,6 +34,9 @@ where = ["packages"]
 
 [tool.ruff]
 line-length = 100
+# apps/ is legacy V1 code (frozen baseline.py + dashboard) preserved verbatim
+# per CLAUDE.md ("do not improve them") — exempt from style modernization.
+extend-exclude = ["apps"]
 
 [tool.mypy]
 python_version = "3.10"

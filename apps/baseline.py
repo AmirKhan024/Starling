@@ -8,9 +8,11 @@ GlobalTracker) into a single entry point during the WP-00 repo restructure.
 
 It is the experimental control condition for every measurement in the
 Starling project (see docs/V1_BASELINE.md and STARLING_BUILD_STATE.md §9).
-Never change its algorithm. (The one behavioural change ever permitted here
-is the D-14 crop-volume fix, applied separately later in WP-00 — this merge
-itself is a pure move with no behaviour change.)
+Never change its algorithm. The one behavioural change ever permitted here
+is the D-14 crop-volume fix below: save_crops defaults to False, and when
+enabled, at most one crop per identity per crop_interval_s is written,
+instead of one crop per detection per frame (~180k files on a 10 min /
+4 cam / 5 person run, and a privacy problem besides).
 
 Usage — video files
 -------------------
@@ -94,7 +96,8 @@ class CameraWorker:
         conf: float         = 0.35,
         promote_every_n: int = 30,
         save_video: bool    = True,
-        save_crops: bool    = True,
+        save_crops: bool    = False,  # D-14: was True
+        crop_interval_s: float = 10.0,  # D-14: min seconds between crops per identity
         device: str         = "cpu",
     ):
         self.source      = source
@@ -107,9 +110,11 @@ class CameraWorker:
         self.promote_every = promote_every_n
         self.save_video  = save_video
         self.save_crops  = save_crops
+        self.crop_interval_s = crop_interval_s
         self.device      = device
+        self._last_crop_at: Dict[str, float] = {}  # D-14: global_id -> last crop wall time
 
-        self.crops_dir = self.output_dir / f"cam{camera_id}_crops"
+        self.crops_dir = self.output_dir / "crops" / f"cam{camera_id}"
         if save_crops:
             self.crops_dir.mkdir(parents=True, exist_ok=True)
 
@@ -205,15 +210,6 @@ class CameraWorker:
                 if emb is None:
                     continue
 
-                # Save crop
-                crop_path = None
-                if self.save_crops:
-                    crop_path = str(
-                        self.crops_dir /
-                        f"f{self.frame_idx:06d}_t{int(tid):04d}.jpg"
-                    )
-                    cv2.imwrite(crop_path, crop)
-
                 # Match or create in global DB
                 global_id, is_new, was_lost = self.store.match_or_create(
                     embedding=emb,
@@ -221,8 +217,24 @@ class CameraWorker:
                     frame_idx=self.frame_idx,
                     bbox=bbox,
                     conf=float(conf),
-                    crop_path=crop_path,
+                    crop_path=None,
                 )
+
+                # Save crop — D-14: at most one crop per global_id per
+                # crop_interval_s seconds, instead of one per detection
+                # per frame (was ~180k files on a 10 min / 4 cam / 5
+                # person run, and a privacy problem besides).
+                crop_path = None
+                if self.save_crops:
+                    now = time.time()
+                    last = self._last_crop_at.get(global_id, 0.0)
+                    if now - last >= self.crop_interval_s:
+                        self.crops_dir.mkdir(parents=True, exist_ok=True)
+                        crop_path = str(
+                            self.crops_dir / f"{global_id}_f{self.frame_idx:06d}.jpg"
+                        )
+                        cv2.imwrite(crop_path, crop)
+                        self._last_crop_at[global_id] = now
 
                 if is_new:
                     print(f"  [Cam {self.camera_id}] 🆕 New:        {global_id}"
@@ -328,6 +340,8 @@ class GlobalTracker:
     sim_threshold   : identity match threshold (global DB lookup)
     lost_threshold  : seconds before marking person as lost
     device          : 'cpu', 'cuda', or 'auto'
+    save_crops      : save person crop images to disk (D-14: default False)
+    crop_interval_s : min seconds between saved crops per identity (D-14)
     """
 
     def __init__(
@@ -341,6 +355,8 @@ class GlobalTracker:
         sim_threshold: float     = 0.60,
         lost_threshold: float    = 120.0,
         device: str              = "auto",
+        save_crops: bool         = False,  # D-14: was True
+        crop_interval_s: float   = 10.0,   # D-14
     ):
         if device == "auto":
             device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -376,6 +392,8 @@ class GlobalTracker:
                 output_dir=output_dir,
                 conf=conf,
                 device=device,
+                save_crops=save_crops,
+                crop_interval_s=crop_interval_s,
             ))
 
     def run_files(self) -> Dict[int, dict]:
@@ -458,6 +476,12 @@ def main():
     p.add_argument("--no-video",        action="store_true",
                    help="Don't save output videos (faster)")
 
+    # D-14: crop saving is opt-in and rate-limited per identity
+    p.add_argument("--save-crops",      action="store_true",
+                   help="Save person crop images to disk (off by default, D-14)")
+    p.add_argument("--crop-interval",   type=float, default=10.0,
+                   help="Min seconds between saved crops per identity  [10.0]")
+
     args = p.parse_args()
 
     # Resolve sources
@@ -484,6 +508,8 @@ def main():
         sim_threshold=args.sim_threshold,
         lost_threshold=args.lost_threshold,
         device=args.device,
+        save_crops=args.save_crops,
+        crop_interval_s=args.crop_interval,
     )
 
     if live:
