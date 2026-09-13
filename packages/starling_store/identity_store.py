@@ -158,7 +158,10 @@ CREATE TABLE IF NOT EXISTS claims (
     last_anchor_t   REAL,
     confidence      REAL NOT NULL,
     quality         REAL NOT NULL,
-    signature       BLOB                            -- placeholder: no signing until gossip (Prompt 4)
+    signature       BLOB,                           -- set once gossip signs it (WP-04)
+    UNIQUE(node_id, seq)  -- (node_id, seq) is the CRDT key (WP-04): this is
+                          -- the formal invariant append_remote_claims's
+                          -- idempotent INSERT OR IGNORE relies on
 );
 
 CREATE INDEX IF NOT EXISTS idx_claims_seq     ON claims(node_id, seq);
@@ -564,6 +567,70 @@ class LocalStore:
                 "SELECT * FROM claims ORDER BY seq DESC LIMIT ?", (limit,)
             ).fetchall()
         return [dict(r) for r in rows]
+
+    # ── Anti-entropy (WP-04 Part 3 — starling_net.anti_entropy) ─────────────────
+    #
+    # LocalStore deliberately has no dependency on starling_net here (that
+    # would be a layering inversion — net is the higher-level consumer).
+    # `vv` below is duck-typed: anything with `.get(node_id, default)`
+    # works, so both a plain dict and a `VersionVector` are accepted.
+
+    def claim_version_vector(self) -> Dict[int, int]:
+        """{node_id: highest seq seen from that node} across this store's
+        entire `claims` table (including claims received from peers).
+        """
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT node_id, MAX(seq) AS max_seq FROM claims GROUP BY node_id"
+            ).fetchall()
+        return {row["node_id"]: row["max_seq"] for row in rows}
+
+    def claims_since(self, vv) -> List[Dict[str, Any]]:
+        """Every claim in this store whose (node_id, seq) exceeds `vv`'s
+        per-node threshold — i.e. what a peer holding `vv` is missing from
+        this store. Ordered by (node_id, seq) for determinism.
+        """
+        with self._lock:
+            rows = self._conn.execute("SELECT * FROM claims").fetchall()
+        missing = [dict(r) for r in rows if r["seq"] > vv.get(r["node_id"], -1)]
+        missing.sort(key=lambda r: (r["node_id"], r["seq"]))
+        return missing
+
+    def append_remote_claims(self, claims: List[Dict[str, Any]]) -> int:
+        """Append claims received from a peer (gossip / anti-entropy
+        delta). Idempotent on (node_id, seq) — re-delivering the same
+        claim is a no-op. That idempotence is precisely what makes the
+        claim set a CRDT (grow-only set: union is commutative,
+        associative, and idempotent). Returns the number actually
+        inserted (fewer than `len(claims)` when some were already known).
+        """
+        inserted = 0
+        with self._lock:
+            for c in claims:
+                embedding = c["embedding"]
+                if not isinstance(embedding, (bytes, bytearray)):
+                    embedding = bytes(embedding)
+                cur = self._conn.execute(
+                    """INSERT OR IGNORE INTO claims
+                       (claim_id, node_id, seq, hlc_physical_ms, hlc_logical,
+                        local_track_id, t_media, embedding, embed_scale,
+                        world_x, world_y, pos_sigma, anchor_type, identity_ref,
+                        last_anchor_t, confidence, quality, signature)
+                       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                    (
+                        c["claim_id"], c["node_id"], c["seq"],
+                        c["hlc_physical_ms"], c["hlc_logical"],
+                        c["local_track_id"], c["t_media"], embedding,
+                        c["embed_scale"], c.get("world_x"), c.get("world_y"),
+                        c.get("pos_sigma"), c.get("anchor_type") or "UNANCHORED",
+                        c.get("identity_ref"), c.get("last_anchor_t"),
+                        c["confidence"], c["quality"], c.get("signature"),
+                    ),
+                )
+                if cur.rowcount:
+                    inserted += 1
+            self._conn.commit()
+        return inserted
 
     # ── Queries (persons-table API — apps/baseline.py / dashboard only) ─────────
 

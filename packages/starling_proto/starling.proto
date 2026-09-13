@@ -98,6 +98,23 @@ message TopologyObservation {
   bytes signature = 5;
 }
 
+// WP-04 Part 3: anti-entropy delta sync (starling_net.anti_entropy). Not
+// part of STARLING_BUILD_STATE.md §5's original four message types — the
+// spec only prescribes those names/fields exactly; these two are a WP-04
+// addition, so their fields (including `signature`, added for the same
+// reason every other gossiped message is signed: authenticating "this
+// digest/delta really came from sender_node_id" at the transport level)
+// are this work package's own design, not a frozen contract.
+message VVDigest {
+  map<uint32, uint64> seq_by_node = 1;
+  bytes signature = 2;
+}
+
+message VVDelta {
+  repeated IdentityClaim claims = 1;
+  bytes signature = 2;
+}
+
 // The single message type that actually crosses the wire. `oneof payload`
 // is intentional: exactly one gossip-able fact per envelope, never a
 // mixed batch, so the size invariants above apply per-message on the wire.
@@ -111,5 +128,7 @@ message Envelope {
     CoverageAttestation attestation = 11;
     ReputationUpdate reputation = 12;
     TopologyObservation topology = 13;
+    VVDigest vv_digest = 14;
+    VVDelta vv_delta = 15;
   }
 }

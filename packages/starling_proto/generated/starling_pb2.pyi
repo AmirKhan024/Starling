@@ -125,8 +125,31 @@ class TopologyObservation(_message.Message):
     signature: bytes
     def __init__(self, node_a: _Optional[int] = ..., node_b: _Optional[int] = ..., transit_secs: _Optional[float] = ..., handoff_confidence: _Optional[float] = ..., signature: _Optional[bytes] = ...) -> None: ...
 
+class VVDigest(_message.Message):
+    __slots__ = ("seq_by_node", "signature")
+    class SeqByNodeEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: int
+        value: int
+        def __init__(self, key: _Optional[int] = ..., value: _Optional[int] = ...) -> None: ...
+    SEQ_BY_NODE_FIELD_NUMBER: _ClassVar[int]
+    SIGNATURE_FIELD_NUMBER: _ClassVar[int]
+    seq_by_node: _containers.ScalarMap[int, int]
+    signature: bytes
+    def __init__(self, seq_by_node: _Optional[_Mapping[int, int]] = ..., signature: _Optional[bytes] = ...) -> None: ...
+
+class VVDelta(_message.Message):
+    __slots__ = ("claims", "signature")
+    CLAIMS_FIELD_NUMBER: _ClassVar[int]
+    SIGNATURE_FIELD_NUMBER: _ClassVar[int]
+    claims: _containers.RepeatedCompositeFieldContainer[IdentityClaim]
+    signature: bytes
+    def __init__(self, claims: _Optional[_Iterable[_Union[IdentityClaim, _Mapping]]] = ..., signature: _Optional[bytes] = ...) -> None: ...
+
 class Envelope(_message.Message):
-    __slots__ = ("msg_id", "sender_node_id", "sent_hlc", "claim", "attestation", "reputation", "topology")
+    __slots__ = ("msg_id", "sender_node_id", "sent_hlc", "claim", "attestation", "reputation", "topology", "vv_digest", "vv_delta")
     MSG_ID_FIELD_NUMBER: _ClassVar[int]
     SENDER_NODE_ID_FIELD_NUMBER: _ClassVar[int]
     SENT_HLC_FIELD_NUMBER: _ClassVar[int]
@@ -134,6 +157,8 @@ class Envelope(_message.Message):
     ATTESTATION_FIELD_NUMBER: _ClassVar[int]
     REPUTATION_FIELD_NUMBER: _ClassVar[int]
     TOPOLOGY_FIELD_NUMBER: _ClassVar[int]
+    VV_DIGEST_FIELD_NUMBER: _ClassVar[int]
+    VV_DELTA_FIELD_NUMBER: _ClassVar[int]
     msg_id: bytes
     sender_node_id: int
     sent_hlc: HLC
@@ -141,4 +166,6 @@ class Envelope(_message.Message):
     attestation: CoverageAttestation
     reputation: ReputationUpdate
     topology: TopologyObservation
-    def __init__(self, msg_id: _Optional[bytes] = ..., sender_node_id: _Optional[int] = ..., sent_hlc: _Optional[_Union[HLC, _Mapping]] = ..., claim: _Optional[_Union[IdentityClaim, _Mapping]] = ..., attestation: _Optional[_Union[CoverageAttestation, _Mapping]] = ..., reputation: _Optional[_Union[ReputationUpdate, _Mapping]] = ..., topology: _Optional[_Union[TopologyObservation, _Mapping]] = ...) -> None: ...
+    vv_digest: VVDigest
+    vv_delta: VVDelta
+    def __init__(self, msg_id: _Optional[bytes] = ..., sender_node_id: _Optional[int] = ..., sent_hlc: _Optional[_Union[HLC, _Mapping]] = ..., claim: _Optional[_Union[IdentityClaim, _Mapping]] = ..., attestation: _Optional[_Union[CoverageAttestation, _Mapping]] = ..., reputation: _Optional[_Union[ReputationUpdate, _Mapping]] = ..., topology: _Optional[_Union[TopologyObservation, _Mapping]] = ..., vv_digest: _Optional[_Union[VVDigest, _Mapping]] = ..., vv_delta: _Optional[_Union[VVDelta, _Mapping]] = ...) -> None: ...
