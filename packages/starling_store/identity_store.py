@@ -104,6 +104,11 @@ class IdentityStore:
     db_path             : path to the SQLite file (created if absent)
     lost_threshold_secs : seconds of absence before marking a person LOST
     similarity_threshold: cosine-similarity cutoff for matching (0–1)
+    ema_alpha           : blend weight for the running embedding average,
+                           `emb = (1 - ema_alpha) * old + ema_alpha * new`
+                           (D-06 fix: was hardcoded 0.9/0.1 in code while the
+                           README claimed 0.7/0.3; now a single documented
+                           config value, default 0.10, matching MatchConfig)
     """
 
     def __init__(
@@ -111,10 +116,12 @@ class IdentityStore:
         db_path: str = "database/identities.db",
         lost_threshold_secs: float = 120.0,
         similarity_threshold: float = 0.60,
+        ema_alpha: float = 0.10,
     ) -> None:
         self.db_path = db_path
         self.lost_threshold = lost_threshold_secs
         self.sim_threshold = similarity_threshold
+        self.ema_alpha = ema_alpha
         self._lock = threading.Lock()
 
         Path(db_path).parent.mkdir(parents=True, exist_ok=True)
@@ -145,9 +152,11 @@ class IdentityStore:
         now = time.time()
 
         with self._lock:
-            # Load all known persons with their embeddings
+            # D-02 fix: 'resolved' persons are excluded from matching — a
+            # resolved case is closed and must not silently reabsorb a new
+            # sighting, contradicting the README's documented behaviour.
             rows = self._conn.execute(
-                "SELECT global_id, embedding, status FROM persons"
+                "SELECT global_id, embedding, status FROM persons WHERE status != 'resolved'"
             ).fetchall()
 
             best_gid: Optional[str] = None
@@ -183,13 +192,21 @@ class IdentityStore:
                 global_id = best_gid
                 was_lost = (best_status == "lost")
 
-                # Update running mean embedding (online averaging)
-                updated_emb = 0.9 * _blob_to_emb(
+                # D-06 fix: EMA blend weight comes from config (ema_alpha,
+                # default 0.10) instead of a hardcoded 0.9/0.1 split, and the
+                # blended vector is re-normalised before storing — previously
+                # it was stored raw, so the stored "embedding" slowly drifted
+                # off the unit sphere while _cosine_sim silently compensated.
+                old_emb = _blob_to_emb(
                     self._conn.execute(
                         "SELECT embedding FROM persons WHERE global_id=?",
                         (global_id,)
                     ).fetchone()["embedding"]
-                ) + 0.1 * emb
+                )
+                updated_emb = (1 - self.ema_alpha) * old_emb + self.ema_alpha * emb
+                norm = np.linalg.norm(updated_emb)
+                if norm > 1e-9:
+                    updated_emb = updated_emb / norm
 
                 self._conn.execute(
                     """UPDATE persons
