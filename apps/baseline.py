@@ -47,13 +47,13 @@ from typing import Optional, Dict, List
 import cv2
 import numpy as np
 import torch
-from ultralytics import YOLO
 
+from starling_node.config import PerceptionConfig
+from starling_perception.detector import PersonDetector
 from starling_perception.embedder import FeatureExtractor
+from starling_perception.pipeline import NodePerception
+from starling_perception.tracker import LocalTracker
 from starling_store.identity_store import IdentityStore
-
-
-PERSON_CLASS = 0
 
 
 def _color(global_id: str) -> tuple:
@@ -76,8 +76,9 @@ class CameraWorker:
     source      : video file path, RTSP URL, or webcam index (int)
     camera_id   : integer label for this camera
     store       : shared IdentityStore instance
-    extractor   : shared FeatureExtractor instance
-    yolo_model  : YOLO instance (shared across workers)
+    perception  : shared NodePerception instance (detect+track+embed+quality;
+                  its detector/tracker/extractor are shared across cameras,
+                  matching V1's original single shared YOLO + FeatureExtractor)
     output_dir  : where to write output video + crops
     conf        : detection confidence threshold
     promote_every_n : call store.promote_lost() every N frames
@@ -90,8 +91,7 @@ class CameraWorker:
         source,
         camera_id: int,
         store: IdentityStore,
-        extractor: FeatureExtractor,
-        yolo_model: YOLO,
+        perception: NodePerception,
         output_dir: str,
         conf: float         = 0.35,
         promote_every_n: int = 30,
@@ -103,8 +103,7 @@ class CameraWorker:
         self.source      = source
         self.camera_id   = camera_id
         self.store       = store
-        self.extractor   = extractor
-        self.model       = yolo_model
+        self.perception  = perception
         self.output_dir  = Path(output_dir)
         self.conf        = conf
         self.promote_every = promote_every_n
@@ -165,95 +164,62 @@ class CameraWorker:
     # ------------------------------------------------------------------
 
     def _process_frame(self, frame: np.ndarray, writer) -> List[dict]:
-        h, w = frame.shape[:2]
-
-        # ── Step 1: YOLOv8 + ByteTrack ────────────────────────────────
-        results = self.model.track(
-            frame,
-            persist=True,
-            classes=[PERSON_CLASS],
-            conf=self.conf,
-            tracker="bytetrack.yaml",
-            verbose=False,
-            device=self.device,
-        )
+        # ── Steps 1-2: detect + track + crop + embed (starling_perception
+        # .pipeline.NodePerception — WP-01 split of the formerly-inline
+        # YOLO+ByteTrack+embedding logic). `t_media` is not yet real media
+        # time (D-03 fix is WP-02 scope, not this session); frame_idx is
+        # passed through only to satisfy the pipeline's signature and is
+        # not consumed by the identity store, which is untouched here.
+        observations = self.perception.process(frame, t_media=float(self.frame_idx))
 
         frame_dets = []
-        r = results[0]
 
-        if r.boxes is not None and r.boxes.id is not None:
-            boxes     = r.boxes.xyxy.cpu().numpy().astype(int)
-            track_ids = r.boxes.id.cpu().numpy().astype(int)
-            confs     = r.boxes.conf.cpu().numpy()
+        # ── Step 3: resolve against global identity store ─────────
+        for obs in observations:
+            bbox = list(obs.bbox)
+            global_id, is_new, was_lost = self.store.match_or_create(
+                embedding=obs.embedding,
+                camera_id=self.camera_id,
+                frame_idx=self.frame_idx,
+                bbox=bbox,
+                conf=float(obs.conf),
+                crop_path=None,
+            )
 
-            # ── Step 2: batch-extract embeddings ──────────────────────
-            crops = []
-            valid = []
-            for box, tid, conf in zip(boxes, track_ids, confs):
-                x1, y1, x2, y2 = (
-                    max(0, int(box[0])), max(0, int(box[1])),
-                    min(w, int(box[2])), min(h, int(box[3]))
-                )
-                crop = frame[y1:y2, x1:x2]
-                if crop.size > 100:
-                    crops.append(crop)
-                    valid.append((tid, conf, [x1, y1, x2, y2], crop))
+            # Save crop — D-14: at most one crop per global_id per
+            # crop_interval_s seconds, instead of one per detection
+            # per frame (was ~180k files on a 10 min / 4 cam / 5
+            # person run, and a privacy problem besides).
+            crop_path = None
+            if self.save_crops:
+                now = time.time()
+                last = self._last_crop_at.get(global_id, 0.0)
+                if now - last >= self.crop_interval_s:
+                    self.crops_dir.mkdir(parents=True, exist_ok=True)
+                    crop_path = str(
+                        self.crops_dir / f"{global_id}_f{self.frame_idx:06d}.jpg"
+                    )
+                    cv2.imwrite(crop_path, obs.crop)
+                    self._last_crop_at[global_id] = now
 
-            if crops:
-                embeddings = self.extractor.extract(crops)  # (N, 512)
-            else:
-                embeddings = []
+            if is_new:
+                print(f"  [Cam {self.camera_id}] 🆕 New:        {global_id}"
+                      f"  f={self.frame_idx}")
+            elif was_lost:
+                print(f"  [Cam {self.camera_id}] 🔄 Reappeared: {global_id}"
+                      f"  f={self.frame_idx}  (was LOST → now ACTIVE)")
 
-            # ── Step 3: resolve against global identity store ─────────
-            for i, (tid, conf, bbox, crop) in enumerate(valid):
-                emb = embeddings[i] if i < len(embeddings) else None
-                if emb is None:
-                    continue
-
-                # Match or create in global DB
-                global_id, is_new, was_lost = self.store.match_or_create(
-                    embedding=emb,
-                    camera_id=self.camera_id,
-                    frame_idx=self.frame_idx,
-                    bbox=bbox,
-                    conf=float(conf),
-                    crop_path=None,
-                )
-
-                # Save crop — D-14: at most one crop per global_id per
-                # crop_interval_s seconds, instead of one per detection
-                # per frame (was ~180k files on a 10 min / 4 cam / 5
-                # person run, and a privacy problem besides).
-                crop_path = None
-                if self.save_crops:
-                    now = time.time()
-                    last = self._last_crop_at.get(global_id, 0.0)
-                    if now - last >= self.crop_interval_s:
-                        self.crops_dir.mkdir(parents=True, exist_ok=True)
-                        crop_path = str(
-                            self.crops_dir / f"{global_id}_f{self.frame_idx:06d}.jpg"
-                        )
-                        cv2.imwrite(crop_path, crop)
-                        self._last_crop_at[global_id] = now
-
-                if is_new:
-                    print(f"  [Cam {self.camera_id}] 🆕 New:        {global_id}"
-                          f"  f={self.frame_idx}")
-                elif was_lost:
-                    print(f"  [Cam {self.camera_id}] 🔄 Reappeared: {global_id}"
-                          f"  f={self.frame_idx}  (was LOST → now ACTIVE)")
-
-                frame_dets.append({
-                    "track_id"  : int(tid),
-                    "global_id" : global_id,
-                    "bbox"      : bbox,
-                    "conf"      : float(conf),
-                    "crop_path" : crop_path,
-                    "camera_id" : self.camera_id,
-                    "frame_idx" : self.frame_idx,
-                    "is_new"    : is_new,
-                    "was_lost"  : was_lost,
-                })
+            frame_dets.append({
+                "track_id"  : int(obs.local_track_id),
+                "global_id" : global_id,
+                "bbox"      : bbox,
+                "conf"      : float(obs.conf),
+                "crop_path" : crop_path,
+                "camera_id" : self.camera_id,
+                "frame_idx" : self.frame_idx,
+                "is_new"    : is_new,
+                "was_lost"  : was_lost,
+            })
 
         # ── Step 4: annotate + write frame ────────────────────────────
         if writer:
@@ -372,23 +338,52 @@ class GlobalTracker:
             lost_threshold_secs=lost_threshold,
             similarity_threshold=sim_threshold,
         )
-        self.extractor = FeatureExtractor(
+
+        # WP-01: this is the frozen V1 control condition (CLAUDE.md
+        # "Preserved baseline" / STARLING_BUILD_STATE.md §9), so it
+        # deliberately keeps backend="v1_broken" — the original untrained
+        # ImageNet-projection head (D-01) — rather than the fixed osnet/
+        # pooled backends. Swapping it would change the very numbers the
+        # v1_broken vs. osnet Market-1501 delta is supposed to measure.
+        # One shared PerceptionConfig/detector/tracker/extractor across all
+        # cameras, matching V1's original single shared YOLO model +
+        # FeatureExtractor instance (not one per camera).
+        perception_cfg = PerceptionConfig(
+            yolo_model=yolo_model,
+            conf=conf,
+            embed_dim=512,
+            batch_size=8,
+            device=device,
+            backend="v1_broken",
+            weights_path=reid_weights,
+        )
+        print(f"[GlobalTracker] Loading {yolo_model} ...")
+        shared_detector = PersonDetector(perception_cfg)
+        shared_tracker = LocalTracker(perception_cfg)
+        shared_extractor = FeatureExtractor(
+            backend="v1_broken",
             weights_path=reid_weights,
             device=device,
             batch_size=8,
+            embed_dim=512,
         )
-        print(f"[GlobalTracker] Loading {yolo_model} ...")
-        self.yolo = YOLO(yolo_model)
+        self.extractor = shared_extractor  # kept for backward-compat access
 
-        # One CameraWorker per source
+        # One CameraWorker per source, sharing the detector/tracker/extractor
         self.workers: List[CameraWorker] = []
         for cam_id, src in enumerate(sources):
+            perception = NodePerception(
+                perception_cfg,
+                node_id=cam_id,
+                detector=shared_detector,
+                tracker=shared_tracker,
+                extractor=shared_extractor,
+            )
             self.workers.append(CameraWorker(
                 source=src,
                 camera_id=cam_id,
                 store=self.store,
-                extractor=self.extractor,
-                yolo_model=self.yolo,
+                perception=perception,
                 output_dir=output_dir,
                 conf=conf,
                 device=device,
