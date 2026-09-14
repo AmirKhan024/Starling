@@ -109,9 +109,9 @@ Severity: **B** = blocks a contribution, **C** = correctness bug, **H** = hygien
 | **D-06** | **C** | ~~**EMA constants disagree with documentation.** README says `0.7 × old + 0.3 × new`; code does `0.9 × old + 0.1 × new`. Also the blended vector is stored **without re-normalising**, so the stored "embedding" gradually loses unit norm and `_cosine_sim` silently compensates.~~ | `identity_store.py:186-190` vs README | **FIXED** `98aa48f` — EMA blend now reads `ema_alpha` from config (default 0.10) and re-normalises before storing; test asserts stored norm holds at 1.0 ± 1e-5 after 100 updates (WP-01) |
 | **D-07** | **C** | ~~**`_next_global_id` uses `COUNT(*)`.** If any row is ever deleted, or two processes insert concurrently, IDs collide and the `PRIMARY KEY` insert raises. Guaranteed to break the moment nodes become separate processes.~~ | `identity_store.py:47-50` | **FIXED** `4d02404` — `_next_global_id()` returns a locally-generated ULID (`python-ulid`); node claims use the same scheme, with a per-node `seq` counter persisted in a `node_meta` table so it survives restart (WP-03) |
 | **D-08** | **B** | **Identity is a single mean vector.** No multi-modal gallery, no per-observation retention, no confidence, no anchor, no decay. Starling's identity lifecycle (spec §3: anchor → propagate → decay → re-anchor) cannot be expressed on this representation, and neither can a CRDT — you cannot merge two means and recover what was merged. | `identity_store.py` schema | WP-06 |
-| **D-09** | **B** | **No world coordinates.** Bounding boxes are pixels. No intrinsics, no extrinsics, no floor homography, no floor plan. C3, C4, and C2's plausibility check all require metric positions and have nothing to stand on. | Whole repo | WP-05 |
+| **D-09** | **B** | ~~**No world coordinates.** Bounding boxes are pixels. No intrinsics, no extrinsics, no floor homography, no floor plan. C3, C4, and C2's plausibility check all require metric positions and have nothing to stand on.~~ | Whole repo | **FIXED** — `starling_geometry.calibration.CameraCalibration` (image_to_floor/floor_to_image/position_sigma) + `starling_geometry.navmesh.NavMesh` (GeoJSON → free-space grid + boundaries) + `starling_geometry.reachability.ReachabilityModel` (Appendix A.2 exactly); `apps/node.py` computes `world_pos`/`pos_sigma` from calibration when configured and warns loudly, never silently, when it isn't (WP-05) |
 | **D-10** | **C** | **O(N) brute-force match per detection, reloading the whole table each time.** At 200 people × 25 fps × 4 cameras this reads and deserialises 200 blobs 100×/second. Will not run in real time; will hard-fail the "20 simulated nodes" scaling claim. | `identity_store.py:148-165` | WP-06 |
-| **D-11** | **H** | **`eval/metrics.py` does not exist** despite being documented. No metric has ever been computed from this codebase. | `eval/` | WP-11 |
+| **D-11** | **H** | ~~**`eval/metrics.py` does not exist** despite being documented. No metric has ever been computed from this codebase.~~ | `eval/` | **FIXED** — `starling_eval/metrics.py`: tracking (HOTA/MOTA/IDF1/IDSW via TrackEval), plus hand-computed-tested functions for C1/C2/C3/C4/C6/system metrics, and an extended-MOTChallenge ground-truth format (identity + per-node visibility columns) (WP-11) |
 | **D-12** | **H** | **`.gitignore` excludes the files Starling needs version-controlled**: `*.json`, `*.csv`, `*.xml`, `database/`. Your calibration YAMLs are fine but GeoJSON navmeshes, MOTChallenge ground truth, and scenario definitions would be silently untracked. Spec §7 explicitly requires these under version control. | `.gitignore` | WP-00 |
 | **D-13** | **H** | No config files (everything is CLI flags), no logging (bare `print`), no tests, no Docker, no type checking, no CI. None of this is optional once there are 4–20 processes gossiping. | Whole repo | WP-00 |
 | **D-14** | **C** | `save_crops=True` by default writes a JPEG **per detection per frame** to disk. On a 10-minute 4-camera run with 5 people that's ~180k files. Also a privacy problem you'd have to defend in the viva (spec §13). | `global_tracker.py:170-176` | WP-00 |
@@ -696,10 +696,10 @@ Update this as you go. The rubric in §3 is derived from these.
 - [x] WP-02 Media timestamps replace `time.time()` everywhere (D-03) — node path only; `apps/baseline.py` passes `time.time()` explicitly at its own call sites, unchanged behaviour
 - [x] WP-02 HLC implemented; deterministic total order property-tested
 - [x] WP-02 Concurrent playback replaces sequential `run_files` (D-05) — new `PacedSource`, not wired into frozen `apps/baseline.py`
-- [ ] WP-05 Intrinsics + extrinsics + floor homography, reprojection error asserted
-- [ ] WP-05 10 m walk validation < 0.3 m error
-- [ ] WP-05 GeoJSON floor plan → occupancy grid navmesh
-- [ ] WP-05 `reachable_set()` implemented and unit-tested
+- [x] WP-05 Intrinsics + extrinsics + floor homography, reprojection error asserted — `from_yaml` refuses >1.0px; scripts are interactive and untested this session (real checkerboard/click sessions against physical cameras are explicitly the user's follow-up)
+- [ ] WP-05 10 m walk validation < 0.3 m error — `scripts/validate_calibration.py` exists and is ready; running it against a real camera/video is the user's follow-up, not exercised this session
+- [x] WP-05 GeoJSON floor plan → occupancy grid navmesh — `data/floorplan/demo_site.geojson`, two zones + 3m gap + two labelled boundaries
+- [x] WP-05 `reachable_set()` implemented and unit-tested — hand-computed cases (open-corridor radius, enclosed pocket, wall detour, dt-monotonicity, precompute-consistency)
 
 ### Distributed core
 - [x] WP-03 `apps/node.py` (D-04) — `GlobalTracker` intentionally kept in `apps/baseline.py` only (this session's rule 2 overrides WP-03's original "delete it": baseline must stay centralized); `tests/test_no_coordinator.py` guards it from appearing anywhere else
@@ -748,10 +748,10 @@ Update this as you go. The rubric in §3 is derived from these.
 - [ ] WP-14 Capability token stub
 
 ### Evaluation & demo
-- [ ] WP-11 Ground truth in extended MOTChallenge format
-- [ ] WP-11 `starling_eval/metrics.py` exists (fixes D-11) with TrackEval bridge
-- [ ] WP-11 Scenario runner, one command, W&B logging
-- [ ] WP-11 **Headline three-way experiment** run: baseline / healthy / partitioned+Byzantine
+- [x] WP-11 Ground truth in extended MOTChallenge format — `ExtendedGTRow`/`write_extended_mot_gt`/`read_extended_mot_gt`
+- [x] WP-11 `starling_eval/metrics.py` exists (fixes D-11) with TrackEval bridge
+- [x] WP-11 Scenario runner, one command, W&B logging — `--local` verified end to end (real subprocess nodes, results.json/results.md/timeline.jsonl written); Docker mode and `--compare baseline` implemented but not exercised this session; W&B push is a no-op unless `WANDB_API_KEY` is set, never fails the run
+- [ ] WP-11 **Headline three-way experiment** run: baseline / healthy / partitioned+Byzantine — needs WP-06 (CRDT) and WP-10 (Byzantine) first; out of scope for this session
 - [ ] WP-13 Dashboard as read-only gossip observer
 - [ ] WP-13 Candidate-region heatmap
 - [ ] WP-13 "Make node N lie" button
