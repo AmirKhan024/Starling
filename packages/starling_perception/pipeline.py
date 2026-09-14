@@ -12,6 +12,10 @@ so that logs and future claim construction can be tagged, per CLAUDE.md's
 node-scoping rules. Detector/tracker/extractor may be injected (e.g. so a
 caller wanting one shared YOLO/embedder instance across several
 `NodePerception`s can do so); by default each instance builds its own.
+
+Construction also runs one dummy inference to force ultralytics' lazy
+first-call model setup (weight fusion etc. — see `_warm_up`'s docstring)
+to happen here, single-threaded, rather than on the first real frame.
 """
 
 from __future__ import annotations
@@ -65,6 +69,22 @@ class NodePerception:
             batch_size=cfg.batch_size,
             embed_dim=cfg.embed_dim,
         )
+        self._warm_up()
+
+    def _warm_up(self) -> None:
+        """Ultralytics builds/fuses a YOLO model lazily on its FIRST
+        `.predict()`/`__call__`, not at `YOLO(...)` construction time.
+        Left alone, that one-time cost happens on the first real frame —
+        which, in `apps/node.py`, is already running concurrently with
+        `GossipNode`'s background poll thread. Measured on this project's
+        dev machine, that collision alone turned a sub-second warm-up into
+        over 80 seconds (CPU thread oversubscription between torch's own
+        threading and the concurrent thread). Running one dummy inference
+        here, while `NodePerception.__init__` is still single-threaded,
+        front-loads that cost where it's cheap and predictable instead.
+        """
+        dummy_frame = np.zeros((64, 64, 3), dtype=np.uint8)
+        self.process(dummy_frame, t_media=0.0)
 
     def process(self, frame: np.ndarray, t_media: float) -> list[Observation]:
         detections = self.detector.detect(frame)
