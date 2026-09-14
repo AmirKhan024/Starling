@@ -25,10 +25,16 @@ dependencies = [
     "protobuf>=5.26.1,<6",
     "pyzmq>=25",
     "pynacl>=1.5.0",
+    "scipy>=1.10.0",
+    "shapely>=2.0.0",
+    "trackeval>=1.0.1",
 ]
 
 [project.optional-dependencies]
 dev = ["pytest", "pytest-cov", "hypothesis", "ruff", "mypy", "grpcio-tools>=1.71.0,<2"]
+# Optional: only imported (lazily) by starling_eval.runner if WANDB_API_KEY
+# is set — a run must never fail because this isn't installed.
+wandb = ["wandb"]
 
 [tool.setuptools.packages.find]
 where = ["packages"]

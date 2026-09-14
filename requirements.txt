@@ -37,3 +37,9 @@ protobuf>=5.26.1,<6          # wire schema runtime; generated bindings are commi
 pyzmq>=25                    # gossip transport (PUB/SUB), not a central broker
 pynacl>=1.5.0                # ed25519 signing of every gossiped message
 # grpcio-tools>=1.71.0,<2    # dev-only, regenerates packages/starling_proto/generated/
+
+# ── Geometry + evaluation (WP-05, WP-11) ────────────────
+scipy>=1.10.0                 # Dijkstra reachability over the navmesh grid
+shapely>=2.0.0                # GeoJSON polygon/linestring geometry (navmesh)
+trackeval>=1.0.1              # HOTA/MOTA/IDF1 — never hand-roll HOTA (CLAUDE.md/§12 rule 7)
+# wandb                       # optional; only imported if WANDB_API_KEY is set
