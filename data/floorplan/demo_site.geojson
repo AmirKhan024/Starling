@@ -1,0 +1,66 @@
+{
+  "type": "FeatureCollection",
+  "properties": {
+    "name": "demo_site",
+    "scale": "metres",
+    "description": "Synthetic two-zone corridor rig for the Starling demo (WP-05 Part 2). Coordinates are a local floor-plan frame in metres, not lat/lon. Camera zone A covers x in [0, 8.5]; zone B covers x in [11.5, 20]. The x in [8.5, 11.5] span is a deliberate 3-metre gap with NO camera coverage — the experimental apparatus every C3/C4 demo scenario is built around, not an accident. Two racking obstacle blocks sit inside the covered zones. The gap's only two exits are the two labelled boundary LineStrings, which is exactly what a node's coverage attestations reference."
+  },
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {"role": "floor", "name": "corridor"},
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[0, 0], [20, 0], [20, 4], [0, 4], [0, 0]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {"role": "camera_zone", "name": "zone_a", "node_id": 0},
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[0, 0], [8.5, 0], [8.5, 4], [0, 4], [0, 0]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {"role": "camera_zone", "name": "zone_b", "node_id": 1},
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[11.5, 0], [20, 0], [20, 4], [11.5, 4], [11.5, 0]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {"role": "obstacle", "name": "racking_zone_a"},
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[3, 0], [5, 0], [5, 1.5], [3, 1.5], [3, 0]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {"role": "obstacle", "name": "racking_zone_b"},
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[15, 2.5], [17, 2.5], [17, 4], [15, 4], [15, 2.5]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {"role": "boundary", "boundary_id": 1, "name": "gap_west_exit"},
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[8.5, 0], [8.5, 4]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {"role": "boundary", "boundary_id": 2, "name": "gap_east_exit"},
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[11.5, 0], [11.5, 4]]
+      }
+    }
+  ]
+}

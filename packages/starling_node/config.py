@@ -47,6 +47,13 @@ class NetConfig(BaseModel):
     gossip_interval_s: float = 2.0
 
 
+class GeometryConfig(BaseModel):
+    # WP-05: shared by every node in a deployment (one floor plan), unlike
+    # calib_path which is per-camera. Null until a floor plan exists.
+    navmesh_path: str | None = None
+    cell_size_m: float = 0.25
+
+
 class NodeConfig(BaseModel):
     node_id: int
     name: str
@@ -64,6 +71,7 @@ class NodeConfig(BaseModel):
     perception: PerceptionConfig = Field(default_factory=PerceptionConfig)
     match: MatchConfig = Field(default_factory=MatchConfig)
     net: NetConfig = Field(default_factory=NetConfig)
+    geometry: GeometryConfig = Field(default_factory=GeometryConfig)
 
     @staticmethod
     def write_template(path: Path, node_id: int) -> None:
@@ -122,6 +130,10 @@ net:
   listen_port: {5555 + node_id}          # this node's gossip PUB port
   neighbours: []               # "host:port" list — configured, never full-mesh
   gossip_interval_s: 2.0       # anti-entropy gossip round interval
+
+geometry:
+  navmesh_path: null           # GeoJSON floor plan (WP-05), shared across all nodes
+  cell_size_m: 0.25            # navmesh grid resolution
 """
         path.write_text(template, encoding="utf-8")
 
