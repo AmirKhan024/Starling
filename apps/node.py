@@ -28,6 +28,7 @@ import signal
 from pathlib import Path
 from typing import Optional
 
+from starling_geometry.calibration import CameraCalibration, bbox_floor_point
 from starling_net.gossip import GossipNode
 from starling_net.keys import DEFAULT_KEYS_DIR, load_keys
 from starling_net.logging import get_logger, setup_logging
@@ -41,6 +42,25 @@ from starling_store.identity_store import LocalStore
 _HOUSEKEEPING_EVERY_N_FRAMES = 30
 
 
+def _load_calibration(cfg, log) -> Optional[CameraCalibration]:
+    """This node's `CameraCalibration`, or `None` with a loud warning if
+    `cfg.calib_path` isn't set (D-09 / WP-05: an uncalibrated node cannot
+    produce a world_pos, and a claim without one is unverifiable —
+    §5.1's hard rule). Do not fail silently — a positionless claim that
+    quietly bypasses the plausibility gate is exactly the kind of bug
+    that survives to the viva. Factored out of `run()` so it's testable
+    without loading YOLO weights.
+    """
+    if cfg.calib_path:
+        return CameraCalibration.from_yaml(cfg.calib_path)
+    log.warning(
+        "node_uncalibrated",
+        node_id=cfg.node_id,
+        hint="claims will be unverifiable; C2/C3/C4 are disabled for this node",
+    )
+    return None
+
+
 def run(
     config_path: Path,
     speed: float = 1.0,
@@ -50,6 +70,10 @@ def run(
     cfg = load_node_config(config_path)
     setup_logging(cfg.node_id)
     log = get_logger(__name__)
+
+    # Checked first, genuinely at startup, before any of the heavier model
+    # loading below.
+    calib = _load_calibration(cfg, log)
 
     media_clock = MediaClock.from_video(cfg.source, stream_epoch=cfg.stream_epoch)
     source = PacedSource(cfg.source, media_clock, speed=speed, realtime=True)
@@ -121,9 +145,16 @@ def run(
 
             observations = perception.process(frame, t_media)
             for obs in observations:
-                record = store.append_local_observation(obs)
+                world_pos = None
+                pos_sigma = None
+                if calib is not None:
+                    u, v = bbox_floor_point(obs.bbox)
+                    world_pos = calib.image_to_floor(u, v)
+                    pos_sigma = calib.position_sigma(obs.bbox)
+
+                record = store.append_local_observation(obs, world_pos=world_pos, pos_sigma=pos_sigma)
                 if gossip is not None:
-                    claim = record_to_claim_proto(record)  # world_pos still null (WP-05 fills it)
+                    claim = record_to_claim_proto(record)
                     envelope = make_claim_envelope(claim, sender_node_id=cfg.node_id)
                     gossip.publish(envelope)
 

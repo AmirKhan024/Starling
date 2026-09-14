@@ -487,18 +487,30 @@ class LocalStore:
 
     # ── Node-local claims (claims API — apps/node.py only) ──────────────────────
 
-    def append_local_observation(self, obs) -> Dict[str, Any]:
+    def append_local_observation(
+        self,
+        obs,
+        world_pos: Optional[Tuple[float, float]] = None,
+        pos_sigma: Optional[float] = None,
+    ) -> Dict[str, Any]:
         """Append one `starling_perception.pipeline.Observation` as a claim
         in this node's own `claims` table. Does NO cross-camera identity
         matching whatsoever — that is the entire point of the node path
         (STARLING_BUILD_STATE.md §4.2: replicate the evidence, derive the
         decision — the deriving happens in starling_crdt, not here).
 
-        Returns the full claim record as stored (WP-04: this is the single
-        authoritative source of the seq/HLC/embedding this node just
-        persisted, so `apps/node.py` builds its outgoing gossip
-        `IdentityClaim` from this return value instead of recomputing —
-        and potentially diverging from — the same values independently).
+        `world_pos`/`pos_sigma` (WP-05): computed by the caller (typically
+        `apps/node.py`, from `bbox_floor_point` + the node's own
+        `CameraCalibration`) and passed in here rather than recomputed —
+        this is the single authoritative write, so the locally-stored claim
+        and the gossiped one never diverge. Left `None` when the node has
+        no calibration configured (an uncalibrated node's claims are
+        unverifiable; `apps/node.py` warns about this loudly at startup).
+
+        Returns the full claim record as stored — `apps/node.py` builds its
+        outgoing gossip `IdentityClaim` from this return value instead of
+        recomputing — and potentially diverging from — the same values
+        independently.
         """
         claim_id = str(ULID())
         physical_ms = int(obs.t_media * 1000)
@@ -513,9 +525,9 @@ class LocalStore:
             "t_media": float(obs.t_media),
             "embedding": _emb_to_blob(obs.embedding),
             "embed_scale": 1.0,
-            "world_x": None,
-            "world_y": None,
-            "pos_sigma": None,
+            "world_x": world_pos[0] if world_pos is not None else None,
+            "world_y": world_pos[1] if world_pos is not None else None,
+            "pos_sigma": pos_sigma,
             "anchor_type": "UNANCHORED",
             "identity_ref": None,
             "last_anchor_t": None,

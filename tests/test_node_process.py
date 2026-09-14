@@ -12,10 +12,58 @@ import subprocess
 import sys
 from pathlib import Path
 
+import numpy as np
 import pytest
+import structlog
 import yaml
 
+import apps.node as node_app
+from starling_geometry.calibration import CameraCalibration
+from starling_node.config import NodeConfig
+
 REPO_ROOT = Path(__file__).resolve().parent.parent
+
+
+def test_load_calibration_warns_and_returns_none_when_uncalibrated(tmp_path: Path):
+    """D-09 / WP-05: a node without calib_path must warn loudly, not fail
+    silently, and must not produce a calibration. Fast — no YOLO weights
+    needed, since _load_calibration is factored out of run() precisely so
+    this doesn't require the rest of node startup.
+    """
+    cfg = NodeConfig(
+        node_id=7,
+        name="node-07",
+        source=str(tmp_path / "unused.mp4"),
+        db_path=str(tmp_path / "local.db"),
+        calib_path=None,
+    )
+    log = structlog.get_logger("test")
+
+    with structlog.testing.capture_logs() as captured:
+        calib = node_app._load_calibration(cfg, log)
+
+    assert calib is None
+    assert any(entry.get("event") == "node_uncalibrated" for entry in captured)
+
+
+def test_load_calibration_loads_and_does_not_warn_when_calib_path_set(tmp_path: Path):
+    calib_path = tmp_path / "cam-00.yaml"
+    CameraCalibration(K=np.eye(3), dist=np.zeros(5), reprojection_error=0.1).to_yaml(calib_path)
+
+    cfg = NodeConfig(
+        node_id=0,
+        name="node-00",
+        source=str(tmp_path / "unused.mp4"),
+        db_path=str(tmp_path / "local.db"),
+        calib_path=str(calib_path),
+    )
+    log = structlog.get_logger("test")
+
+    with structlog.testing.capture_logs() as captured:
+        calib = node_app._load_calibration(cfg, log)
+
+    assert calib is not None
+    assert not any(entry.get("event") == "node_uncalibrated" for entry in captured)
 
 
 def _yolo_weights_available() -> bool:
