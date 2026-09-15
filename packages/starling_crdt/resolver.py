@@ -441,6 +441,41 @@ def resolve(
     return Assignment(identity_of=identity_of, trajectories=trajectories, confidence=confidence), forks
 
 
+def resolve_incremental(
+    claims: ClaimSet,
+    geometry: Optional[ReachabilityModel],
+    reputation: Optional[Mapping[int, float]],
+    topology: Optional[TopologyPrior],
+    cfg: MatchConfig,
+    now_t_media: float,
+    full_recompute: bool = False,
+) -> tuple[Assignment, ForkSet]:
+    """WP-06 Part 4b (D-10): re-running `resolve()` over every claim ever
+    seen is O(n^2) and will not hold at scale. Normal operation sweeps
+    only the last `cfg.resolve_window_s` seconds; `full_recompute=True`
+    (the caller passes this on `PARTITION_HEALED`) sweeps the whole
+    retention window instead, since a merge can pull in claims from
+    before the window that change an in-window assignment (e.g. an older
+    face anchor that resolves a fork).
+
+    The window is read via `LocalStore.local_observations`, an indexed
+    range query on `t_media` (not a full scan — the same D-10 fix
+    principle as `ClaimSet.delta_since`), then swept by the ordinary
+    `resolve()` over a fresh in-memory `ClaimSet` holding just that
+    window. `resolve()` itself is unchanged and still a pure function of
+    whatever claim set it is handed.
+    """
+    window_s = cfg.retention_window_s if full_recompute else cfg.resolve_window_s
+    window_start = now_t_media - window_s
+
+    windowed_store = LocalStore(db_path=":memory:", node_id=-1)
+    windowed = ClaimSet(windowed_store)
+    for record in claims.store.local_observations(since=window_start, until=now_t_media):
+        windowed.add(record)
+
+    return resolve(windowed, geometry, reputation, topology, cfg)
+
+
 def _canonical_assignment(assignment: Assignment) -> tuple:
     return (
         tuple(sorted(assignment.identity_of.items())),

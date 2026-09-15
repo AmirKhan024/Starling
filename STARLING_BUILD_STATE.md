@@ -108,9 +108,9 @@ Severity: **B** = blocks a contribution, **C** = correctness bug, **H** = hygien
 | **D-05** | **B** | ~~**`run_files` processes cameras sequentially, not concurrently.** Camera 0 is fully consumed before camera 1 starts. No cross-camera handoff, gap, or conflict can occur in offline mode.~~ | `global_tracker.py:352-361` | **FIXED (new node path)** `b0b47a6` — `starling_perception.source.PacedSource` paces frames to real (media) time so independent node processes replaying different videos process the same media instant at the same wall-clock instant. Deliberately **not** wired into `apps/baseline.py`, which stays sequential by design (WP-02, WP-03) |
 | **D-06** | **C** | ~~**EMA constants disagree with documentation.** README says `0.7 × old + 0.3 × new`; code does `0.9 × old + 0.1 × new`. Also the blended vector is stored **without re-normalising**, so the stored "embedding" gradually loses unit norm and `_cosine_sim` silently compensates.~~ | `identity_store.py:186-190` vs README | **FIXED** `98aa48f` — EMA blend now reads `ema_alpha` from config (default 0.10) and re-normalises before storing; test asserts stored norm holds at 1.0 ± 1e-5 after 100 updates (WP-01) |
 | **D-07** | **C** | ~~**`_next_global_id` uses `COUNT(*)`.** If any row is ever deleted, or two processes insert concurrently, IDs collide and the `PRIMARY KEY` insert raises. Guaranteed to break the moment nodes become separate processes.~~ | `identity_store.py:47-50` | **FIXED** `4d02404` — `_next_global_id()` returns a locally-generated ULID (`python-ulid`); node claims use the same scheme, with a per-node `seq` counter persisted in a `node_meta` table so it survives restart (WP-03) |
-| **D-08** | **B** | **Identity is a single mean vector.** No multi-modal gallery, no per-observation retention, no confidence, no anchor, no decay. Starling's identity lifecycle (spec §3: anchor → propagate → decay → re-anchor) cannot be expressed on this representation, and neither can a CRDT — you cannot merge two means and recover what was merged. | `identity_store.py` schema | WP-06 |
+| **D-08** | **B** | ~~**Identity is a single mean vector.** No multi-modal gallery, no per-observation retention, no confidence, no anchor, no decay. Starling's identity lifecycle (spec §3: anchor → propagate → decay → re-anchor) cannot be expressed on this representation, and neither can a CRDT — you cannot merge two means and recover what was merged.~~ | `identity_store.py` schema | **FIXED** — `starling_crdt.resolver`: the identity prototype is a small gallery of recent embeddings (`MatchConfig.gallery_size`, default 5) derived from the merged claim set each `resolve()` call, scored by best-match cosine — never a single stored mean (WP-06) |
 | **D-09** | **B** | ~~**No world coordinates.** Bounding boxes are pixels. No intrinsics, no extrinsics, no floor homography, no floor plan. C3, C4, and C2's plausibility check all require metric positions and have nothing to stand on.~~ | Whole repo | **FIXED** — `starling_geometry.calibration.CameraCalibration` (image_to_floor/floor_to_image/position_sigma) + `starling_geometry.navmesh.NavMesh` (GeoJSON → free-space grid + boundaries) + `starling_geometry.reachability.ReachabilityModel` (Appendix A.2 exactly); `apps/node.py` computes `world_pos`/`pos_sigma` from calibration when configured and warns loudly, never silently, when it isn't (WP-05) |
-| **D-10** | **C** | **O(N) brute-force match per detection, reloading the whole table each time.** At 200 people × 25 fps × 4 cameras this reads and deserialises 200 blobs 100×/second. Will not run in real time; will hard-fail the "20 simulated nodes" scaling claim. | `identity_store.py:148-165` | WP-06 |
+| **D-10** | **C** | ~~**O(N) brute-force match per detection, reloading the whole table each time.** At 200 people × 25 fps × 4 cameras this reads and deserialises 200 blobs 100×/second. Will not run in real time; will hard-fail the "20 simulated nodes" scaling claim.~~ | `identity_store.py:148-165` | **FIXED** — `LocalStore.claims_since` (used by both `ClaimSet.delta_since` and WP-04's anti-entropy) is now a per-`node_id` range query against the `(node_id, seq)` index instead of a full-table scan; `resolver.resolve_incremental` additionally sweeps only a `resolve_window_s`-bounded window (an indexed `t_media` range query) during normal operation, with a full retention-window recompute only on `PARTITION_HEALED` (WP-06) |
 | **D-11** | **H** | ~~**`eval/metrics.py` does not exist** despite being documented. No metric has ever been computed from this codebase.~~ | `eval/` | **FIXED** — `starling_eval/metrics.py`: tracking (HOTA/MOTA/IDF1/IDSW via TrackEval), plus hand-computed-tested functions for C1/C2/C3/C4/C6/system metrics, and an extended-MOTChallenge ground-truth format (identity + per-node visibility columns) (WP-11) |
 | **D-12** | **H** | **`.gitignore` excludes the files Starling needs version-controlled**: `*.json`, `*.csv`, `*.xml`, `database/`. Your calibration YAMLs are fine but GeoJSON navmeshes, MOTChallenge ground truth, and scenario definitions would be silently untracked. Spec §7 explicitly requires these under version control. | `.gitignore` | WP-00 |
 | **D-13** | **H** | No config files (everything is CLI flags), no logging (bare `print`), no tests, no Docker, no type checking, no CI. None of this is optional once there are 4–20 processes gossiping. | Whole repo | WP-00 |
@@ -128,7 +128,7 @@ Percentage-of-project is meaningless unless you define the denominator. This rub
 | A | Perception: detect, track, embed, benchmark | 10 | 7 | 9 | 10 |
 | B | Node runtime: process isolation, config, Docker | 8 | 1 | 7 | 8 |
 | C | Transport: gossip, anti-entropy, partition harness | 8 | 0 | 7 | 7 |
-| D | **C1** CRDT identity representation + merge | 15 | 1 | 11 | 12 |
+| D | **C1** CRDT identity representation + merge | 15 | 11 | 11 | 12 |
 | E | **C2** Reputation, plausibility, Byzantine defense | 12 | 0 | 7 | 8 |
 | F | **C4** Coverage attestation + negative evidence | 12 | 0 | 6 | 8 |
 | G | **C3** Calibration, navmesh, reachability | 10 | 0 | 6 | 7 |
@@ -137,7 +137,7 @@ Percentage-of-project is meaningless unless you define the denominator. This rub
 | J | **C7** Uniform-invariant ReID | 4 | 0 | 0 | 0 |
 | K | Evaluation harness, metrics, ground truth | 7 | 0 | 4 | 4 |
 | L | Demo + dashboard | 3 | 2 | 3 | 3 |
-| | **TOTAL** | **100** | **12** | **64** | **73** |
+| | **TOTAL** | **100** | **22** | **64** | **73** |
 
 **Read this carefully:** the floor column deliberately gives **zero** to C7 and **near-zero** to C5. That is correct and intentional. Spec §4 puts C7 first in the cut order and §15 warns explicitly against treating the query interface as the project. You reach 60 % by going *deep* on C1/C2/C4, not by touching all seven shallowly.
 
@@ -712,12 +712,12 @@ Update this as you go. The rubric in §3 is derived from these.
 - [x] WP-04 Per-message-type byte accounting — `GossipNode.stats()`, confirmed increasing in the live 4-node smoke test above
 
 ### C1 — CRDT identity ⭐
-- [ ] WP-06 `ClaimSet` G-Set with delta sync and retention pruning
-- [ ] WP-06 Hypothesis property tests: commutativity, associativity, idempotence, convergence
-- [ ] WP-06 Deterministic resolver (reachability-gated assignment)
-- [ ] WP-06 `IdentityFork` — stays open when both branches reachable
-- [ ] WP-06 Partition → reconnect → byte-identical replicas
-- [ ] WP-06 Time-to-reconverge measured; unresolved fork rate reported
+- [x] WP-06 `ClaimSet` G-Set with delta sync and retention pruning
+- [x] WP-06 Hypothesis property tests: commutativity, associativity, idempotence, convergence
+- [x] WP-06 Deterministic resolver (reachability-gated assignment)
+- [x] WP-06 `IdentityFork` — stays open when both branches reachable
+- [x] WP-06 Partition → reconnect → byte-identical replicas
+- [x] WP-06 Time-to-reconverge measured; unresolved fork rate reported — from the synthetic-claim-stream integration test (`docs/results_c1.md`); `scenarios/east_wing_drop.yaml`'s own numbers need real multi-camera video, which doesn't exist in this repo yet — the user's follow-up
 
 ### C2 — Byzantine ⭐
 - [ ] WP-10 `docs/threat_model.md` written (incl. explicit out-of-scope)

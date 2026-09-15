@@ -28,18 +28,33 @@ import signal
 from pathlib import Path
 from typing import Optional
 
+import structlog
+
 from starling_geometry.calibration import CameraCalibration, bbox_floor_point
 from starling_net.gossip import GossipNode
 from starling_net.keys import DEFAULT_KEYS_DIR, load_keys
 from starling_net.logging import get_logger, setup_logging
+from starling_net.partition import PartitionTracker
 from starling_net.timebase import MediaClock
 from starling_node.config import load_node_config
 from starling_perception.pipeline import NodePerception
 from starling_perception.source import PacedSource
-from starling_proto.convert import make_claim_envelope, record_to_claim_proto
+from starling_proto.convert import claim_proto_to_record, make_claim_envelope, record_to_claim_proto
 from starling_store.identity_store import LocalStore
 
 _HOUSEKEEPING_EVERY_N_FRAMES = 30
+# Matches starling_node.config.NodeConfig.write_template's
+# `listen_port = 5555 + node_id` convention, followed by every generated
+# config in this project. GossipNode has no relay/forwarding logic yet
+# (STARLING_BUILD_STATE.md §4.1), so a received envelope's sender_node_id
+# is always the direct peer that published it — this mapping only tells
+# PartitionTracker which node_ids to expect from the configured neighbour
+# addresses, it does not route anything.
+_BASE_GOSSIP_PORT = 5555
+
+
+def _neighbour_node_ids(neighbours: list[str]) -> list[int]:
+    return [int(addr.rsplit(":", 1)[1]) - _BASE_GOSSIP_PORT for addr in neighbours]
 
 
 def _load_calibration(cfg, log) -> Optional[CameraCalibration]:
@@ -91,11 +106,22 @@ def run(
         node_id=cfg.node_id,
     )
 
+    # WP-06 Part 4a: liveness of each configured neighbour, purely
+    # inferred from whether it has gossiped anything to us recently — see
+    # starling_net.partition for why no heartbeat/ping is needed.
+    tracker = PartitionTracker(_neighbour_node_ids(cfg.net.neighbours))
+    structlog.contextvars.bind_contextvars(coverage_completeness=tracker.coverage_completeness())
+
     def _on_gossip_message(envelope) -> None:
-        # WP-06 does the merging. For now: log and otherwise ignore, per
-        # this session's rule 3 (transport and set-union only, no CRDT
-        # merge / identity resolution here).
+        tracker.on_message(envelope.sender_node_id)
         kind = envelope.WhichOneof("payload")
+        if kind == "claim":
+            # WP-06 Part 1: this is the CRDT merge itself — a grow-only
+            # set union via LocalStore.append_remote_claims (idempotent on
+            # (node_id, seq)). No matching/resolution happens here; that
+            # is starling_crdt.resolver's job over the merged set.
+            record = claim_proto_to_record(envelope.claim)
+            store.append_remote_claims([record])
         log.info("gossip_received", kind=kind, sender=envelope.sender_node_id)
 
     gossip: Optional[GossipNode] = None
@@ -160,6 +186,17 @@ def run(
 
             frame_count += 1
             if frame_count % _HOUSEKEEPING_EVERY_N_FRAMES == 0:
+                tracker.tick()
+                event = tracker.check_partition_event()
+                structlog.contextvars.bind_contextvars(
+                    coverage_completeness=tracker.coverage_completeness()
+                )
+                if event is not None:
+                    log.warning(
+                        event,
+                        reachable_neighbours=tracker.reachable_neighbours(),
+                        configured_neighbours=tracker.neighbour_node_ids,
+                    )
                 log.info(
                     "node_housekeeping",
                     frames=frame_count,

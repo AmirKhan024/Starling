@@ -10,7 +10,7 @@ import numpy as np
 from starling_crdt import resolver
 from starling_crdt.claims import ClaimSet
 from starling_crdt.forks import ForkStatus
-from starling_crdt.resolver import assert_deterministic, resolve
+from starling_crdt.resolver import assert_deterministic, resolve, resolve_incremental
 from starling_geometry.navmesh import NavMesh
 from starling_geometry.reachability import ReachabilityModel
 from starling_node.config import MatchConfig
@@ -295,3 +295,54 @@ def test_subsequent_face_anchor_closes_a_previously_open_fork():
     assert fork.resolved_branch == 1
     assert anchor3["claim_id"] in fork.resolution_reason
     assert assignment.identity_of[anchor3["claim_id"]] == "P-013"
+
+
+def test_resolve_incremental_normal_operation_excludes_claims_outside_the_window():
+    old = _claim(node_id=0, seq=0, t_media=0.0, embedding=(1.0, 0.0, 0.0, 0.0))
+    recent = _claim(node_id=1, seq=0, t_media=1000.0, embedding=(1.0, 0.0, 0.0, 0.0))
+    cs = _claim_set([old, recent])
+    cfg = MatchConfig(resolve_window_s=300.0)
+
+    assignment, _ = resolve_incremental(
+        cs, geometry=None, reputation=None, topology=None, cfg=cfg, now_t_media=1000.0
+    )
+
+    assert recent["claim_id"] in assignment.identity_of
+    assert old["claim_id"] not in assignment.identity_of
+
+
+def test_resolve_incremental_full_recompute_includes_the_whole_retention_window():
+    old = _claim(node_id=0, seq=0, t_media=0.0, embedding=(1.0, 0.0, 0.0, 0.0))
+    recent = _claim(node_id=1, seq=0, t_media=1000.0, embedding=(1.0, 0.0, 0.0, 0.0))
+    cs = _claim_set([old, recent])
+    cfg = MatchConfig(resolve_window_s=300.0, retention_window_s=3600.0)
+
+    assignment, _ = resolve_incremental(
+        cs, geometry=None, reputation=None, topology=None, cfg=cfg,
+        now_t_media=1000.0, full_recompute=True,
+    )
+
+    assert old["claim_id"] in assignment.identity_of
+    assert recent["claim_id"] in assignment.identity_of
+
+
+def test_resolve_incremental_matches_full_resolve_on_the_same_window():
+    """D-10's incremental resolution must not change the assignment
+    relative to a full recompute on the same claim set — a divergence
+    here would be a correctness bug per the WP-06 stop conditions, not
+    something to tune around.
+    """
+    claims = [
+        _claim(node_id=i % 3, seq=i, t_media=float(i), embedding=(1.0, 0.05 * i, 0.0, 0.0))
+        for i in range(10)
+    ]
+    cs = _claim_set(claims)
+    cfg = MatchConfig(resolve_window_s=1000.0)  # window covers every claim here
+
+    full_assignment, _ = resolve(cs, geometry=None, reputation=None, topology=None, cfg=cfg)
+    incremental_assignment, _ = resolve_incremental(
+        cs, geometry=None, reputation=None, topology=None, cfg=cfg, now_t_media=9.0
+    )
+
+    assert incremental_assignment.identity_of == full_assignment.identity_of
+    assert incremental_assignment.trajectories == full_assignment.trajectories

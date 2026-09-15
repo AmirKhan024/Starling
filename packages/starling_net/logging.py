@@ -27,6 +27,14 @@ def setup_logging(node_id: int | None, level: str = "INFO") -> None:
 
     structlog.configure(
         processors=[
+            # WP-06 Part 4a: "every answer, log line, and query response
+            # the node produces carries [coverage_completeness]" — rather
+            # than threading it through every log call by hand,
+            # merge_contextvars picks up whatever
+            # starling_net.partition.PartitionTracker last bound via
+            # structlog.contextvars.bind_contextvars(...), so every log
+            # line emitted after that point carries it automatically.
+            structlog.contextvars.merge_contextvars,
             _bind_node_id,
             structlog.processors.TimeStamper(fmt="iso"),
             structlog.processors.add_log_level,
