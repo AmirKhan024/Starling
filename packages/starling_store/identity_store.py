@@ -601,12 +601,58 @@ class LocalStore:
         """Every claim in this store whose (node_id, seq) exceeds `vv`'s
         per-node threshold — i.e. what a peer holding `vv` is missing from
         this store. Ordered by (node_id, seq) for determinism.
+
+        D-10 fix (STARLING_BUILD_STATE.md §2, WP-06 Part 1: "Index by
+        (node_id, seq) and by HLC, and make delta_since a range query
+        rather than a full scan"): this used to `SELECT * FROM claims`
+        and filter every row in Python — a full-table scan on every
+        anti-entropy round. The number of distinct node_ids is bounded by
+        the deployment size while the number of claims is not, so this
+        now issues one indexed range query (`idx_claims_seq (node_id,
+        seq)`) per node_id instead.
         """
         with self._lock:
-            rows = self._conn.execute("SELECT * FROM claims").fetchall()
-        missing = [dict(r) for r in rows if r["seq"] > vv.get(r["node_id"], -1)]
+            node_ids = [
+                r["node_id"]
+                for r in self._conn.execute("SELECT DISTINCT node_id FROM claims").fetchall()
+            ]
+            missing: List[Dict[str, Any]] = []
+            for node_id in node_ids:
+                threshold = vv.get(node_id, -1)
+                rows = self._conn.execute(
+                    "SELECT * FROM claims WHERE node_id=? AND seq>? ORDER BY seq",
+                    (node_id, threshold),
+                ).fetchall()
+                missing.extend(dict(r) for r in rows)
         missing.sort(key=lambda r: (r["node_id"], r["seq"]))
         return missing
+
+    def count_claims(self) -> int:
+        """Total number of claims in this store (`ClaimSet.__len__`)."""
+        with self._lock:
+            return self._conn.execute("SELECT COUNT(*) FROM claims").fetchone()[0]
+
+    def has_claim(self, claim_id: str) -> bool:
+        """Whether `claim_id` exists in this store (`ClaimSet.__contains__`)."""
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT 1 FROM claims WHERE claim_id=? LIMIT 1", (claim_id,)
+            ).fetchone()
+        return row is not None
+
+    def prune_claims(self, before_physical_ms: int) -> int:
+        """Delete claims with `hlc_physical_ms < before_physical_ms`.
+        Returns the count removed. See `starling_crdt.claims.ClaimSet`'s
+        module docstring for why this weakens the pure CRDT guarantee to
+        "eventual consistency within the retention window", and why that
+        is a deliberate, disclosed trade-off rather than an oversight.
+        """
+        with self._lock:
+            cur = self._conn.execute(
+                "DELETE FROM claims WHERE hlc_physical_ms < ?", (before_physical_ms,)
+            )
+            self._conn.commit()
+            return cur.rowcount
 
     def append_remote_claims(self, claims: List[Dict[str, Any]]) -> int:
         """Append claims received from a peer (gossip / anti-entropy

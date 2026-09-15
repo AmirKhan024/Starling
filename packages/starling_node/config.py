@@ -39,6 +39,18 @@ class MatchConfig(BaseModel):
     # with a threshold chosen from a plotted ROC curve. Until then the
     # config says out loud that 0.60 above was a guess, not a measurement.
     threshold_source: str = "UNCALIBRATED-GUESS"
+    # WP-06 Part 1 (starling_crdt.claims.ClaimSet.prune): claims older than
+    # this are dropped, weakening the pure CRDT guarantee to "eventual
+    # consistency within the retention window" — a deliberate trade-off,
+    # documented in claims.py, that doubles as spec §13's short-retention
+    # privacy measure.
+    retention_window_s: float = 3600.0
+    # WP-06 Part 4b (D-10): the resolver sweeps only the last
+    # `resolve_window_s` seconds of claims during normal operation, and
+    # does a full recompute over the retention window only when a
+    # partition heals — re-running the full resolver on every claim is
+    # O(n^2) and will not hold at scale.
+    resolve_window_s: float = 300.0
 
 
 class NetConfig(BaseModel):
@@ -125,6 +137,8 @@ match:
   # "UNCALIBRATED-GUESS" until Prompt 2 (WP-01) picks sim_threshold from a
   # plotted ROC curve. Do not treat 0.60 above as measured until this changes.
   threshold_source: "UNCALIBRATED-GUESS"
+  retention_window_s: 3600.0   # claims older than this are pruned (WP-06)
+  resolve_window_s: 300.0      # sliding-window incremental resolution (WP-06)
 
 net:
   listen_port: {5555 + node_id}          # this node's gossip PUB port
