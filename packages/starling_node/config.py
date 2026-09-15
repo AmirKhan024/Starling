@@ -51,6 +51,11 @@ class MatchConfig(BaseModel):
     # partition heals — re-running the full resolver on every claim is
     # O(n^2) and will not hold at scale.
     resolve_window_s: float = 300.0
+    # WP-06 Part 2 (D-08 fix): the identity prototype is a small gallery
+    # of recent high-quality embeddings, never a single mean vector (a
+    # mean cannot express anchor -> propagate -> decay -> re-anchor and
+    # cannot be merged — you cannot recover what was averaged).
+    gallery_size: int = 5
 
 
 class NetConfig(BaseModel):
@@ -139,6 +144,7 @@ match:
   threshold_source: "UNCALIBRATED-GUESS"
   retention_window_s: 3600.0   # claims older than this are pruned (WP-06)
   resolve_window_s: 300.0      # sliding-window incremental resolution (WP-06)
+  gallery_size: 5               # embeddings kept per identity prototype (WP-06, D-08)
 
 net:
   listen_port: {5555 + node_id}          # this node's gossip PUB port
