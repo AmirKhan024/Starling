@@ -117,3 +117,19 @@ def make_claim_envelope(
         env.sent_hlc.CopyFrom(sent_hlc)
     env.claim.CopyFrom(claim)
     return env
+
+
+def make_attestation_envelope(
+    attestation: starling_pb2.CoverageAttestation,
+    sender_node_id: int,
+    sent_hlc: Optional[starling_pb2.HLC] = None,
+) -> starling_pb2.Envelope:
+    """Wrap a `CoverageAttestation` (WP-09 Part 2,
+    `starling_attest.attestation.Attestor.tick`'s return value) in a fresh
+    `Envelope`, mirroring `make_claim_envelope` exactly.
+    """
+    env = starling_pb2.Envelope(msg_id=bytes(ULID()), sender_node_id=sender_node_id)
+    if sent_hlc is not None:
+        env.sent_hlc.CopyFrom(sent_hlc)
+    env.attestation.CopyFrom(attestation)
+    return env

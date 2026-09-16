@@ -25,21 +25,30 @@ from __future__ import annotations
 
 import argparse
 import signal
+from collections import deque
 from pathlib import Path
 from typing import Optional
 
 import structlog
 
+from starling_attest.attestation import Attestor
 from starling_geometry.calibration import CameraCalibration, bbox_floor_point
+from starling_geometry.navmesh import NavMesh
 from starling_net.gossip import GossipNode
-from starling_net.keys import DEFAULT_KEYS_DIR, load_keys
+from starling_net.keys import DEFAULT_KEYS_DIR, NodeKeys, load_keys
 from starling_net.logging import get_logger, setup_logging
 from starling_net.partition import PartitionTracker
 from starling_net.timebase import MediaClock
 from starling_node.config import load_node_config
+from starling_perception.coverage import CoverageAssessor, DetectorStats
 from starling_perception.pipeline import NodePerception
 from starling_perception.source import PacedSource
-from starling_proto.convert import claim_proto_to_record, make_claim_envelope, record_to_claim_proto
+from starling_proto.convert import (
+    claim_proto_to_record,
+    make_attestation_envelope,
+    make_claim_envelope,
+    record_to_claim_proto,
+)
 from starling_store.identity_store import LocalStore
 
 _HOUSEKEEPING_EVERY_N_FRAMES = 30
@@ -76,6 +85,22 @@ def _load_calibration(cfg, log) -> Optional[CameraCalibration]:
     return None
 
 
+def _load_navmesh(cfg, log) -> Optional[NavMesh]:
+    """This node's `NavMesh`, or `None` with a loud warning if
+    `cfg.geometry.navmesh_path` isn't set — C4 attestation (WP-09) has
+    nothing to reason about without one. Factored out for the same
+    testability reason as `_load_calibration`.
+    """
+    if cfg.geometry.navmesh_path:
+        return NavMesh.from_geojson(cfg.geometry.navmesh_path, cell_size_m=cfg.geometry.cell_size_m)
+    log.warning(
+        "node_no_navmesh",
+        node_id=cfg.node_id,
+        hint="C4 coverage attestation is disabled for this node",
+    )
+    return None
+
+
 def run(
     config_path: Path,
     speed: float = 1.0,
@@ -89,6 +114,7 @@ def run(
     # Checked first, genuinely at startup, before any of the heavier model
     # loading below.
     calib = _load_calibration(cfg, log)
+    navmesh = _load_navmesh(cfg, log)
 
     media_clock = MediaClock.from_video(cfg.source, stream_epoch=cfg.stream_epoch)
     source = PacedSource(cfg.source, media_clock, speed=speed, realtime=True)
@@ -124,9 +150,22 @@ def run(
             store.append_remote_claims([record])
         log.info("gossip_received", kind=kind, sender=envelope.sender_node_id)
 
-    gossip: Optional[GossipNode] = None
+    # Loaded once, independent of whether gossip itself can start, so a
+    # node with keys but no configured neighbours can still sign the
+    # attestations `Attestor` builds below.
+    keys: Optional[NodeKeys] = None
     try:
         keys = load_keys(cfg.node_id, keys_dir=keys_dir)
+    except FileNotFoundError:
+        log.warning(
+            "node_no_keys",
+            node_id=cfg.node_id,
+            keys_dir=str(keys_dir),
+            hint="python -m starling_net.keys --generate N",
+        )
+
+    gossip: Optional[GossipNode] = None
+    if keys is not None:
         gossip = GossipNode(
             node_id=cfg.node_id,
             listen_port=cfg.net.listen_port,
@@ -135,14 +174,25 @@ def run(
             on_message=_on_gossip_message,
         )
         gossip.start()
-    except FileNotFoundError:
+    else:
+        log.warning("gossip_disabled_no_keys", node_id=cfg.node_id, keys_dir=str(keys_dir))
+
+    # WP-09 Part 2: an attesting node needs calibration, a navmesh, and a
+    # configured ROI — any one missing means "nothing to attest about",
+    # not a guess. Coverage attestation degrades independently of gossip:
+    # an attestor with no gossip just never gets its output published.
+    attestor: Optional[Attestor] = None
+    recent_confidences: "deque[float]" = deque(maxlen=cfg.coverage.ks_window)
+    baseline_confidences: list[float] = []
+    if calib is not None and navmesh is not None and cfg.coverage.roi_polygon:
+        coverage_assessor = CoverageAssessor(cfg=cfg.coverage, calibration=calib, navmesh=navmesh)
+        attestor = Attestor(node_id=cfg.node_id, coverage_assessor=coverage_assessor, cfg=cfg.attest, keys=keys)
+    else:
         log.warning(
-            "gossip_disabled_no_keys",
+            "node_attestation_disabled",
             node_id=cfg.node_id,
-            keys_dir=str(keys_dir),
-            hint="python -m starling_net.keys --generate N",
+            hint="calibration, a navmesh, and coverage.roi_polygon are all required for C4 attestation",
         )
-        gossip = None
 
     log.info(
         "node_starting",
@@ -151,6 +201,7 @@ def run(
         stream_epoch=cfg.stream_epoch,
         media_clock_approximate=media_clock.is_approximate,
         gossip_enabled=gossip is not None,
+        attestation_enabled=attestor is not None,
     )
 
     shutdown = {"requested": False}
@@ -182,6 +233,38 @@ def run(
                 if gossip is not None:
                     claim = record_to_claim_proto(record)
                     envelope = make_claim_envelope(claim, sender_node_id=cfg.node_id)
+                    gossip.publish(envelope)
+
+                recent_confidences.append(obs.conf)
+
+            if not baseline_confidences and len(recent_confidences) == recent_confidences.maxlen:
+                # Snapshot once, the first time the rolling window fills —
+                # "how this detector behaved when it started" — and never
+                # overwritten again, so later drift has something fixed to
+                # be compared against (starling_perception.coverage
+                # .DetectorStats' KS-statistic check).
+                baseline_confidences = list(recent_confidences)
+
+            if attestor is not None:
+                # D-03: achieved_fps is derived from PacedSource's own
+                # dropped/frames_read counts, never a fresh time.time()
+                # measurement — no wall-clock read belongs in the identity
+                # path (CLAUDE.md).
+                total_ticks = source.frames_read + source.dropped
+                achieved_fps = (
+                    media_clock.fps * source.frames_read / total_ticks if total_ticks else media_clock.fps
+                )
+                stats = DetectorStats(
+                    target_fps=media_clock.fps,
+                    achieved_fps=achieved_fps,
+                    dropped=source.dropped,
+                    frames_read=source.frames_read,
+                    recent_confidences=list(recent_confidences),
+                    baseline_confidences=baseline_confidences or list(recent_confidences),
+                )
+                attestation = attestor.tick(t_media, frame, observations, stats)
+                if attestation is not None and gossip is not None:
+                    envelope = make_attestation_envelope(attestation, sender_node_id=cfg.node_id)
                     gossip.publish(envelope)
 
             frame_count += 1

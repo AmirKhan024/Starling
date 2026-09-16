@@ -110,6 +110,11 @@ class AttestConfig(BaseModel):
     """WP-09 Part 2: attestation emission timing + admission thresholds."""
 
     tick_interval_s: float = 2.0  # media-time interval between attestation emissions
+    # Mirrors CoverageConfig.tau_attest — the same operating threshold,
+    # duplicated here because starling_attest.admission.admissible() is
+    # tested and used independently of a CoverageAssessor/CoverageConfig
+    # and needs its own self-sufficient config object.
+    tau_attest: float = 0.7
     # admission.py rejects an attestation older than this relative to the
     # admitting node's current media time.
     freshness_window_s: float = 10.0
@@ -237,6 +242,7 @@ coverage:
 
 attest:
   tick_interval_s: 2.0           # media-time interval between attestation emissions
+  tau_attest: 0.7                 # mirrors coverage.tau_attest for admission.py's own use
   freshness_window_s: 10.0       # admission.py rejects attestations older than this
   min_reputation: 0.0            # admission.py reputation floor (WP-10 populates real scores)
 
