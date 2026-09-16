@@ -71,6 +71,67 @@ class GeometryConfig(BaseModel):
     cell_size_m: float = 0.25
 
 
+class CoverageConfig(BaseModel):
+    """WP-09 Part 1 (C4 flagship): per-node coverage self-assessment.
+
+    `roi_polygon` and `watched_boundary_ids` are empty by default — a node
+    with no ROI configured cannot assess coverage or emit an attestation at
+    all (starling_perception.coverage.CoverageAssessor degrades to "fully
+    open, nothing to protect" rather than guessing), mirroring D-09's
+    "an unconfigured node's claims are unverifiable" posture instead of
+    silently assuming full coverage.
+    """
+
+    roi_polygon: list[tuple[float, float]] = Field(default_factory=list)  # floor metres
+    watched_boundary_ids: list[int] = Field(default_factory=list)  # NavMesh.boundaries keys this node attests about
+    tau_attest: float = 0.7
+    # WP-09 task 1(a): EMA update rate for the online background model.
+    # Small = slow to absorb foreground into the background, which is what
+    # makes a long-persisting occluder (a parked pallet) register as
+    # "static occlusion" for a sustained span of ticks rather than
+    # vanishing into the background after one frame.
+    background_alpha: float = 0.02
+    bg_diff_threshold: float = 25.0  # 0-255 grey-level delta counted as foreground
+    blob_area_threshold: int = 500  # min. connected foreground blob size, pixels
+    # COCO80 class ids: car=2, truck=7, bench=13 — forklift/pallet proxies
+    # (WP-09 task 1(b)); starling_perception.detector.PERSON_CLASS_ID=0 is
+    # deliberately absent, a tracked person is never itself "occlusion".
+    occluder_class_ids: list[int] = Field(default_factory=lambda: [2, 7, 13])
+    illum_clip_low: int = 10
+    illum_clip_high: int = 245
+    illum_exposure_weight: float = 0.5
+    illum_clip_weight: float = 0.3
+    illum_contrast_weight: float = 0.2
+    illum_contrast_norm: float = 40.0  # local RMS contrast treated as "fully textured" (score saturates to 1.0)
+    ks_window: int = 200  # rolling baseline sample count for detector_health's confidence-distribution KS test
+
+
+class AttestConfig(BaseModel):
+    """WP-09 Part 2: attestation emission timing + admission thresholds."""
+
+    tick_interval_s: float = 2.0  # media-time interval between attestation emissions
+    # admission.py rejects an attestation older than this relative to the
+    # admitting node's current media time.
+    freshness_window_s: float = 10.0
+    # admission.py's reputation floor. WP-10 (reputation, not built yet)
+    # is what will ever lower a real node's score below this in practice —
+    # this session's Part 3 (detect_omission) only emits the signal
+    # reputation will consume, per CLAUDE.md rule 3 for this session.
+    min_reputation: float = 0.0
+
+
+class NegativeEvidenceConfig(BaseModel):
+    """WP-09 Part 3: candidate-belief fusion over the navmesh."""
+
+    # Ablation switch (WP-09 rule 2): False = positive-evidence-only arm.
+    # Every C4 metric is defined as the difference between the two arms.
+    negative_evidence_enabled: bool = True
+    v_max_m_s: float = 1.6  # matches starling_geometry.reachability.DEFAULT_V_MAX_M_S
+    eps: float = 1e-6  # belief-mass threshold for area_m2()/mask()
+    likelihood_sigma_m: float = 1.0  # Gaussian sigma for apply_observation when a claim carries no pos_sigma
+    min_omission_corroborators: int = 2  # detect_omission: distinct corroborating nodes required
+
+
 class NodeConfig(BaseModel):
     node_id: int
     name: str
@@ -89,6 +150,9 @@ class NodeConfig(BaseModel):
     match: MatchConfig = Field(default_factory=MatchConfig)
     net: NetConfig = Field(default_factory=NetConfig)
     geometry: GeometryConfig = Field(default_factory=GeometryConfig)
+    coverage: CoverageConfig = Field(default_factory=CoverageConfig)
+    attest: AttestConfig = Field(default_factory=AttestConfig)
+    negative_evidence: NegativeEvidenceConfig = Field(default_factory=NegativeEvidenceConfig)
 
     @staticmethod
     def write_template(path: Path, node_id: int) -> None:
@@ -154,6 +218,34 @@ net:
 geometry:
   navmesh_path: null           # GeoJSON floor plan (WP-05), shared across all nodes
   cell_size_m: 0.25            # navmesh grid resolution
+
+coverage:
+  roi_polygon: []               # this node's floor ROI, [[x,y], ...] metres; empty = attests nothing (WP-09)
+  watched_boundary_ids: []      # NavMesh.boundaries ids this node can attest crossings for
+  tau_attest: 0.7                # attest_confidence floor; below this, emit NOTHING (silence != evidence)
+  background_alpha: 0.02         # online background model EMA rate
+  bg_diff_threshold: 25.0        # grey-level delta counted as foreground
+  blob_area_threshold: 500       # min. connected foreground blob size, pixels
+  occluder_class_ids: [2, 7, 13] # COCO80 car/truck/bench — forklift/pallet proxies
+  illum_clip_low: 10
+  illum_clip_high: 245
+  illum_exposure_weight: 0.5
+  illum_clip_weight: 0.3
+  illum_contrast_weight: 0.2
+  illum_contrast_norm: 40.0
+  ks_window: 200                 # detector_health confidence-distribution KS baseline size
+
+attest:
+  tick_interval_s: 2.0           # media-time interval between attestation emissions
+  freshness_window_s: 10.0       # admission.py rejects attestations older than this
+  min_reputation: 0.0            # admission.py reputation floor (WP-10 populates real scores)
+
+negative_evidence:
+  negative_evidence_enabled: true  # ablation switch — every C4 metric is with/without this
+  v_max_m_s: 1.6
+  eps: 1.0e-6
+  likelihood_sigma_m: 1.0
+  min_omission_corroborators: 2
 """
         path.write_text(template, encoding="utf-8")
 
