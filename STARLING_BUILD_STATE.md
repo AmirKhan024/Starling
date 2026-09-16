@@ -130,14 +130,14 @@ Percentage-of-project is meaningless unless you define the denominator. This rub
 | C | Transport: gossip, anti-entropy, partition harness | 8 | 0 | 7 | 7 |
 | D | **C1** CRDT identity representation + merge | 15 | 11 | 11 | 12 |
 | E | **C2** Reputation, plausibility, Byzantine defense | 12 | 0 | 7 | 8 |
-| F | **C4** Coverage attestation + negative evidence | 12 | 0 | 6 | 8 |
+| F | **C4** Coverage attestation + negative evidence | 12 | 6 | 6 | 8 |
 | G | **C3** Calibration, navmesh, reachability | 10 | 0 | 6 | 7 |
 | H | **C6** Topology learning | 5 | 0 | 3 | 4 |
 | I | **C5** Query layer | 6 | 1 | 1 | 2 |
 | J | **C7** Uniform-invariant ReID | 4 | 0 | 0 | 0 |
 | K | Evaluation harness, metrics, ground truth | 7 | 0 | 4 | 4 |
 | L | Demo + dashboard | 3 | 2 | 3 | 3 |
-| | **TOTAL** | **100** | **22** | **64** | **73** |
+| | **TOTAL** | **100** | **28** | **64** | **73** |
 
 **Read this carefully:** the floor column deliberately gives **zero** to C7 and **near-zero** to C5. That is correct and intentional. Spec §4 puts C7 first in the cut order and §15 warns explicitly against treating the query interface as the project. You reach 60 % by going *deep* on C1/C2/C4, not by touching all seven shallowly.
 
@@ -728,13 +728,13 @@ Update this as you go. The rubric in §3 is derived from these.
 - [ ] WP-10 Accuracy vs. `f/n` curve, all attack classes, breaking point stated
 
 ### C4 — Negative evidence ⭐
-- [ ] WP-09 Occlusion ratio estimation
-- [ ] WP-09 Illumination quality score
-- [ ] WP-09 Detector health self-diagnostic
-- [ ] WP-09 Attestation emission rule (silence ≠ absence)
-- [ ] WP-09 Candidate-belief region with geodesic dilation + boundary zeroing
-- [ ] WP-09 Composition with C2: false attestation costs reputation
-- [ ] WP-09 Region reduction, **false exclusion rate**, attestation accuracy reported
+- [x] WP-09 Occlusion ratio estimation — `starling_perception/coverage.py`: static background model + occluder-class detections + unexplained-foreground blobs, unioned in floor space
+- [x] WP-09 Illumination quality score — documented exposure/clip/contrast blend, all weights in `CoverageConfig`
+- [x] WP-09 Detector health self-diagnostic — FPS ratio, dropped-frame ratio, KS drift on the detection-confidence distribution
+- [x] WP-09 Attestation emission rule (silence ≠ absence) — `starling_attest/attestation.py::Attestor.tick`; below `tau_attest` emits `None`, never a low-score attestation
+- [x] WP-09 Candidate-belief region with geodesic dilation + boundary zeroing — `starling_attest/negative_evidence.py::CandidateBelief`; `NavMesh.cells_beyond` (new WP-05 addition) precomputes per-boundary side components
+- [x] WP-09 Composition with C2: false attestation costs reputation — `detect_omission()` emits the signal; WP-10 (Prompt 8) is what will consume it into an actual reputation update
+- [x] WP-09 Region reduction, **false exclusion rate**, attestation accuracy reported — `scripts/run_deadzone_experiment.py` → `docs/results_c4.md`, incl. the `tau_attest` trade-off curve
 
 ### C3 / C6 / C5 / support
 - [ ] WP-08 Reachability as a hard gate in the resolver, with ablation switch

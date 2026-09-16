@@ -131,6 +131,11 @@ class NegativeEvidenceConfig(BaseModel):
     # Ablation switch (WP-09 rule 2): False = positive-evidence-only arm.
     # Every C4 metric is defined as the difference between the two arms.
     negative_evidence_enabled: bool = True
+    # Mirrors CoverageConfig.tau_attest / AttestConfig.tau_attest (see
+    # AttestConfig's docstring for why this duplication is deliberate):
+    # starling_attest.negative_evidence.CandidateBelief re-derives
+    # admissibility itself at the point mass actually gets zeroed.
+    tau_attest: float = 0.7
     v_max_m_s: float = 1.6  # matches starling_geometry.reachability.DEFAULT_V_MAX_M_S
     eps: float = 1e-6  # belief-mass threshold for area_m2()/mask()
     likelihood_sigma_m: float = 1.0  # Gaussian sigma for apply_observation when a claim carries no pos_sigma
@@ -248,6 +253,7 @@ attest:
 
 negative_evidence:
   negative_evidence_enabled: true  # ablation switch — every C4 metric is with/without this
+  tau_attest: 0.7                 # mirrors coverage.tau_attest for CandidateBelief's own use
   v_max_m_s: 1.6
   eps: 1.0e-6
   likelihood_sigma_m: 1.0

@@ -23,6 +23,7 @@ from pathlib import Path
 from typing import Optional, Union
 
 import numpy as np
+from scipy import ndimage
 from shapely.geometry import Point, shape
 from shapely.ops import unary_union
 
@@ -53,12 +54,48 @@ def _rasterize_line(line, origin: tuple[float, float], cell_size: float, grid_sh
     return cells
 
 
+def _compute_boundary_components(grid: np.ndarray, boundaries: dict[int, list[tuple[int, int]]]) -> dict[int, np.ndarray]:
+    """WP-09 Part 3 ("beyond the boundary" precomputation, Appendix A.3):
+    for each boundary, remove its rasterised cells from the free-space
+    grid as a temporary barrier, then label the connected components of
+    what remains (8-connected, matching `starling_geometry.reachability`'s
+    neighbourhood). A boundary LineString that fully spans the walkable
+    width — the only kind this project's floor plans use (see
+    `data/floorplan/demo_site.geojson`'s two gap-exit boundaries) —
+    splits free space into exactly two components. `0` marks a barrier
+    cell or non-free cell; component ids start at `1`. Cached once here,
+    at load time, rather than recomputed per attestation.
+    """
+    structure = ndimage.generate_binary_structure(2, 2)  # 8-connectivity
+    components: dict[int, np.ndarray] = {}
+    for boundary_id, cells in boundaries.items():
+        barrier_grid = grid.copy()
+        height, width = barrier_grid.shape
+        for i, j in cells:
+            if 0 <= i < width and 0 <= j < height:
+                barrier_grid[j, i] = False
+        labelled, _ = ndimage.label(barrier_grid, structure=structure)
+        components[boundary_id] = labelled
+    return components
+
+
 @dataclass
 class NavMesh:
     grid: np.ndarray                                  # bool [row=j, col=i], True = free space
     origin: tuple[float, float]                        # world (x, y) metres of cell (0, 0)'s lower corner
     cell_size: float
     boundaries: dict[int, list[tuple[int, int]]] = field(default_factory=dict)
+    # WP-09 Part 3: per boundary_id, an int label grid from
+    # `_compute_boundary_components` — which side of that boundary each
+    # free cell lies on. Left empty here; `__post_init__` always derives it
+    # from `grid`/`boundaries` so it's correct regardless of which
+    # constructor path built this NavMesh (`from_geojson` or the plain
+    # dataclass constructor, as several WP-09 tests use directly).
+    boundary_components: dict[int, np.ndarray] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        if self.boundaries and not self.boundary_components:
+            self.boundary_components = _compute_boundary_components(self.grid, self.boundaries)
 
     @classmethod
     def from_geojson(cls, path: Union[str, Path], cell_size_m: float = DEFAULT_CELL_SIZE_M) -> "NavMesh":
@@ -128,6 +165,40 @@ class NavMesh:
     def area_m2(self, mask: Optional[np.ndarray] = None) -> float:
         m = self.grid if mask is None else mask
         return float(np.count_nonzero(m)) * (self.cell_size ** 2)
+
+    def cells_beyond(self, boundary_id: int, reference_xy: tuple[float, float]) -> np.ndarray:
+        """WP-09 Part 3's precise definition of "beyond the boundary"
+        (Appendix A.3's `B[cells beyond boundary(a)] <- 0` step): a
+        boolean grid mask, True for every free cell on the OPPOSITE side
+        of `boundary_id` from `reference_xy` (typically the candidate
+        belief's own confirmed origin — see
+        `starling_attest.negative_evidence`'s module docstring for why
+        that reference point, not the attesting node's ROI, is what this
+        method is given).
+
+        Uses `boundary_components` (`__post_init__`): a boundary that
+        fully spans the walkable width splits free space into exactly two
+        connected components — one containing `reference_xy`'s cell (the
+        "near" side, False here) and the other (the "far" side, True).
+        Boundary-barrier cells and anything outside `reference_xy`'s own
+        component's graph are always False: "beyond" is a specific claim
+        about which side of one line a cell is on, not "unreachable".
+        Returns an all-False mask for an unknown `boundary_id` or a
+        `reference_xy` that isn't itself in free space.
+        """
+        components = self.boundary_components.get(boundary_id)
+        if components is None:
+            return np.zeros_like(self.grid, dtype=bool)
+
+        ri, rj = self.world_to_cell(*reference_xy)
+        height, width = components.shape
+        if not (0 <= ri < width and 0 <= rj < height):
+            return np.zeros_like(self.grid, dtype=bool)
+
+        near_label = components[rj, ri]
+        if near_label == 0:
+            return np.zeros_like(self.grid, dtype=bool)
+        return (components != near_label) & (components != 0)
 
     def render(self, mask: Optional[np.ndarray] = None):
         """Renders the free-space grid as a PIL image (dashboard + docs
