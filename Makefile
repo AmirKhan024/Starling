@@ -1,4 +1,4 @@
-.PHONY: install test lint fmt typecheck up down logs proto
+.PHONY: install test lint fmt typecheck up down logs proto headline
 
 install:
 	pip install -e ".[dev]"
@@ -35,3 +35,10 @@ down:
 # Usage: make logs NODE=02
 logs:
 	docker compose -f deploy/docker-compose.yml logs -f node-$(NODE)
+
+# The headline three-way experiment (WP-14 Part 4): baseline vs. Starling
+# healthy vs. Starling partitioned+Byzantine. Long — arm 3 needs
+# `docker compose` for real partition/attack events. See
+# docs/results_headline.md for how the output gets written up.
+headline:
+	python scripts/run_headline.py --repeat 5 --out results/headline
