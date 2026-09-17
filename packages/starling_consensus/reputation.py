@@ -62,8 +62,29 @@ class ReputationTable:
 
         claim_id = plausibility_result.details.get("claim_id")
         if claim_id:
-            evidence = self._evidence.setdefault(about_node, deque(maxlen=_MAX_EVIDENCE_CLAIM_IDS))
-            evidence.append(claim_id_to_bytes(claim_id) if isinstance(claim_id, str) else claim_id)
+            evidence_bytes = self._to_evidence_bytes(claim_id)
+            if evidence_bytes is not None:
+                evidence = self._evidence.setdefault(about_node, deque(maxlen=_MAX_EVIDENCE_CLAIM_IDS))
+                evidence.append(evidence_bytes)
+
+    @staticmethod
+    def _to_evidence_bytes(claim_id: object) -> Optional[bytes]:
+        """A production claim_id is always a real ULID (`starling_store
+        .LocalStore`, `starling_consensus.attacks.AttackInjector`), so the
+        common case converts cleanly. A caller exercising this table with
+        some other identifier scheme — `scripts/run_byzantine_sweep.py`'s
+        own synthetic simulation, for instance — should not crash the
+        reputation update over an auditability nicety; evidence tracking
+        is simply skipped for a claim_id that isn't ULID-shaped.
+        """
+        if isinstance(claim_id, bytes):
+            return claim_id
+        if isinstance(claim_id, str):
+            try:
+                return claim_id_to_bytes(claim_id)
+            except ValueError:
+                return None
+        return None
 
     def penalise_omission(self, about_node: int, weight: float) -> None:
         """The hook `starling_attest.negative_evidence.detect_omission`

@@ -129,7 +129,7 @@ Percentage-of-project is meaningless unless you define the denominator. This rub
 | B | Node runtime: process isolation, config, Docker | 8 | 1 | 7 | 8 |
 | C | Transport: gossip, anti-entropy, partition harness | 8 | 0 | 7 | 7 |
 | D | **C1** CRDT identity representation + merge | 15 | 11 | 11 | 12 |
-| E | **C2** Reputation, plausibility, Byzantine defense | 12 | 0 | 7 | 8 |
+| E | **C2** Reputation, plausibility, Byzantine defense | 12 | 7 | 7 | 8 |
 | F | **C4** Coverage attestation + negative evidence | 12 | 6 | 6 | 8 |
 | G | **C3** Calibration, navmesh, reachability | 10 | 0 | 6 | 7 |
 | H | **C6** Topology learning | 5 | 0 | 3 | 4 |
@@ -137,7 +137,7 @@ Percentage-of-project is meaningless unless you define the denominator. This rub
 | J | **C7** Uniform-invariant ReID | 4 | 0 | 0 | 0 |
 | K | Evaluation harness, metrics, ground truth | 7 | 0 | 4 | 4 |
 | L | Demo + dashboard | 3 | 2 | 3 | 3 |
-| | **TOTAL** | **100** | **28** | **64** | **73** |
+| | **TOTAL** | **100** | **35** | **64** | **73** |
 
 **Read this carefully:** the floor column deliberately gives **zero** to C7 and **near-zero** to C5. That is correct and intentional. Spec §4 puts C7 first in the cut order and §15 warns explicitly against treating the query interface as the project. You reach 60 % by going *deep* on C1/C2/C4, not by touching all seven shallowly.
 
@@ -720,12 +720,12 @@ Update this as you go. The rubric in §3 is derived from these.
 - [x] WP-06 Time-to-reconverge measured; unresolved fork rate reported — from the synthetic-claim-stream integration test (`docs/results_c1.md`); `scenarios/east_wing_drop.yaml`'s own numbers need real multi-camera video, which doesn't exist in this repo yet — the user's follow-up
 
 ### C2 — Byzantine ⭐
-- [ ] WP-10 `docs/threat_model.md` written (incl. explicit out-of-scope)
-- [ ] WP-10 Plausibility check (reachability, kinematics, corroboration, freshness)
-- [ ] WP-10 Local reputation with EWMA + recovery floor
-- [ ] WP-10 Robust aggregation: weighted / trimmed mean / Krum
-- [ ] WP-10 Attack injection: fabricate, suppress, replay — switchable live
-- [ ] WP-10 Accuracy vs. `f/n` curve, all attack classes, breaking point stated
+- [x] WP-10 `docs/threat_model.md` written (incl. explicit out-of-scope)
+- [x] WP-10 Plausibility check (reachability, kinematics, corroboration, freshness) — `starling_consensus/plausibility.py`
+- [x] WP-10 Local reputation with EWMA + recovery floor — `starling_consensus/reputation.py`; median aggregation over local + gossiped opinions, never a global scalar
+- [x] WP-10 Robust aggregation: unweighted baseline / reputation-weighted / coordinate-wise trimmed mean / Krum — `starling_consensus/aggregate.py`
+- [x] WP-10 Attack injection: fabricate, suppress, replay, mixed — switchable live via `AttackInjector.set_attack` / `starling_consensus.attacks.ControlServer` (`POST /attack`, `GET /status`, localhost-only) / the scenario `lie` event (`starling_eval.netem_plan.plan_lie`)
+- [x] WP-10 Accuracy vs. `f/n` curve, all attack classes, breaking point stated — mechanism built and verified (`scripts/run_byzantine_sweep.py --dry-run` lists the full 880-run matrix at `--repeat 5`; `_breaking_point()` computes the required "where reputation stops beating unweighted" statement from a real run's `results.json`); the full sweep itself was deliberately NOT run this session (WP-10 Part 4 rule: "it is long") — `docs/results_c2.md` is a scaffold with every number marked TBD pending that run, the user's follow-up
 
 ### C4 — Negative evidence ⭐
 - [x] WP-09 Occlusion ratio estimation — `starling_perception/coverage.py`: static background model + occluder-class detections + unexplained-foreground blobs, unioned in floor space

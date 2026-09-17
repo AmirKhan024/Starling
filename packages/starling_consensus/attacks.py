@@ -48,7 +48,11 @@ _EMBED_DIM = 512
 # production integration wiring this injector directly into a node's
 # publish path for real (not just for this project's own scenario/demo
 # use) would need to reserve this range from the store's own counter.
-_SYNTHETIC_SEQ_BASE = 10**15
+# Public (not underscore-prefixed) so a caller that needs to tell a
+# genuine claim apart from an injected one — e.g. scripts/run_byzantine
+# _sweep.py's own accuracy bookkeeping — can do so without reaching into
+# this module's internals.
+SYNTHETIC_SEQ_BASE = 10**15
 _FABRICATED_TRACK_ID_BASE = 900_000  # CLAUDE.md rule 5: local_track_id is node-scoped only
 
 
@@ -129,7 +133,7 @@ class AttackInjector:
         return {
             "claim_id": str(ULID()),
             "node_id": self.node_id,
-            "seq": _SYNTHETIC_SEQ_BASE + self._synthetic_seq,
+            "seq": SYNTHETIC_SEQ_BASE + self._synthetic_seq,
             "hlc_physical_ms": int(t_media * 1000),
             "hlc_logical": 0,
             "local_track_id": _FABRICATED_TRACK_ID_BASE + self._synthetic_seq,
@@ -177,7 +181,7 @@ class AttackInjector:
                 self._synthetic_seq += 1
                 replayed = dict(claim)
                 replayed["claim_id"] = str(ULID())
-                replayed["seq"] = _SYNTHETIC_SEQ_BASE + self._synthetic_seq
+                replayed["seq"] = SYNTHETIC_SEQ_BASE + self._synthetic_seq
                 replayed["hlc_physical_ms"] = stale_ms
                 replayed["hlc_logical"] = 0
                 replayed["t_media"] = stale_t_media
