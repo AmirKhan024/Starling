@@ -1,0 +1,9 @@
+{
+  "description": "Hand-labelled ground-truth adjacency and illustrative transit-time distributions for the demo ring topology (configs/nodes/local: node-00..node-03 each gossip to their 2 ring neighbours). Consumed by scripts/evaluate_topology.py (WP-07, C6). The mean_transit_s/sigma_log values are synthetic priors for the offline evaluation harness, not measured from real camera footage -- this repo has no real multi-camera video yet (the same 'needs actual video' follow-up already noted in docs/results_c1.md and docs/results_c4.md).",
+  "edges": [
+    {"a": 0, "b": 1, "mean_transit_s": 8.0, "sigma_log": 0.20},
+    {"a": 1, "b": 2, "mean_transit_s": 12.0, "sigma_log": 0.25},
+    {"a": 2, "b": 3, "mean_transit_s": 9.0, "sigma_log": 0.20},
+    {"a": 3, "b": 0, "mean_transit_s": 10.0, "sigma_log": 0.22}
+  ]
+}

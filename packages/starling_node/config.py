@@ -178,6 +178,47 @@ class ReputationConfig(BaseModel):
     alpha: float = 0.05
     r_min: float = 0.05  # floor, never 0 — a repaired node can recover (see reputation.py)
     r_initial: float = 1.0  # a node with no observations yet is trusted, not suspected
+    # WP-07 (C6) weak-signal cap: a topology distribution shift is equally
+    # consistent with an innocent environment change as with misbehaviour
+    # (see reputation.py::penalise_topology_shift), so whatever weight a
+    # caller passes is hard-clamped here — this can never, by itself, drive
+    # a reputation anywhere near r_min the way a failed plausibility check can.
+    topology_shift_max_weight: float = 0.15
+
+
+class TopologyConfig(BaseModel):
+    """WP-07 (C6): `starling_topology.learner.TopologyLearner`.
+
+    Learning topology from a handoff the resolver itself was barely
+    confident about would teach the system its own mistakes, so
+    `handoff_confidence_min` gates what `observe_handoff` accepts at all —
+    independent of, and stricter than, `MatchConfig.margin_threshold`.
+    """
+
+    handoff_confidence_min: float = 0.5
+    # Edge existence rule (WP-07): count >= k_min AND the fitted sigma is
+    # tighter than a uniform null over the same observed range. k_min=5
+    # deliberately low enough that the "5 random-uniform transits" test
+    # exercises the sigma test, not just this count floor.
+    k_min: int = 5
+    # Fitted RAW-seconds sigma must be below this fraction of the uniform
+    # null's sigma ((max-min)/sqrt(12), raw seconds) to count as a real
+    # edge (a peaked distribution), not a spurious near-flat spread.
+    # Chosen from numerical separation: a genuinely uniform raw sample's
+    # ratio sits at/above ~1.0 at every sample size tested (n=5..100000),
+    # a log-normal corridor's sits at ~0.5-0.8 (see learner.py module
+    # docstring for why the test runs in raw space, not log space).
+    null_sigma_ratio: float = 0.85
+    # detect_shift: windowed mean-shift (CUSUM-style) test. Each half of
+    # the most recent `2 * shift_window` raw observations is compared;
+    # a real environment/behaviour change should be visible mid-window.
+    shift_window: int = 15
+    shift_threshold_sigma: float = 3.0
+    # Raw weak-signal weight `apply_shift_penalties` requests from
+    # `ReputationTable.penalise_topology_shift` — the table itself clamps
+    # this again at `ReputationConfig.topology_shift_max_weight`, so this
+    # value only matters below that ceiling.
+    topology_shift_weight: float = 0.3
 
 
 class AttackConfig(BaseModel):
@@ -230,6 +271,7 @@ class NodeConfig(BaseModel):
     reputation: ReputationConfig = Field(default_factory=ReputationConfig)
     attack: AttackConfig = Field(default_factory=AttackConfig)
     aggregate: AggregateConfig = Field(default_factory=AggregateConfig)
+    topology: TopologyConfig = Field(default_factory=TopologyConfig)
 
     @staticmethod
     def write_template(path: Path, node_id: int) -> None:
@@ -350,6 +392,14 @@ attack:
 aggregate:
   trimmed_beta: 0.2               # fraction discarded from EACH end by trimmed_mean
   krum_f: 1                       # assumed max Byzantine claims per aggregate_position() call
+
+topology:
+  handoff_confidence_min: 0.5     # WP-07: handoffs below this are never learned from
+  k_min: 5                        # min. observations before a node-pair can become an edge
+  null_sigma_ratio: 0.85          # fitted RAW-seconds sigma must be this fraction of the uniform-null sigma
+  shift_window: 15                # windowed mean-shift test half-window size
+  shift_threshold_sigma: 3.0
+  topology_shift_weight: 0.3      # weak-signal weight requested from reputation (further clamped there)
 """
         path.write_text(template, encoding="utf-8")
 

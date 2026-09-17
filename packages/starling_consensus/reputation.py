@@ -101,6 +101,26 @@ class ReputationTable:
         weight = _clip(weight, 0.0, 1.0)
         self._ewma_update(about_node, s=1.0 - weight)
 
+    def penalise_topology_shift(self, about_node: int, weight: float) -> None:
+        """WP-07 (C6) weak-signal hook: `starling_topology.learner
+        .TopologyLearner.detect_shift` flags that a node-pair's transit-time
+        distribution has moved. This must NEVER be composed as a hard
+        signal: a shifted distribution is exactly as consistent with an
+        innocent explanation (an aisle got re-racked, a doorway now takes
+        longer to walk through) as with a misbehaving node skewing transit
+        times with fabricated or replayed positions, and transit times
+        alone cannot tell those two apart. Treating it like a failed
+        plausibility check would let a pure environment change tank a
+        node's reputation on its own — the exact "simplification" a later
+        reader must be stopped from making by accident. `weight` is
+        therefore clamped at `cfg.topology_shift_max_weight` (a small
+        fraction of the full `[0, 1]` range `observe()`/`penalise_omission`
+        can use), so a shift can only ever nudge reputation, never by
+        itself drive it toward `cfg.r_min`.
+        """
+        weight = _clip(weight, 0.0, self.cfg.topology_shift_max_weight)
+        self._ewma_update(about_node, s=1.0 - weight)
+
     def _ewma_update(self, about_node: int, s: float) -> None:
         prev = self.local_opinion(about_node)
         new = _clip((1.0 - self.cfg.alpha) * prev + self.cfg.alpha * s, self.cfg.r_min, 1.0)
