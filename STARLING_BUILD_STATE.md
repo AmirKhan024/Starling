@@ -112,9 +112,9 @@ Severity: **B** = blocks a contribution, **C** = correctness bug, **H** = hygien
 | **D-09** | **B** | ~~**No world coordinates.** Bounding boxes are pixels. No intrinsics, no extrinsics, no floor homography, no floor plan. C3, C4, and C2's plausibility check all require metric positions and have nothing to stand on.~~ | Whole repo | **FIXED** — `starling_geometry.calibration.CameraCalibration` (image_to_floor/floor_to_image/position_sigma) + `starling_geometry.navmesh.NavMesh` (GeoJSON → free-space grid + boundaries) + `starling_geometry.reachability.ReachabilityModel` (Appendix A.2 exactly); `apps/node.py` computes `world_pos`/`pos_sigma` from calibration when configured and warns loudly, never silently, when it isn't (WP-05) |
 | **D-10** | **C** | ~~**O(N) brute-force match per detection, reloading the whole table each time.** At 200 people × 25 fps × 4 cameras this reads and deserialises 200 blobs 100×/second. Will not run in real time; will hard-fail the "20 simulated nodes" scaling claim.~~ | `identity_store.py:148-165` | **FIXED** — `LocalStore.claims_since` (used by both `ClaimSet.delta_since` and WP-04's anti-entropy) is now a per-`node_id` range query against the `(node_id, seq)` index instead of a full-table scan; `resolver.resolve_incremental` additionally sweeps only a `resolve_window_s`-bounded window (an indexed `t_media` range query) during normal operation, with a full retention-window recompute only on `PARTITION_HEALED` (WP-06) |
 | **D-11** | **H** | ~~**`eval/metrics.py` does not exist** despite being documented. No metric has ever been computed from this codebase.~~ | `eval/` | **FIXED** — `starling_eval/metrics.py`: tracking (HOTA/MOTA/IDF1/IDSW via TrackEval), plus hand-computed-tested functions for C1/C2/C3/C4/C6/system metrics, and an extended-MOTChallenge ground-truth format (identity + per-node visibility columns) (WP-11) |
-| **D-12** | **H** | **`.gitignore` excludes the files Starling needs version-controlled**: `*.json`, `*.csv`, `*.xml`, `database/`. Your calibration YAMLs are fine but GeoJSON navmeshes, MOTChallenge ground truth, and scenario definitions would be silently untracked. Spec §7 explicitly requires these under version control. | `.gitignore` | WP-00 |
-| **D-13** | **H** | No config files (everything is CLI flags), no logging (bare `print`), no tests, no Docker, no type checking, no CI. None of this is optional once there are 4–20 processes gossiping. | Whole repo | WP-00 |
-| **D-14** | **C** | `save_crops=True` by default writes a JPEG **per detection per frame** to disk. On a 10-minute 4-camera run with 5 people that's ~180k files. Also a privacy problem you'd have to defend in the viva (spec §13). | `global_tracker.py:170-176` | WP-00 |
+| **D-12** | **H** | ~~**`.gitignore` excludes the files Starling needs version-controlled**: `*.json`, `*.csv`, `*.xml`, `database/`. Your calibration YAMLs are fine but GeoJSON navmeshes, MOTChallenge ground truth, and scenario definitions would be silently untracked. Spec §7 explicitly requires these under version control.~~ | `.gitignore` | **FIXED** `222180b` — blanket ignores removed; explicit negations added for `configs/**`, `scenarios/**`, `data/floorplan/**`, `data/gt/**` (node keypairs re-excluded separately, correctly — they're per-deployment secrets, never committed) (WP-00) |
+| **D-13** | **H** | ~~No config files (everything is CLI flags), no logging (bare `print`), no tests, no Docker, no type checking, no CI. None of this is optional once there are 4–20 processes gossiping.~~ | Whole repo | **FIXED, with one caveat** `222180b` (Pydantic config models + structlog), `3206f8d` (pytest/hypothesis scaffold), `84f6f03` (Dockerfile + docker-compose), `9eaf559` (`.github/workflows/ci.yml`: ruff + mypy + pytest on every push). **Caveat found this session (Part 5 audit):** `mypy` cannot even run in this environment as configured — `pyproject.toml`'s `python_version = "3.10"` combined with the installed numpy 2.5.2's stub file (which uses Python-3.12-only syntax) makes mypy 1.11.2 fail immediately with a syntax error, on ANY file, before checking a single line of this project's own code. Running with an explicit `--python-version 3.12` override (workaround, not a config change made this session) gets mypy running and surfaces **15 real, currently-unfixed type errors** in `starling_consensus/attacks.py`, `starling_consensus/aggregate.py`, and `starling_crdt/resolver.py` — CLAUDE.md's "mypy clean on starling_crdt and starling_consensus" is **not currently true**. The infrastructure this defect asked for all exists and runs in CI; whether CI's pinned Python 3.11 + its own numpy version hits the same stub-parsing wall is untested here (WP-00) |
+| **D-14** | **C** | ~~`save_crops=True` by default writes a JPEG **per detection per frame** to disk. On a 10-minute 4-camera run with 5 people that's ~180k files. Also a privacy problem you'd have to defend in the viva (spec §13).~~ | `global_tracker.py:170-176` | **FIXED** `222180b` — `apps/baseline.py`: `save_crops` now defaults to `False`; when enabled, at most one crop per `global_id` per `crop_interval_s` (default 10s) is written, not one per detection per frame. Documented as the one behavioural change CLAUDE.md's baseline-preservation rule permits. The new node path (`starling_perception/pipeline.py`) goes further and has no crop-saving code path at all — a crop is computed in memory for embedding/quality only and is never written to disk, `imwrite`d, or serialised anywhere (WP-00) |
 | **D-15** | **C** | ~~`promote_lost()` is called from every worker thread and from `run_live`'s loop, each acquiring the global lock; combined with per-detection matching under the same lock, throughput collapses as person count rises.~~ | `global_tracker.py:238-240, 380-384` | **FIXED (new node path)** `4d02404` — no cross-node locks exist any more by construction: one node = one camera = one process, so there is no other thread to contend with `LocalStore`'s lock. `apps/baseline.py` is unchanged (it still has this problem, deliberately — it's the centralized control condition the decentralized architecture is compared against) (WP-03) |
 
 ---
@@ -123,28 +123,51 @@ Severity: **B** = blocks a contribution, **C** = correctness bug, **H** = hygien
 
 Percentage-of-project is meaningless unless you define the denominator. This rubric is the denominator. Weights are assigned by *effort × contribution to the seven claims*, not by lines of code.
 
-| # | Area | Weight | V1 now | 60 % floor | 71 % stretch |
+| # | Area | Weight | Current | 60 % floor | 71 % stretch |
 |---|---|---:|---:|---:|---:|
-| A | Perception: detect, track, embed, benchmark | 10 | 7 | 9 | 10 |
-| B | Node runtime: process isolation, config, Docker | 8 | 1 | 7 | 8 |
-| C | Transport: gossip, anti-entropy, partition harness | 8 | 0 | 7 | 7 |
-| D | **C1** CRDT identity representation + merge | 15 | 11 | 11 | 12 |
-| E | **C2** Reputation, plausibility, Byzantine defense | 12 | 7 | 7 | 8 |
-| F | **C4** Coverage attestation + negative evidence | 12 | 6 | 6 | 8 |
-| G | **C3** Calibration, navmesh, reachability | 10 | 0 | 6 | 7 |
-| H | **C6** Topology learning | 5 | 0 | 3 | 4 |
-| I | **C5** Query layer | 6 | 1 | 1 | 2 |
+| A | Perception: detect, track, embed, benchmark | 10 | 6 | 9 | 10 |
+| B | Node runtime: process isolation, config, Docker | 8 | 6 | 7 | 8 |
+| C | Transport: gossip, anti-entropy, partition harness | 8 | 7 | 7 | 7 |
+| D | **C1** CRDT identity representation + merge | 15 | 12 | 11 | 12 |
+| E | **C2** Reputation, plausibility, Byzantine defense | 12 | 6 | 7 | 8 |
+| F | **C4** Coverage attestation + negative evidence | 12 | 8 | 6 | 8 |
+| G | **C3** Calibration, navmesh, reachability | 10 | 5 | 6 | 7 |
+| H | **C6** Topology learning | 5 | 4 | 3 | 4 |
+| I | **C5** Query layer | 6 | 2 | 1 | 2 |
 | J | **C7** Uniform-invariant ReID | 4 | 0 | 0 | 0 |
-| K | Evaluation harness, metrics, ground truth | 7 | 0 | 4 | 4 |
+| K | Evaluation harness, metrics, ground truth | 7 | 4 | 4 | 4 |
 | L | Demo + dashboard | 3 | 2 | 3 | 3 |
-| | **TOTAL** | **100** | **35** | **64** | **73** |
+| | **TOTAL** | **100** | **62** | **64** | **73** |
 
 **Read this carefully:** the floor column deliberately gives **zero** to C7 and **near-zero** to C5. That is correct and intentional. Spec §4 puts C7 first in the cut order and §15 warns explicitly against treating the query interface as the project. You reach 60 % by going *deep* on C1/C2/C4, not by touching all seven shallowly.
 
 **What you tell your professor at the checkpoint:**
-> "Sixty percent means the distributed core is real: identity is a genuinely replicated CRDT object, nodes are separate processes with no shared state, the network can be partitioned on demand and the system reconverges, a lying node is detected and down-weighted by its neighbours with no coordinator, and attested absence measurably shrinks the candidate region. It is demonstrated against the centralized baseline, which is the V1 system, and the failure-mode comparison is measured, not asserted."
+> "Sixty-two percent means the distributed core is real: identity is a genuinely replicated CRDT object, nodes are separate processes with no shared state, the network can be partitioned on demand and the system reconverges, a lying node's transit-time and plausibility behaviour is tracked and down-weighted by its neighbours with no coordinator, and attested absence measurably shrinks the candidate region. It is demonstrated against the centralized baseline, which is the V1 system. What is NOT yet true: the failure-mode comparison (the headline three-way experiment) has a working harness but has not actually been run, and the flagship Byzantine accuracy-vs-malicious-fraction curve is built but unmeasured. §3.1 and §16 show exactly which numbers exist and which don't."
 
-That sentence is defensible. "We added seven features partially" is not.
+That sentence is defensible because every clause in it maps to a specific test or measured file cited in §3.1/§16. "We added seven features partially" is not, and neither is claiming a number this document's own §16 can't back up.
+
+---
+
+## §3.1 How the §3 "Current" figure was computed
+
+Method: for every row, start from its own 60 % floor value (the number a previous session already judged as "this row's contribution is basically feature-complete against its own WP's acceptance criteria"), then move away from it only for a concrete, named reason — a specific unmet acceptance-criterion sentence (move down) or a specific measured result that clears the stretch bar (move up). No row is scored from vibes; every adjustment below cites the artifact that justifies it. This is deliberately mechanical so the number is auditable rather than asserted (this section exists so a professor's "how did you get 62 %?" has a one-line answer per row, not a shrug).
+
+| Row | Floor | Current | Delta | Why |
+|---|---:|---:|---:|---|
+| A. Perception | 9 | 6 | −3 | Code is complete and correct (selectable `osnet`/`pooled`/`v1_broken` backends, ROC threshold-sweep harness) but WP-01's own acceptance criterion — "a table in `docs/perception_baseline.md` with Rank-1/mAP for old vs. new embedder" — is **entirely unmet**: every cell in that table still reads `TBD`. `match.threshold_source` is still `"UNCALIBRATED-GUESS"`. A perception row cannot score near its floor while its one empirical deliverable doesn't exist. |
+| B. Node runtime | 7 | 6 | −1 | `apps/node.py`, ULID ids, per-node `LocalStore`, and `docker-compose.yml`'s structural isolation (`tests/test_docker_compose.py`) are all done. But WP-03's own acceptance sentence — "`docker compose up` starts 4 nodes; `docker stop node-2` leaves the other three running" — has never once been observed in any session; only the YAML's static structure has been checked. |
+| C. Transport | 7 | 7 | 0 | At floor. Gossip, anti-entropy, ed25519 signing, and byte accounting are tested against REAL loopback sockets (not mocked) with a live 4-node ring exchange, matching WP-04's own acceptance criteria exactly. The one gap (real iptables/netem partition enforcement inside containers) was always WP-11's job to exercise, not WP-04's. |
+| D. C1 CRDT ⭐ | 11 | 12 | +1 | Every literal WP-06 acceptance sentence has a passing test behind it: 1000-case hypothesis convergence properties, partition→reconnect→byte-identical `Assignment`s with a measured reconverge time (2 anti-entropy rounds, <1ms wall-clock, `docs/results_c1.md`), a fork that stays open when both branches are reachable, and one that auto-resolves with a named implied speed when only one is. This is the most completely delivered contribution against its own written bar. |
+| E. C2 Byzantine ⭐ | 7 | 6 | −1 | Threat model, plausibility (4 weighted checks), reputation (EWMA + recovery floor + this session's topology-shift weak signal), and 4 aggregation methods (incl. Krum) are all implemented and unit-tested. But WP-10's flagship, explicitly-required deliverable — "the accuracy-vs-f/n curve exists for all three attack classes… report where the scheme breaks" — is **100 % unmeasured**: `docs/results_c2.md` is a scaffold of `TBD`s, by this session's own predecessor's explicit choice not to run the long sweep. A 12-point row whose core empirical claim is entirely absent cannot sit at its floor. |
+| F. C4 ⭐ flagship | 6 | 8 | +2 | Hits stretch. `scripts/run_deadzone_experiment.py` actually ran and produced real numbers: 56.8 % region reduction, a prominently-reported 41.2 % false exclusion rate, 87.5 % attestation accuracy, and an 11-point `tau_attest` trade-off curve with plots (`docs/results_c4.md`, `docs/c4_area_over_time.png`, `docs/c4_tau_sweep.png`). This is the only contribution with both a complete mechanism AND a measured trade-off curve. |
+| G. C3 | 6 | 5 | −1 | WP-05's calibration/navmesh/reachability foundation is solid and hand-tested (only the real 10 m walk validation is outstanding — a physical-camera task, not a code gap). But WP-08 — reachability wired as an *ablatable* gate (`gate: {none\|time_prior\|reachability}`) with the accuracy-vs-gap-duration plot spec calls "one of your strongest figures" — is **not started**: the resolver's reachability gate exists but is hardcoded, not a three-way ablation, and no gap-duration curve exists anywhere in the repo. |
+| H. C6 (this session) | 3 | 4 | +1 | Hits stretch. `starling_topology.learner.TopologyLearner` is built and evaluated for real: GED = 0 against `data/gt/topology.json` before a simulated camera move, a measured 111.0 s re-convergence time for the new corridor edges after the move, and an honestly-stated limitation (no edge-decay yet, so GED after the move is 2, not 0) — `docs/results_c6.md`. The weak-signal wiring into `ReputationTable` is unit-tested including the "clamped, never dominant" property. |
+| I. C5 (this session) | 1 | 2 | +1 | Hits stretch — deliberately capped low by design, not under-delivered. Capability tokens (purpose/area/time-window, `productivity` structurally rejected), the CLI, and all 39 entries in `data/gt/unanswerable_queries.json` verified refused (`tests/test_query.py`, 14/14 passing) meet WP-14's own "skeleton only" bar exactly — going further would violate this session's own rule 1. |
+| J. C7 | 0 | 0 | 0 | Not implemented. Correct — first in the cut order, zero weight in the 60 % target, and CLAUDE.md forbids implementing it. |
+| K. Eval harness | 4 | 4 | 0 | At floor. Ground truth format, `starling_eval/metrics.py` (with a real TrackEval bridge), and the scenario runner's `--local` path are all real and tested. This session adds `scripts/run_headline.py` (verified with `--dry-run` only, per its own explicit rule not to execute it) — a real addition, but it doesn't move this row above floor because the harness still cannot produce IDF1/MOTA/HOTA/fork-rate/candidate-region numbers from a live run; only system-level bytes/wall-clock are wired end-to-end. |
+| L. Demo + dashboard | 3 | 2 | −1 | The dashboard itself is done and verified this session: zero database access (`tests/test_dashboard_observer.py` greps for it), a live Streamlit boot smoke-tested with no runtime errors, the candidate-belief heatmap, forks panel, and a "make node N lie" control wired to each node's control endpoint. But §11's own checklist item "demo segments 1–5 rehearsed ≥10 times" is explicitly still undone (listed under "What I do after this session" as the user's own follow-up, not attempted here), and this row is named "Demo **+ dashboard**", not "dashboard" alone. |
+
+**Total: 62/100.** Above the 60 % floor, comfortably above the 55 % stop-condition this session was told to check for, and below the 73 % stretch. Every row's number traces to either a specific passing test, a specific measured `docs/results_*.md` file, or a specific named gap — not a round-number adjustment to hit a target.
 
 ---
 
@@ -737,24 +760,24 @@ Update this as you go. The rubric in §3 is derived from these.
 - [x] WP-09 Region reduction, **false exclusion rate**, attestation accuracy reported — `scripts/run_deadzone_experiment.py` → `docs/results_c4.md`, incl. the `tau_attest` trade-off curve
 
 ### C3 / C6 / C5 / support
-- [ ] WP-08 Reachability as a hard gate in the resolver, with ablation switch
+- [ ] WP-08 Reachability as a hard gate in the resolver, with ablation switch — the resolver already hard-gates on reachability (`starling_crdt/resolver.py::_gate_pass`) but as fixed behaviour, not the `{none|time_prior|reachability}` ablation switch WP-08 asks for
 - [ ] WP-08 Accuracy vs. gap-duration plot (3 curves)
-- [ ] WP-07 Topology learning + GED vs. ground truth
+- [x] WP-07 Topology learning + GED vs. ground truth — `starling_topology/learner.py::TopologyLearner` (online log-normal fit, edge-existence rule verified numerically to separate from a uniform null, `detect_shift` wired into `ReputationTable.penalise_topology_shift` as a capped weak signal); `scripts/evaluate_topology.py` measured GED=0 vs. `data/gt/topology.json` before a simulated camera move, 111.0s re-convergence after — `docs/results_c6.md`, incl. the honestly-stated no-edge-decay limitation
 - [ ] WP-12 Chokepoint face anchoring (SCRFD + AdaFace)
 - [ ] WP-12 Confidence decay model, plotted
 - [ ] WP-12 Protected biometric templates
-- [ ] WP-14 Query CLI with structured, uncertainty-annotated output
-- [ ] WP-14 Unanswerable-query benchmark (≥30 entries)
-- [ ] WP-14 Capability token stub
+- [x] WP-14 Query CLI with structured, uncertainty-annotated output — `starling_query/cli.py` + `answer.py`; template separates confirmed/inferred, names unreachable nodes, reports "N of M nodes responded"
+- [x] WP-14 Unanswerable-query benchmark (≥30 entries) — `data/gt/unanswerable_queries.json`, 39 entries across 5 refusal categories, every one verified refused in `tests/test_query.py`
+- [x] WP-14 Capability token stub — `starling_query/capability.py`; `productivity` purpose structurally rejected, not just policy
 
 ### Evaluation & demo
 - [x] WP-11 Ground truth in extended MOTChallenge format — `ExtendedGTRow`/`write_extended_mot_gt`/`read_extended_mot_gt`
 - [x] WP-11 `starling_eval/metrics.py` exists (fixes D-11) with TrackEval bridge
 - [x] WP-11 Scenario runner, one command, W&B logging — `--local` verified end to end (real subprocess nodes, results.json/results.md/timeline.jsonl written); Docker mode and `--compare baseline` implemented but not exercised this session; W&B push is a no-op unless `WANDB_API_KEY` is set, never fails the run
-- [ ] WP-11 **Headline three-way experiment** run: baseline / healthy / partitioned+Byzantine — needs WP-06 (CRDT) and WP-10 (Byzantine) first; out of scope for this session
-- [ ] WP-13 Dashboard as read-only gossip observer
-- [ ] WP-13 Candidate-region heatmap
-- [ ] WP-13 "Make node N lie" button
+- [ ] WP-11 **Headline three-way experiment** run: baseline / healthy / partitioned+Byzantine — `scenarios/headline.yaml` + `scripts/run_headline.py` now exist and reuse `starling_eval.runner`'s existing arm-running functions; verified with `--dry-run` only (lists all 3 arms, 15 at `--repeat 5`) per this session's own rule not to execute it — `docs/results_headline.md` is a scaffold, the real run is still the user's follow-up
+- [x] WP-13 Dashboard as read-only gossip observer — `apps/dashboard/observer.py::GossipObserver`; `tests/test_dashboard_observer.py` greps for any sqlite3/`LocalStore` connection to a real database and any `data/nodes/` reference, both absent
+- [x] WP-13 Candidate-region heatmap — floor-plan tab renders `NavMesh.render(mask=...)` over each unlocated identity's live `CandidateBelief`, stepped and attestation-fed on every rerun
+- [x] WP-13 "Make node N lie" button — Controls tab POSTs to each node's own `starling_consensus.attacks.ControlServer`; required `AttackConfig.control_bind_host` (new this session) so the dashboard's container can actually reach a node's control port across Docker's per-container loopback namespaces
 - [ ] Demo segments 1–5 rehearsed ≥10 times
 
 ### Compliance
@@ -850,6 +873,87 @@ Budget these into weeks 1–4 (spec §14 allocates three weeks; it is not paddin
 - Blanchard, El Mhamdi, Guerraoui, Stainer — *Krum* (NIPS 2017). Byzantine-robust aggregation; the ideas transfer from gradients to position claims.
 - Yin et al. — *Byzantine-Robust Distributed Learning: trimmed mean / median* (ICML 2018).
 - Coko-SLAM (2026) and MAGS-SLAM (2026), from the spec's §1.2 post-mortem — read them to be able to state precisely why Starling is not in their space when a reviewer asks.
+
+---
+
+## §16. Measured results to date
+
+Every number below is copied from a file this repo actually produced (`docs/results_*.md`, `docs/perception_baseline.md`) or from a test/tool run performed during this session. **Anything not measured says so** — STARLING_BUILD_STATE.md §12 rule 9 applies to this document itself, and it applied to writing this section: nothing here is estimated, interpolated, or backfilled from what a number "should" look like.
+
+### C1 — CRDT identity (`docs/results_c1.md`)
+
+Measured from `tests/test_partition_integration.py`'s synthetic claim-stream scenario (4 in-process nodes; no real video — `data/videos/` is empty, so `scenarios/east_wing_drop.yaml` itself has never been run for real):
+
+| Metric | Value |
+|---|---|
+| Claims per replica after heal | 16 |
+| Anti-entropy rounds to reconverge after heal | 2 |
+| Wall-clock time to reconverge after heal | < 1 ms (in-process `AntiEntropy` calls, not real network RTT) |
+| Post-heal replica state | byte-identical across all 4 replicas (claim_id sets **and** `Assignment`s) |
+| Unresolved fork rate, deliberately-ambiguous scenario | 100 % (1/1) |
+| Unresolved fork rate, one-branch-impossible scenario | 0 % (0/1) — auto-resolved via `RESOLVED_REACHABILITY` |
+
+### C2 — Byzantine robustness (`docs/results_c2.md`)
+
+**Not yet measured.** `scripts/run_byzantine_sweep.py --dry-run` confirms the full planned matrix (880 runs at `--repeat 5`: `f/n` grid × 4 attack classes × 4 aggregation methods), but the sweep itself has never been executed in any session. Every cell in `docs/results_c2.md` reads `TBD`, including the required "where the scheme breaks" statement.
+
+### C4 — Negative evidence (`docs/results_c4.md`)
+
+Measured from `scripts/run_deadzone_experiment.py` (a scripted ground-truth trajectory through `data/floorplan/demo_site.geojson`'s 3 m dead zone, not real video) at `tau_attest = 0.7`:
+
+| Metric | Value |
+|---|---|
+| Candidate region area, positive evidence only | 74.00 m² |
+| Candidate region area, with negative evidence | 32.00 m² |
+| Region reduction | 56.8 % |
+| **False exclusion rate (safety-critical)** | **41.2 %** |
+| Attestation accuracy | 87.5 % (8 admitted) |
+
+Plus an 11-point `tau_attest` sweep (`docs/c4_tau_sweep.png`) showing the region-reduction/false-exclusion trade-off, and a time series of candidate-region area over the crossing (`docs/c4_area_over_time.png`).
+
+### C6 — Topology learning (`docs/results_c6.md`, this session)
+
+Measured from `scripts/evaluate_topology.py` against `data/gt/topology.json`'s hand-labelled ring topology (synthetic handoffs, not real video):
+
+| Metric | Value |
+|---|---|
+| Graph edit distance before a simulated camera move | 0 |
+| Graph edit distance after the move (150 rounds of new-topology handoffs) | 2 — honestly attributed to a stated limitation (no edge-decay yet), not hidden |
+| Time for the new corridor edges to qualify after the move | 111.0 s |
+
+### C5 — Query layer (this session)
+
+Not a `docs/results_*.md` file (WP-14 is deliberately a minimal skeleton), but a real measured pass/fail count: **39/39** entries in `data/gt/unanswerable_queries.json` are correctly refused by `starling_query.answer.answer_query`, verified in `tests/test_query.py` (14 tests, all passing), across all 5 refusal categories (never enrolled, before the retention horizon, no coverage/attestation for the region, subject only observed by a partitioned node, fusion required across an open fork).
+
+### Perception benchmark (`docs/perception_baseline.md`)
+
+**Not yet measured.** Every Rank-1/Rank-5/mAP cell for every backend (`v1_broken`, `pooled`, `osnet`) reads `TBD` — the benchmark harness (`starling_eval.reid_benchmark`) exists and is ready; it has never been pointed at a real Market-1501 download in any session.
+
+### Headline three-way experiment (`docs/results_headline.md`, this session)
+
+**Not yet measured**, per this session's own explicit rule not to execute it. `python scripts/run_headline.py --dry-run` lists all 3 arms (15 at `--repeat 5`); `scenarios/headline.yaml` parses correctly with its partition/lie/heal events in the right order (verified in `tests/test_run_headline.py`). Arm 1's system columns are structurally `n/a` (no CRDT/partition/fork/candidate-region concepts apply to a centralized system) or a structural `0` (no gossip bytes, by construction — not a favourable measurement).
+
+### Repo health (this session, Part 5's own verification pass)
+
+| Check | Result |
+|---|---|
+| `pytest -q -m "not integration"` | **253 passed**, 4 deselected |
+| `ruff check .` | clean |
+| `mypy packages/starling_crdt packages/starling_consensus` | **cannot run as configured** — see D-13. With a `--python-version 3.12` override (workaround, not a committed config change): **15 type errors**, in `starling_consensus/attacks.py`, `starling_consensus/aggregate.py`, and `starling_crdt/resolver.py`. CLAUDE.md's "mypy clean on starling_crdt and starling_consensus" rule is **currently violated** |
+| `docker compose up` (real multi-container run) | never executed in any session; only `docker compose config`-equivalent structural YAML checks (`tests/test_docker_compose.py`) |
+| Live Streamlit boot of `apps/dashboard/app.py` | verified this session — starts clean, serves HTTP 200, no runtime traceback from this project's own code (only pre-existing, unrelated numpy 2.x/numexpr/bottleneck import warnings from this environment's package versions) |
+
+---
+
+## Changelog
+
+### 2026-09-17 — Prompt 9 of 9
+
+- **C6 (WP-07):** `starling_topology.learner.TopologyLearner` — online log-normal transit-time fits, a numerically-verified edge-existence rule, `detect_shift` wired into `ReputationTable` as a hard-capped weak signal. `scripts/evaluate_topology.py` + `data/gt/topology.json` produced real GED and re-convergence numbers (`docs/results_c6.md`).
+- **Dashboard V2 (WP-13):** `apps/dashboard/observer.py::GossipObserver` (passive, SUB-only, zero database access — enforced by a grep test) replaces the V1 `IdentityStore`-backed dashboard. `apps/dashboard/app.py` rewritten on top of it: floor plan with a live candidate-belief heatmap, per-node health, an open-forks panel with no resolve-by-score button, network byte accounting, and a working "make node N lie" control. Required adding `AttackConfig.control_bind_host` so the control endpoint is reachable across Docker's per-container loopback namespaces.
+- **C5 query CLI (WP-14):** `packages/starling_query` (capability tokens with structural `productivity`-purpose rejection, pure refusal-aware answer logic, a template-rendered CLI — no LLM). `data/gt/unanswerable_queries.json` (39 entries, 5 categories), all verified refused.
+- **Headline experiment (WP-11 Part 4):** `scenarios/headline.yaml` + `scripts/run_headline.py`, reusing `starling_eval.runner`'s existing arm-running functions. Verified with `--dry-run` only, per this session's own rule.
+- **Build-state honesty pass (Part 5):** walked every WP-00..WP-14 acceptance criterion against actual tests/artifacts (not assumed); recomputed §3's rubric with a fully-auditable §3.1; marked D-12/D-13/D-14 in §2 (D-13 FIXED-with-caveat: a newly-discovered mypy environment/config problem that, once worked around, surfaces 15 pre-existing, unfixed type errors — not fixed this session, out of this session's own scope); added this §16 with every real number this project has produced so far, and marked everything else "not yet measured" rather than estimated. Result: **62/100**, above the 60 % floor and the 55 % stop-condition, below the 71 % stretch.
 
 ---
 
