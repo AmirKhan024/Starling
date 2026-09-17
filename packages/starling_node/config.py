@@ -142,6 +142,69 @@ class NegativeEvidenceConfig(BaseModel):
     min_omission_corroborators: int = 2  # detect_omission: distinct corroborating nodes required
 
 
+class PlausibilityConfig(BaseModel):
+    """WP-10 Part 2 (C2): `starling_consensus.plausibility.check` thresholds.
+
+    Mirrors `NegativeEvidenceConfig.v_max_m_s` / `AttestConfig.tau_attest`'s
+    own precedent of a small, deliberate duplication across config models
+    rather than a cross-package import — `starling_consensus` stays
+    self-sufficient and independently testable.
+    """
+
+    v_max_m_s: float = 1.6  # matches starling_geometry.reachability.DEFAULT_V_MAX_M_S
+    # Corroboration position-match tolerance, added to the claim's own
+    # pos_sigma — how far apart two nodes' reported positions may be and
+    # still count as "the same person", not a contradiction.
+    pos_sigma_m: float = 0.3
+    corroboration_pass_threshold: float = 0.5
+    # HLC vs. admitting-node "now": a claim older than this when it
+    # actually arrives is a replay candidate (Appendix A.5 / docs/threat_model.md).
+    # TBD-drift note in docs/threat_model.md §1 applies here too — this is
+    # an engineering default, not yet informed by a measured clock offset.
+    replay_window_s: float = 10.0
+    # The three graded checks' weights in the overall score. Reachability
+    # is never weighted in — it is a hard fail, handled separately.
+    kinematics_weight: float = 0.34
+    corroboration_weight: float = 0.33
+    freshness_weight: float = 0.33
+    # Overall graded score floor for PlausibilityResult.passed (the s_ij in
+    # Appendix A.5 that reputation.py's EWMA update consumes).
+    pass_score_threshold: float = 0.5
+
+
+class ReputationConfig(BaseModel):
+    """WP-10 Part 2 (C2) / Appendix A.5: `starling_consensus.reputation.ReputationTable`."""
+
+    alpha: float = 0.05
+    r_min: float = 0.05  # floor, never 0 — a repaired node can recover (see reputation.py)
+    r_initial: float = 1.0  # a node with no observations yet is trusted, not suspected
+
+
+class AttackConfig(BaseModel):
+    """WP-10 Part 3 (C2): `starling_consensus.attacks.AttackInjector` defaults
+    and the node's runtime control endpoint (demo/eval only).
+    """
+
+    attack: str = "none"  # none | fabricate | suppress | replay | mixed
+    intensity: float = 0.0
+    replay_age_s: float = 30.0  # how far back a replayed claim's embedded HLC is dated
+    # apps/node.py's control HTTP endpoint (listen_port + 1000), bound to
+    # 127.0.0.1 only — the "Make node N lie" demo button / scenario runner
+    # hook. Demo-only; never expose beyond localhost (see attacks.py docstring).
+    enable_control_endpoint: bool = True
+
+
+class AggregateConfig(BaseModel):
+    """WP-10 Part 4 (C2): `starling_consensus.aggregate.aggregate_position`."""
+
+    trimmed_beta: float = 0.2  # fraction discarded from EACH end by trimmed_mean
+    # Krum's "n - f - 2 nearest neighbours" — f is the assumed max number
+    # of Byzantine claims among the candidates passed to aggregate_position
+    # in a single call, an aggregation-time parameter, not a global system
+    # constant (a real deployment does not know the true f in advance).
+    krum_f: int = 1
+
+
 class NodeConfig(BaseModel):
     node_id: int
     name: str
@@ -163,6 +226,10 @@ class NodeConfig(BaseModel):
     coverage: CoverageConfig = Field(default_factory=CoverageConfig)
     attest: AttestConfig = Field(default_factory=AttestConfig)
     negative_evidence: NegativeEvidenceConfig = Field(default_factory=NegativeEvidenceConfig)
+    plausibility: PlausibilityConfig = Field(default_factory=PlausibilityConfig)
+    reputation: ReputationConfig = Field(default_factory=ReputationConfig)
+    attack: AttackConfig = Field(default_factory=AttackConfig)
+    aggregate: AggregateConfig = Field(default_factory=AggregateConfig)
 
     @staticmethod
     def write_template(path: Path, node_id: int) -> None:
@@ -258,6 +325,31 @@ negative_evidence:
   eps: 1.0e-6
   likelihood_sigma_m: 1.0
   min_omission_corroborators: 2
+
+plausibility:
+  v_max_m_s: 1.6
+  pos_sigma_m: 0.3                # corroboration position-match tolerance (WP-10)
+  corroboration_pass_threshold: 0.5
+  replay_window_s: 10.0           # TBD-drift note: docs/threat_model.md §1
+  kinematics_weight: 0.34
+  corroboration_weight: 0.33
+  freshness_weight: 0.33
+  pass_score_threshold: 0.5
+
+reputation:
+  alpha: 0.05                     # EWMA update rate (Appendix A.5)
+  r_min: 0.05                     # floor — never 0, so a repaired node can recover
+  r_initial: 1.0
+
+attack:
+  attack: "none"                  # none | fabricate | suppress | replay | mixed (WP-10)
+  intensity: 0.0
+  replay_age_s: 30.0
+  enable_control_endpoint: true   # demo-only HTTP control on listen_port+1000, localhost only
+
+aggregate:
+  trimmed_beta: 0.2               # fraction discarded from EACH end by trimmed_mean
+  krum_f: 1                       # assumed max Byzantine claims per aggregate_position() call
 """
         path.write_text(template, encoding="utf-8")
 
