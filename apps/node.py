@@ -188,7 +188,9 @@ def run(
     )
     control_server: Optional[ControlServer] = None
     if cfg.attack.enable_control_endpoint:
-        control_server = ControlServer(injector, port=cfg.net.listen_port + 1000)
+        control_server = ControlServer(
+            injector, port=cfg.net.listen_port + 1000, host=cfg.attack.control_bind_host
+        )
         control_server.start()
 
     # WP-09 Part 2: an attesting node needs calibration, a navmesh, and a

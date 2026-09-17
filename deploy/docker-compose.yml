@@ -8,10 +8,14 @@
 # silently let every node see every other node's SQLite replica, which
 # destroys the architectural claim without any code change ever showing it.
 #
-# `dashboard` is still the V1 legacy Streamlit viewer (WP-13 rebuilds it as
-# a read-only gossip observer). It watches ONLY the frozen baseline's
-# centralized database/ directory and — same rule — is never given a
-# data/nodes/ mount at all.
+# `dashboard` (WP-13) is a read-only gossip observer, not a database
+# reader: it mounts NO database and NO data/nodes/ directory at all. It
+# only needs configs/ (its own peer list + the shared, non-secret enrolled
+# public keys) and the shared floor plan under data/floorplan/ — both
+# already read-only-mounted into every node container too, so this grants
+# the dashboard no privilege a node doesn't already have. It reaches every
+# node's gossip PUB port and control endpoint over the shared starling-net
+# bridge network by container hostname (see configs/dashboard.yaml).
 
 x-node-image: &node-image
   build:
@@ -89,11 +93,12 @@ services:
     container_name: starling-dashboard
     command: ["streamlit", "run", "apps/dashboard/app.py", "--server.address=0.0.0.0"]
     environment:
-      REID_DB_PATH: /app/database/identities.db
+      STARLING_DASHBOARD_CONFIG: /app/configs/dashboard.yaml
     ports:
       - "8501:8501"
     volumes:
-      - ../database:/app/database
+      - ../configs:/app/configs:ro
+      - ../data/floorplan:/app/data/floorplan:ro
     networks:
       starling-net:
         ipv4_address: 172.28.0.20

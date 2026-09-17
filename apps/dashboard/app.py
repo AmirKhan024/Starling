@@ -1,686 +1,521 @@
-import sys
+"""apps/dashboard/app.py
+-------------------------
+Starling dashboard V2 (WP-13): a READ-ONLY gossip observer, not a database
+reader. CLAUDE.md rule 8 / STARLING_BUILD_STATE.md stop condition: this
+file must never gain sqlite3 access to a node's database or read any
+node's own per-node data directory. Everything shown here is derived, live, from
+`apps.dashboard.observer.GossipObserver` — the exact claims, attestations,
+and reputation opinions a passive peer in the dashboard's position would
+have seen, nothing more (`tests/test_dashboard_observer.py` greps this
+directory to enforce it).
+
+V1's Lost Registry / Search / Person Detail / event-timeline UX
+(STARLING_BUILD_STATE.md §9: "the largest reusable asset in the repo") is
+kept as a set of CONCEPTS, not literal code: V1's version was built
+entirely on per-sighting crops and a shared `IdentityStore` schema that
+cannot exist in a gossip-only world (CLAUDE.md rule 3: raw video/frames/
+crops never cross the wire, so there is nothing here to show a crop
+image). The re-interpretation: "person" -> the resolver's derived
+`identity_ref`; "sightings" -> that identity's claim trajectory; "lost" ->
+no claim newer than `cfg.lost_threshold_s`, with a live candidate-belief
+region taking the place of a static "last known camera" field; "resolve /
+reactivate / note" -> kept as ephemeral, per-viewer UI conveniences
+(`st.session_state`), never persisted anywhere shared (this process owns
+nothing -- CLAUDE.md rule 8).
+
+Ambiguous-choice note (CLAUDE.md: take the first reasonable option,
+comment, continue): the Floor Plan panel's "camera FOV polygons" are not
+representable from gossip alone -- a node's ROI polygon is its own local
+config, never gossiped (`CoverageAttestation` carries only boundary
+`region_ids`, not the polygon). Rather than have the dashboard read
+another process's config file to reconstruct it, the floor plan instead
+shows WHICH boundary ids each node is currently attesting healthy
+coverage of -- a strictly gossip-derived proxy for "what this node
+claims to be watching."
+"""
+
+from __future__ import annotations
+
 import os
+import sys
+from pathlib import Path
+from typing import Optional
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-import time
-import json
 import pandas as pd
+import requests
 import streamlit as st
-from pathlib import Path
-from datetime import datetime, timedelta
-from PIL import Image
 
-from starling_store.identity_store import IdentityStore
+from dashboard.config import DashboardConfig, load_dashboard_config
+from dashboard.observer import GossipObserver
 
-# ── Page config ──────────────────────────────────────────────────────────────
+from starling_attest.negative_evidence import CandidateBelief
+from starling_crdt.resolver import Assignment, resolve
+from starling_geometry.navmesh import NavMesh
+from starling_geometry.reachability import ReachabilityModel
+from starling_node.config import MatchConfig, NegativeEvidenceConfig
+from starling_proto.generated import starling_pb2
+
+# ── Page config ──────────────────────────────────────────────────────────
 st.set_page_config(
-    page_title="Multi-Cam ReID  |  Operator",
-    page_icon="🎯",
+    page_title="Starling  |  Gossip Observer",
+    page_icon="🐦",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
-st.markdown("""
-<style>
-.reappear-box {
-    background: #1a4731;
-    border-left: 4px solid #48bb78;
-    padding: 10px 16px;
-    border-radius: 4px;
-    margin: 6px 0;
-}
-.lost-box {
-    background: #3d1515;
-    border-left: 4px solid #fc8181;
-    padding: 10px 16px;
-    border-radius: 4px;
-    margin: 6px 0;
-}
-/* Stop Streamlit's own spinner from flickering on fragment reruns */
-div[data-testid="stSpinner"] { display: none !important; }
-</style>
-""", unsafe_allow_html=True)
+CONFIG_PATH = Path(os.environ.get("STARLING_DASHBOARD_CONFIG", "configs/dashboard.local.yaml"))
+# Literally never incremented anywhere in this codebase -- there is no
+# code path that could put frame/crop bytes into a gossip message
+# (starling_proto.limits.assert_wire_safe rejects any oversized `bytes`
+# field before a claim/attestation is ever sent). Shown, not asserted.
+RAW_VIDEO_BYTES = 0
 
 
-# ── Shared helpers ────────────────────────────────────────────────────────────
+# ── Cached resources (created once per Streamlit session process) ────────
 
-DB_PATH = os.environ.get("REID_DB_PATH", "database/identities.db")
+@st.cache_resource
+def get_config() -> DashboardConfig:
+    return load_dashboard_config(CONFIG_PATH)
 
 
 @st.cache_resource
-def get_store() -> IdentityStore:
-    """Single shared store instance — created once, lives for the session."""
-    return IdentityStore(
-        db_path=DB_PATH,
-        lost_threshold_secs=float(os.environ.get("REID_LOST_THRESHOLD", "120")),
-        similarity_threshold=float(os.environ.get("REID_SIM_THRESHOLD", "0.60")),
+def get_observer() -> GossipObserver:
+    cfg = get_config()
+    observer = GossipObserver(peers=cfg.peers, keys_dir=Path(cfg.keys_dir))
+    observer.start()
+    return observer
+
+
+@st.cache_resource
+def get_navmesh() -> Optional[NavMesh]:
+    cfg = get_config()
+    if not cfg.navmesh_path:
+        return None
+    path = Path(cfg.navmesh_path)
+    if not path.exists():
+        return None
+    return NavMesh.from_geojson(path, cell_size_m=cfg.geometry.cell_size_m)
+
+
+@st.cache_resource
+def get_reachability() -> Optional[ReachabilityModel]:
+    navmesh = get_navmesh()
+    return ReachabilityModel(navmesh) if navmesh is not None else None
+
+
+# ── Helpers ────────────────────────────────────────────────────────────
+
+def fmt_dt(seconds: float) -> str:
+    if seconds < 60:
+        return f"{seconds:.0f}s"
+    if seconds < 3600:
+        return f"{seconds / 60:.1f}m"
+    return f"{seconds / 3600:.1f}h"
+
+
+def latest_t_media(observer: GossipObserver) -> float:
+    """The dashboard's own reference "now" -- the newest media timestamp
+    it has actually seen, never `time.time()` (this is the identity path:
+    CLAUDE.md's "no wall-clock reads" applies to reasoning about WHEN a
+    claim happened, not to this process's own liveness bookkeeping, which
+    legitimately uses monotonic wall time in `observer.liveness()`).
+    """
+    claims = observer.claims.ordered()
+    return max((c["t_media"] for c in claims), default=0.0)
+
+
+def compute_assignment(observer: GossipObserver, reachability: Optional[ReachabilityModel]) -> tuple[Assignment, object]:
+    cfg = get_config()
+    reputation_snapshot = {node_id: observer.reputation.aggregate(node_id) for node_id in cfg.peers}
+    return resolve(observer.claims, reachability, reputation_snapshot, topology=None, cfg=MatchConfig())
+
+
+def latest_attestation_by_node(observer: GossipObserver) -> dict[int, "starling_pb2.CoverageAttestation"]:
+    latest: dict[int, starling_pb2.CoverageAttestation] = {}
+    for att in observer.attestations:
+        latest[att.node_id] = att  # append order -> last write wins -> most recent
+    return latest
+
+
+def status_badge(online: bool) -> str:
+    return "🟢 ONLINE" if online else "🔴 PARTITIONED"
+
+
+# ── Sidebar ───────────────────────────────────────────────────────────────
+
+cfg = get_config()
+observer = get_observer()
+navmesh = get_navmesh()
+reachability = get_reachability()
+
+with st.sidebar:
+    st.title("🐦 Starling")
+    st.caption("Read-only gossip observer — no database, no privileged view.")
+    st.markdown("---")
+
+    if st.button("🔄 Refresh", use_container_width=True, type="primary"):
+        st.rerun()
+
+    now_t_media = latest_t_media(observer)
+    liveness = observer.liveness(stale_after_s=cfg.stale_after_s)
+    online_count = sum(1 for v in liveness.values() if v)
+    st.metric("Nodes online", f"{online_count} / {len(cfg.peers)}")
+
+    coverage = observer.coverage_completeness(cfg.stale_after_s)
+    if coverage < 1.0:
+        st.warning(
+            f"This view is INCOMPLETE: {len(cfg.peers) - online_count} of "
+            f"{len(cfg.peers)} nodes unreachable from here. Showing what is "
+            "known, not presenting it as the whole picture."
+        )
+
+    assignment, forks = compute_assignment(observer, reachability)
+    open_forks = forks.open_forks() if hasattr(forks, "open_forks") else []
+    st.metric("Identities tracked", len(assignment.trajectories))
+    st.metric("Open forks", len(open_forks))
+
+    total_bytes = sum(v.get("recv_bytes", 0) for k, v in observer.stats().items() if not k.startswith("_"))
+    st.metric("Gossip bytes seen", f"{total_bytes:,}")
+    st.caption(f"raw video bytes: {RAW_VIDEO_BYTES}")
+    st.caption(f"Config: `{CONFIG_PATH}`")
+
+
+# ── Tabs ──────────────────────────────────────────────────────────────────
+
+tab_floor, tab_health, tab_forks, tab_network, tab_lost, tab_search, tab_detail, tab_controls = st.tabs([
+    "🗺️ Floor Plan",
+    "🩺 Node Health",
+    "🔀 Forks",
+    "📡 Network",
+    "🔴 Unlocated",
+    "🔍 Search",
+    "👤 Identity Detail",
+    "🎛️ Controls",
+])
+
+claims_by_id = {c["claim_id"]: c for c in observer.claims.ordered()}
+
+
+def _last_claim_of(identity_ref: str) -> Optional[dict]:
+    claim_ids = assignment.trajectories.get(identity_ref, [])
+    for cid in reversed(claim_ids):
+        record = claims_by_id.get(cid)
+        if record is not None:
+            return record
+    return None
+
+
+# Shared across tabs: which identities count as "unlocated" (no navmesh
+# needed for this part — only the Floor Plan tab's belief RENDERING does).
+unlocated_refs: list[tuple[str, dict, float]] = []
+for _ref in sorted(assignment.trajectories):
+    _last = _last_claim_of(_ref)
+    if _last is None:
+        continue
+    _age = now_t_media - _last["t_media"]
+    if _age >= cfg.lost_threshold_s:
+        unlocated_refs.append((_ref, _last, _age))
+
+latest_att = latest_attestation_by_node(observer)
+
+
+# ══════════════════════════════════════════════════════════════════════
+# FLOOR PLAN (main view)
+# ══════════════════════════════════════════════════════════════════════
+
+with tab_floor:
+    if navmesh is None:
+        st.info("No navmesh configured (`dashboard.navmesh_path`) — floor plan unavailable.")
+    else:
+        st.subheader("Candidate belief region — unlocated identities")
+
+        beliefs: dict[str, dict] = st.session_state.setdefault("beliefs", {})
+        ne_cfg = NegativeEvidenceConfig()
+
+        # Drop beliefs for identities that are no longer unlocated (found again).
+        for ref in list(beliefs.keys()):
+            if ref not in {r for r, _, _ in unlocated_refs}:
+                del beliefs[ref]
+
+        for ref, last, age in unlocated_refs:
+            state = beliefs.get(ref)
+            if state is None:
+                belief = CandidateBelief(navmesh, reachability, ne_cfg)
+                origin = (last.get("world_x"), last.get("world_y"))
+                if origin[0] is not None and origin[1] is not None:
+                    belief.initialise(origin, pos_sigma=last.get("pos_sigma") or 0.0)
+                state = {"belief": belief, "last_t_media": last["t_media"], "applied": set()}
+                beliefs[ref] = state
+            else:
+                belief = state["belief"]
+                dt_s = max(0.0, now_t_media - state["last_t_media"])
+                if dt_s > 0:
+                    belief.step(dt_s)
+                    state["last_t_media"] = now_t_media
+
+            for att in observer.attestations:
+                key = (att.node_id, att.t_start.physical_ms)
+                if key in state["applied"]:
+                    continue
+                belief.apply_attestation(att)
+                state["applied"].add(key)
+            belief.normalise()
+
+        if unlocated_refs:
+            options = [r for r, _, _ in unlocated_refs]
+            selected_ref = st.selectbox("Show candidate region for", options)
+            mask = beliefs[selected_ref]["belief"].mask()
+            area = beliefs[selected_ref]["belief"].area_m2()
+            st.metric("Candidate region area", f"{area:.1f} m²")
+        else:
+            st.success("No unlocated identities — nothing to shrink.")
+            mask = None
+
+        st.image(navmesh.render(mask=mask), use_column_width=True, caption="White = free space, dark = obstacle, red = candidate belief region")
+
+        st.markdown("##### Coverage currently attested (per node)")
+        if latest_att:
+            st.dataframe(pd.DataFrame([
+                {
+                    "Node": node_id,
+                    "Region ids watched": list(att.region_ids),
+                    "Crossing observed": att.crossing_observed,
+                    "attest_confidence": round(att.attest_confidence, 2),
+                }
+                for node_id, att in sorted(latest_att.items())
+            ]), use_container_width=True)
+        else:
+            st.caption("No attestations observed yet.")
+
+
+# ══════════════════════════════════════════════════════════════════════
+# NODE HEALTH
+# ══════════════════════════════════════════════════════════════════════
+
+with tab_health:
+    st.subheader("Per-node health")
+    bytes_by_node = observer.bytes_per_node_since_start()
+    uptime_s = max(observer.stats().get("_uptime_s", 0.0), 1e-6)
+
+    rows = []
+    for node_id in sorted(cfg.peers):
+        online = liveness.get(node_id, False)
+        reputation = observer.reputation.aggregate(node_id)
+        att = latest_att.get(node_id)
+        rows.append({
+            "Node": node_id,
+            "Status": status_badge(online),
+            "Reputation": reputation,
+            "attest_confidence": round(att.attest_confidence, 2) if att is not None else "—",
+            "bytes/s (since start)": round(bytes_by_node.get(node_id, 0) / uptime_s, 1),
+        })
+
+    df = pd.DataFrame(rows)
+    for _, row in df.iterrows():
+        cols = st.columns([1, 2, 3, 2, 2])
+        cols[0].markdown(f"**node-{row['Node']:02d}**")
+        cols[1].markdown(row["Status"])
+        cols[2].progress(max(0.0, min(1.0, float(row["Reputation"]))), text=f"reputation {row['Reputation']:.2f}")
+        cols[3].markdown(f"attest_confidence: {row['attest_confidence']}")
+        cols[4].markdown(f"{row['bytes/s (since start)']} B/s")
+
+    st.caption(
+        "coverage_completeness is a NODE's own self-assessment of its neighbour "
+        "liveness — it is never gossiped (see starling_net.partition.PartitionTracker), "
+        "so it cannot be shown here without giving the dashboard a privilege no "
+        "other peer has. attest_confidence (gossiped, wire-visible) is shown instead."
     )
 
 
-def fmt_time(ts) -> str:
-    if not ts:
-        return "—"
-    return datetime.fromtimestamp(float(ts)).strftime("%Y-%m-%d %H:%M:%S")
-
-
-def time_ago(ts) -> str:
-    if not ts:
-        return "—"
-    d = time.time() - float(ts)
-    if d < 60:    return f"{int(d)}s ago"
-    if d < 3600:  return f"{int(d / 60)}m ago"
-    if d < 86400: return f"{int(d / 3600)}h ago"
-    return f"{int(d / 86400)}d ago"
-
-
-def load_crop(path) -> "Image.Image | None":
-    if not path:
-        return None
-    p = Path(path)
-    if not p.exists():
-        return None
-    try:
-        return Image.open(p).convert("RGB")
-    except Exception:
-        return None
-
-
-EVENT_ICONS = {
-    "first_seen":  "🆕",
-    "lost":        "🔴",
-    "reappeared":  "🔄",
-    "resolved":    "✅",
-    "reactivated": "🔵",
-    "note":        "📝",
-}
-EVENT_COLOURS = {
-    "first_seen":  "#48bb78",
-    "lost":        "#fc8181",
-    "reappeared":  "#68d391",
-    "resolved":    "#90cdf4",
-    "reactivated": "#63b3ed",
-    "note":        "#ecc94b",
-}
-
-
-def status_badge(s: str) -> str:
-    return {"active": "🟢", "lost": "🔴", "resolved": "🔵"}.get(s, "⚪") + f" {s.upper()}"
-
-
-# ── Sidebar ───────────────────────────────────────────────────────────────────
-
-store = get_store()
-
-with st.sidebar:
-    st.title("🎯 ReID Operator")
-    st.markdown("---")
-
-    # ── Manual refresh (fragment only, never a page reload) ───────────
-    if st.button("🔄 Refresh Data", use_container_width=True, type="primary"):
-        # This sets a session-state flag that the live fragment checks
-        st.session_state["_refresh_requested"] = True
-
-    st.caption("Refreshes only the stats & alerts — your inputs stay intact.")
-    st.markdown("---")
-
-    # ── Lost-check trigger ────────────────────────────────────────────
-    if st.button("🔍 Check Lost Persons Now", use_container_width=True):
-        promoted = store.promote_lost(now=time.time())
-        if promoted:
-            st.warning(f"Promoted: {', '.join(promoted)}")
-        else:
-            st.success("No new lost persons.")
-
-    st.markdown("---")
-
-    # ── Static sidebar stats (only updates on manual refresh) ─────────
-    stats = store.stats()
-    st.metric("🟢 Active",        stats["active"])
-    st.metric("🔴 Lost",          stats["lost"])
-    st.metric("🔵 Resolved",      stats["resolved"])
-    st.metric("🔄 Reappearances", stats["reappearances"])
-    st.caption(f"DB: `{DB_PATH}`")
-
-
-# ── Tabs ──────────────────────────────────────────────────────────────────────
-tab_ov, tab_active, tab_lost, tab_search, tab_detail = st.tabs([
-    "📊 Overview",
-    "🟢 Active",
-    "🔴 Lost Registry",
-    "🔍 Search",
-    "👤 Person Detail",
-])
-
-
 # ══════════════════════════════════════════════════════════════════════
-# OVERVIEW TAB
-# Live stats section is a fragment — reruns independently.
-# Operator alert buttons are INSIDE the fragment but trigger store
-# actions then call st.rerun() which only reruns the fragment itself.
+# FORKS
 # ══════════════════════════════════════════════════════════════════════
 
-with tab_ov:
+with tab_forks:
+    st.subheader("Open identity forks")
+    st.caption(
+        "An open fork means two claim chains bind one identity to spatially "
+        "incompatible trajectories and BOTH remain reachable. This is surfaced "
+        "as an ambiguity for a human to resolve with real information (e.g. a "
+        "face re-anchor) — there is deliberately no button here that picks a "
+        "branch by score (CLAUDE.md rule 6)."
+    )
 
-    @st.fragment
-    def overview_live():
-        """
-        This function is a Streamlit fragment.
-        When st.rerun() is called inside here, ONLY this fragment reruns.
-        The rest of the page (Lost tab inputs, Search tab, etc.) is untouched.
-        """
-        store.promote_lost(now=time.time())
-        stats = store.stats()
-
-        # ── Metrics row ───────────────────────────────────────────────
-        c1, c2, c3, c4, c5 = st.columns(5)
-        c1.metric("🟢 Active",        stats["active"])
-        c2.metric("🔴 Lost",          stats["lost"],
-                  delta=f"+{stats['lost']}" if stats["lost"] else None,
-                  delta_color="inverse")
-        c3.metric("🔵 Resolved",      stats["resolved"])
-        c4.metric("📍 Sightings",     stats["sightings"])
-        c5.metric("🔄 Reappearances", stats["reappearances"])
-
-        # ── Reappearance alerts ───────────────────────────────────────
-        reappearances = store.get_recent_reappearances(now=time.time(), since_seconds=600)
-        if reappearances:
-            st.markdown("---")
-            st.subheader(f"🔄 Recent Reappearances  ({len(reappearances)})")
-            st.caption("These persons were LOST and have been re-detected — ID automatically restored.")
-            for ev in reappearances:
-                col_img, col_info = st.columns([1, 7])
-                with col_img:
-                    img = load_crop(ev.get("best_crop_path"))
-                    if img:
-                        st.image(img, width=65)
-                with col_info:
-                    st.markdown(
-                        f"<div class='reappear-box'>"
-                        f"<b>{ev['global_id']}</b> was LOST → "
-                        f"🔄 <b>Reappeared on Camera {ev['camera_id']}</b>"
-                        f" at {fmt_time(ev['occurred_at'])}"
-                        f" ({time_ago(ev['occurred_at'])})<br>"
-                        f"<small>{ev.get('detail', '')}</small>"
-                        f"</div>",
-                        unsafe_allow_html=True,
-                    )
-
-        # ── Lost alerts with quick-resolve buttons ────────────────────
-        lost = store.get_all(status="lost")
-        if lost:
-            st.markdown("---")
-            st.subheader(f"⚠️ Lost Person Alerts  ({len(lost)})")
-            for p in lost:
-                col_img, col_info, col_act = st.columns([1, 5, 2])
-                with col_img:
-                    img = load_crop(p["best_crop_path"])
-                    if img:
-                        st.image(img, width=65)
-                    else:
-                        st.markdown("🚫")
-                with col_info:
-                    st.markdown(
-                        f"<div class='lost-box'>"
-                        f"<b>{p['global_id']}</b> — "
-                        f"Last seen {time_ago(p['last_seen_at'])} "
-                        f"on Camera {p['last_camera_id']}<br>"
-                        f"<small>First seen: {fmt_time(p['first_seen_at'])}</small>"
-                        f"</div>",
-                        unsafe_allow_html=True,
-                    )
-                with col_act:
-                    # Button inside fragment → only fragment reruns after click
-                    if st.button("✅ Resolve", key=f"ov_res_{p['global_id']}"):
-                        store.resolve(p["global_id"], "Resolved via overview")
-                        st.rerun()   # reruns fragment only, not whole page ✅
-        else:
-            st.markdown("---")
-            st.success("✅ No lost persons.")
-
-        # ── Recent activity table ─────────────────────────────────────
-        recent = [r for r in store.search_by_time(since=time.time() - 1800, until=time.time()) if r]
-        if recent:
-            st.markdown("---")
-            st.subheader("Recent Activity (last 30 min)")
-            st.dataframe(pd.DataFrame([{
-                "ID":          p["global_id"],
-                "Status":      p["status"],
-                "Last Camera": f"Cam {p['last_camera_id']}",
-                "Last Seen":   time_ago(p["last_seen_at"]),
-                "First Seen":  fmt_time(p["first_seen_at"]),
-            } for p in recent]), use_container_width=True)
-
-        # ── Handle manual refresh button from sidebar ─────────────────
-        # If sidebar button was pressed, rerun this fragment once then clear flag
-        if st.session_state.get("_refresh_requested"):
-            st.session_state["_refresh_requested"] = False
-            st.rerun()   # fragment rerun only
-
-    overview_live()
-
-
-# ══════════════════════════════════════════════════════════════════════
-# ACTIVE TAB
-# Simple read — no fragment needed, no refresh interaction required.
-# ══════════════════════════════════════════════════════════════════════
-
-with tab_active:
-    st.header("🟢 Active Persons")
-
-    if st.button("🔄 Refresh Active", key="refresh_active"):
-        pass   # just reruns this tab's render on next script run
-
-    active = store.get_all(status="active")
-
-    if not active:
-        st.info("No active persons being tracked.")
+    if not open_forks:
+        st.success("No open forks.")
     else:
-        by_cam = {}
-        for p in active:
-            by_cam.setdefault(p["last_camera_id"], []).append(p)
-
-        for cam_id in sorted(by_cam.keys()):
-            persons = by_cam[cam_id]
-            st.subheader(f"Camera {cam_id}  —  {len(persons)} persons")
-            cols = st.columns(min(len(persons), 5))
-            for i, p in enumerate(persons):
-                with cols[i % 5]:
-                    img = load_crop(p["best_crop_path"])
-                    if img:
-                        st.image(img, caption=p["global_id"], width=100)
-                    else:
-                        st.markdown(f"**{p['global_id']}**\n🚫")
-                    st.caption(time_ago(p["last_seen_at"]))
-
-        st.markdown("---")
-        st.dataframe(pd.DataFrame([{
-            "ID":          p["global_id"],
-            "Last Camera": f"Cam {p['last_camera_id']}",
-            "Last Seen":   time_ago(p["last_seen_at"]),
-            "First Seen":  fmt_time(p["first_seen_at"]),
-        } for p in active]), use_container_width=True)
+        for fork in open_forks:
+            with st.expander(f"🔀 {fork.identity_ref}  —  fork {fork.fork_id}", expanded=True):
+                cols = st.columns(len(fork.branches))
+                for i, branch in enumerate(fork.branches):
+                    with cols[i]:
+                        st.markdown(f"**Branch {i}**")
+                        st.markdown(f"{len(branch.claim_ids)} claim(s)")
+                        st.markdown(f"Last position: {branch.last_position}")
+                st.caption(
+                    "Resolution requires a face re-anchor or explicit operator "
+                    "action recorded elsewhere — not a score comparison here."
+                )
 
 
 # ══════════════════════════════════════════════════════════════════════
-# LOST REGISTRY TAB
-# All operator inputs (text fields, buttons) are OUTSIDE any fragment.
-# They will never be wiped by a data refresh.
+# NETWORK
+# ══════════════════════════════════════════════════════════════════════
+
+with tab_network:
+    st.subheader("Gossip traffic by message type")
+    stats = observer.stats()
+    kind_rows = [
+        {"Message type": kind, "Messages": v["recv"], "Bytes": v["recv_bytes"]}
+        for kind, v in stats.items()
+        if not kind.startswith("_")
+    ]
+    if kind_rows:
+        st.dataframe(pd.DataFrame(kind_rows), use_container_width=True)
+    else:
+        st.caption("No gossip observed yet.")
+    st.metric("raw video bytes", RAW_VIDEO_BYTES, help="Never incremented anywhere in this codebase — claims/attestations cannot carry frame data (starling_proto.limits.assert_wire_safe).")
+    st.metric("Dropped (unsigned/tampered) messages", stats.get("_dropped", 0))
+
+
+# ══════════════════════════════════════════════════════════════════════
+# UNLOCATED (V1's "Lost Registry", re-interpreted)
 # ══════════════════════════════════════════════════════════════════════
 
 with tab_lost:
-    st.header("🔴 Lost Persons Registry")
+    st.subheader("Unlocated identities")
     st.info(
-        "Lost persons are **never automatically deleted**. "
-        "They remain here until you explicitly resolve the case. "
-        "If they reappear on any camera, their ID is automatically restored "
-        "and a Reappearance alert appears on the Overview tab."
+        "An identity with no claim in the last "
+        f"{cfg.lost_threshold_s:.0f}s of media time. Not automatically "
+        "deleted; it stays here until a new claim (or, in a real deployment, "
+        "operator action recorded elsewhere) restores it."
     )
+    notes: dict[str, str] = st.session_state.setdefault("notes", {})  # ephemeral, per-viewer only
 
-    if st.button("🔄 Refresh List", key="refresh_lost"):
-        pass   # triggers a script rerun which re-reads lost list
-
-    lost = store.get_all(status="lost")
-
-    if not lost:
-        st.success("✅ Lost persons registry is empty.")
-    else:
-        st.warning(f"⚠️  {len(lost)} person(s) currently LOST")
-
-        for p in lost:
-            events = store.get_events(p["global_id"])
-
-            with st.expander(
-                f"🔴  {p['global_id']}  —  missing since "
-                f"{fmt_time(p['last_seen_at'])}  ({time_ago(p['last_seen_at'])})",
-                expanded=False,   # collapsed by default so list is readable
-            ):
-                col_img, col_info = st.columns([1, 3])
-                with col_img:
-                    img = load_crop(p["best_crop_path"])
-                    if img:
-                        st.image(img, width=130, caption="Last known appearance")
-                    else:
-                        st.markdown("🚫 No image")
-
-                with col_info:
-                    st.markdown(f"**ID:** `{p['global_id']}`")
-                    st.markdown(f"**First seen:** {fmt_time(p['first_seen_at'])}")
-                    st.markdown(
-                        f"**Last seen:** {fmt_time(p['last_seen_at'])}"
-                        f"  ({time_ago(p['last_seen_at'])})"
-                        f"  on Camera {p['last_camera_id']}"
-                    )
-                    sightings = store.get_sightings(p["global_id"])
-                    cams = sorted(set(s["camera_id"] for s in sightings))
-                    st.markdown(
-                        f"**Cameras visited:** {', '.join(f'Cam {c}' for c in cams)}"
-                    )
-                    st.markdown(f"**Total sightings:** {len(sightings)}")
-                    if p.get("notes"):
-                        st.info(f"📝 {p['notes']}")
-
-                # Event timeline
-                if events:
-                    st.markdown("**Event Timeline:**")
-                    for ev in events:
-                        icon   = EVENT_ICONS.get(ev["event_type"], "•")
-                        colour = EVENT_COLOURS.get(ev["event_type"], "#a0aec0")
-                        cam_s  = (
-                            f"  •  Camera {ev['camera_id']}"
-                            if ev["camera_id"] is not None else ""
-                        )
-                        st.markdown(
-                            f"<div style='padding:5px 0;"
-                            f"border-bottom:1px solid #2d3748'>"
-                            f"<span style='color:gray;font-size:0.8em'>"
-                            f"{fmt_time(ev['occurred_at'])}</span>&nbsp;&nbsp;"
-                            f"{icon} <span style='color:{colour};"
-                            f"font-weight:bold'>{ev['event_type'].upper()}</span>"
-                            f"<span style='color:gray'>{cam_s}</span>"
-                            f"&nbsp;&nbsp;{ev['detail']}"
-                            f"</div>",
-                            unsafe_allow_html=True,
-                        )
-
-                st.markdown("---")
-
-                # ── Operator action inputs ─────────────────────────────
-                # These use unique keys per person so they are stable
-                # across reruns and are never wiped by data refreshes.
-                note_key = f"lost_note_{p['global_id']}"
-                note_text = st.text_input(
-                    "Add note",
-                    key=note_key,
-                    placeholder="e.g. Confirmed found at Gate 3",
-                )
-
-                act1, act2, act3 = st.columns(3)
-
-                with act1:
-                    if st.button(
-                        "💬 Save Note",
-                        key=f"save_note_{p['global_id']}",
-                        disabled=not note_text,
-                    ):
-                        store.add_note(p["global_id"], note_text)
-                        # Clear the input after save using session state
-                        st.session_state[note_key] = ""
-                        st.success("Note saved.")
-
-                with act2:
-                    if st.button(
-                        "✅ Resolve (Found)",
-                        key=f"resolve_{p['global_id']}",
-                        type="primary",
-                    ):
-                        store.resolve(
-                            p["global_id"],
-                            note_text or "Resolved via dashboard",
-                        )
-                        st.success(f"✅ {p['global_id']} resolved.")
-                        st.rerun()   # refresh this tab's list
-
-                with act3:
-                    if st.button(
-                        "🔄 Reactivate",
-                        key=f"reactivate_{p['global_id']}",
-                        help="Use if this was marked lost by mistake",
-                    ):
-                        store.reactivate(p["global_id"])
-                        st.info(f"{p['global_id']} reactivated.")
-                        st.rerun()
-
-                # Sighting log
-                if sightings:
-                    st.markdown("**Recent sightings:**")
-                    st.dataframe(
-                        pd.DataFrame([{
-                            "Camera": f"Cam {s['camera_id']}",
-                            "Frame":  s["frame_idx"],
-                            "Time":   fmt_time(s["seen_at"]),
-                            "Conf":   f"{s['conf']:.2f}" if s["conf"] else "—",
-                        } for s in sightings[:20]]),
-                        use_container_width=True,
-                        height=200,
-                    )
+    if not unlocated_refs:
+        st.success("Nothing currently unlocated.")
+    for ref, last, age in unlocated_refs:
+        with st.expander(f"🔴 {ref} — missing for {fmt_dt(age)}"):
+            st.markdown(f"**Last node:** node-{last['node_id']:02d}")
+            st.markdown(f"**Last confidence:** {last['confidence']:.2f}")
+            note = st.text_input("Note (this browser session only)", value=notes.get(ref, ""), key=f"note_{ref}")
+            if note:
+                notes[ref] = note
 
 
 # ══════════════════════════════════════════════════════════════════════
-# SEARCH TAB
+# SEARCH
 # ══════════════════════════════════════════════════════════════════════
 
 with tab_search:
-    st.header("🔍 Search")
+    st.subheader("Search")
+    mode = st.radio("Search by", ["Identity", "Node", "Time window"], horizontal=True)
+    results: list[str] = []
 
-    mode = st.radio(
-        "Search by", ["Global ID", "Time Range", "Camera"],
-        horizontal=True,
-    )
-    results = []
-
-    if mode == "Global ID":
-        gid_input = st.text_input("Global ID (e.g. GID-0001)")
-        if gid_input:
-            p = store.get_person(gid_input.strip().upper())
-            results = [p] if p else []
-            if not p:
-                st.warning("No person found.")
-
-    elif mode == "Time Range":
-        c1, c2 = st.columns(2)
-        with c1:
-            d_from = st.date_input("From", (datetime.now() - timedelta(hours=1)).date())
-            t_from = st.time_input("Time from")
-        with c2:
-            d_to = st.date_input("To", datetime.now().date())
-            t_to = st.time_input("Time to", datetime.now().time())
-        status_filter = st.selectbox("Status filter", ["all", "active", "lost", "resolved"])
-        if st.button("Search", key="search_time"):
-            since = datetime.combine(d_from, t_from).timestamp()
-            until = datetime.combine(d_to,   t_to).timestamp()
-            found = store.search_by_time(since, until)
-            if status_filter != "all":
-                found = [p for p in found if p and p["status"] == status_filter]
-            results = [p for p in found if p]
-
-    elif mode == "Camera":
-        cam_id = st.number_input("Camera ID", min_value=0, value=0, step=1)
-        hrs    = st.slider("Look back (hours)", 1, 72, 1)
-        if st.button("Search Camera", key="search_cam"):
-            results = [
-                r for r in store.search_by_time(
-                    since=time.time() - hrs * 3600,
-                    until=time.time(),
-                    camera_id=int(cam_id),
-                )
-                if r
-            ]
+    if mode == "Identity":
+        query = st.text_input("Identity ref (e.g. AUTO-... or P-003)")
+        if query:
+            results = [r for r in assignment.trajectories if query.strip().upper() in r.upper()]
+    elif mode == "Node":
+        node_id = st.number_input("Node id", min_value=0, value=0, step=1)
+        results = [
+            ref for ref, ids in assignment.trajectories.items()
+            if any(claims_by_id.get(cid, {}).get("node_id") == node_id for cid in ids)
+        ]
+    else:
+        hrs = st.slider("Look back (hours of media time)", 1, 24, 1)
+        since = now_t_media - hrs * 3600
+        results = [
+            ref for ref, ids in assignment.trajectories.items()
+            if any(claims_by_id.get(cid, {}).get("t_media", 0) >= since for cid in ids)
+        ]
 
     if results:
         st.success(f"{len(results)} result(s)")
-        for p in results:
-            col_i, col_t = st.columns([1, 5])
-            with col_i:
-                img = load_crop(p.get("best_crop_path"))
-                if img:
-                    st.image(img, width=70)
-            with col_t:
-                cams = sorted(set(
-                    s["camera_id"] for s in p.get("sightings", [])
-                )) or [p["last_camera_id"]]
-                st.markdown(
-                    f"**{p['global_id']}** {status_badge(p['status'])}"
-                    f"  |  Cameras: {', '.join(f'Cam {c}' for c in cams)}"
-                    f"  |  Last seen: {time_ago(p['last_seen_at'])}"
-                )
-        st.dataframe(pd.DataFrame([{
-            "ID":          p["global_id"],
-            "Status":      p["status"],
-            "Last Camera": f"Cam {p['last_camera_id']}",
-            "Last Seen":   fmt_time(p["last_seen_at"]),
-            "First Seen":  fmt_time(p["first_seen_at"]),
-        } for p in results]), use_container_width=True)
+        st.dataframe(pd.DataFrame([
+            {
+                "Identity": ref,
+                "Claims": len(assignment.trajectories[ref]),
+                "Confidence": round(assignment.confidence.get(ref, 0.0), 2),
+                "Last node": (_last_claim_of(ref) or {}).get("node_id"),
+            }
+            for ref in results
+        ]), use_container_width=True)
 
 
 # ══════════════════════════════════════════════════════════════════════
-# PERSON DETAIL TAB
+# IDENTITY DETAIL (V1's "Person Detail", re-interpreted)
 # ══════════════════════════════════════════════════════════════════════
 
 with tab_detail:
-    st.header("👤 Person Detail")
-
-    all_persons = store.get_all()
-    if not all_persons:
-        st.info("No persons in database yet. Run the tracker first.")
+    st.subheader("Identity detail")
+    refs = sorted(assignment.trajectories)
+    if not refs:
+        st.info("No identities tracked yet.")
     else:
-        selected = st.selectbox(
-            "Select person",
-            [p["global_id"] for p in all_persons],
-            format_func=lambda g: (
-                f"{g}  "
-                f"({next((p['status'] for p in all_persons if p['global_id'] == g), '')})"
-            ),
+        selected = st.selectbox("Select identity", refs)
+        claim_ids = assignment.trajectories[selected]
+        records = [claims_by_id[cid] for cid in claim_ids if cid in claims_by_id]
+
+        st.markdown(f"**Confidence:** {assignment.confidence.get(selected, 0.0):.2f}")
+        st.markdown(f"**Total claims:** {len(records)}")
+        is_forked = any(f.identity_ref == selected for f in open_forks)
+        if is_forked:
+            st.warning("This identity currently has an OPEN fork — see the Forks tab.")
+
+        st.markdown("##### Event timeline (derived from its claim trajectory)")
+        prev_node = None
+        for r in records:
+            if prev_node is None:
+                st.markdown(f"`{r['t_media']:.1f}` 🆕 first seen — node-{r['node_id']:02d}")
+            elif r["node_id"] != prev_node:
+                st.markdown(f"`{r['t_media']:.1f}` 🔄 handoff — node-{prev_node:02d} → node-{r['node_id']:02d}")
+            prev_node = r["node_id"]
+
+        st.markdown("##### Full claim log")
+        st.dataframe(pd.DataFrame([
+            {"Node": r["node_id"], "t_media": round(r["t_media"], 2), "Confidence": round(r["confidence"], 2), "Anchor": r["anchor_type"]}
+            for r in records
+        ]), use_container_width=True)
+
+
+# ══════════════════════════════════════════════════════════════════════
+# CONTROLS — "Make node N lie"
+# ══════════════════════════════════════════════════════════════════════
+
+with tab_controls:
+    st.subheader("🎛️ Attack injection (demo)")
+    st.caption(
+        "POSTs directly to that node's own control endpoint "
+        "(starling_consensus.attacks.ControlServer) — the dashboard does not "
+        "relay this through gossip, it is a direct operator action against "
+        "one node's own process, same as pressing a physical switch on it."
+    )
+
+    for node_id, addr in sorted(cfg.peers.items()):
+        host = addr.split(":")[0]
+        gossip_port = int(addr.split(":")[1])
+        control_port = gossip_port + cfg.control_port_offset
+
+        cols = st.columns([1, 2, 2, 2])
+        cols[0].markdown(f"**node-{node_id:02d}**")
+        attack = cols[1].selectbox(
+            "Attack", ["none", "fabricate", "suppress", "replay", "mixed"],
+            key=f"attack_type_{node_id}", label_visibility="collapsed",
         )
-
-        if selected:
-            p = store.get_person(selected)
-            if p:
-                # ── Header ────────────────────────────────────────────
-                col_i, col_m = st.columns([1, 3])
-                with col_i:
-                    img = load_crop(p.get("best_crop_path"))
-                    if img:
-                        st.image(img, width=160)
-                    else:
-                        st.markdown("🚫 No crop")
-                with col_m:
-                    st.markdown(f"## {p['global_id']}")
-                    st.markdown(f"**Status:** {status_badge(p['status'])}")
-                    st.markdown(f"**First seen:** {fmt_time(p['first_seen_at'])}")
-                    st.markdown(
-                        f"**Last seen:** {fmt_time(p['last_seen_at'])}"
-                        f"  ({time_ago(p['last_seen_at'])})"
-                        f"  on Camera {p['last_camera_id']}"
-                    )
-                    if p.get("resolved_at"):
-                        st.markdown(f"**Resolved:** {fmt_time(p['resolved_at'])}")
-                    if p.get("notes"):
-                        st.info(f"📝 {p['notes']}")
-
-                st.markdown("---")
-
-                # ── Event timeline ────────────────────────────────────
-                events = p.get("events", [])
-                if events:
-                    st.subheader("📋 Full Event Timeline")
-                    st.caption(
-                        "Complete lifecycle: first detection → lost → "
-                        "reappearances → operator actions → resolution"
-                    )
-                    for ev in events:
-                        icon   = EVENT_ICONS.get(ev["event_type"], "•")
-                        colour = EVENT_COLOURS.get(ev["event_type"], "#a0aec0")
-                        cam_s  = (
-                            f"  •  Camera {ev['camera_id']}"
-                            if ev["camera_id"] is not None else ""
-                        )
-                        st.markdown(
-                            f"<div style='padding:6px 0;"
-                            f"border-bottom:1px solid #2d3748'>"
-                            f"<span style='color:gray;font-size:0.8em'>"
-                            f"{fmt_time(ev['occurred_at'])}</span>&nbsp;&nbsp;"
-                            f"{icon} <span style='color:{colour};"
-                            f"font-weight:bold'>{ev['event_type'].upper()}</span>"
-                            f"<span style='color:gray'>{cam_s}</span>"
-                            f"&nbsp;&nbsp;{ev['detail']}"
-                            f"</div>",
-                            unsafe_allow_html=True,
-                        )
-
-                st.markdown("---")
-
-                # ── Camera journey ────────────────────────────────────
-                sightings = p.get("sightings", [])
-                if sightings:
-                    st.subheader("📍 Camera Journey")
-                    cam_data = {}
-                    for s in sightings:
-                        cam_data.setdefault(s["camera_id"], []).append(s["seen_at"])
-                    st.dataframe(pd.DataFrame([{
-                        "Camera":      f"Cam {c}",
-                        "First Visit": fmt_time(min(ts)),
-                        "Last Visit":  fmt_time(max(ts)),
-                        "Sightings":   len(ts),
-                    } for c, ts in sorted(cam_data.items())]),
-                    use_container_width=True)
-
-                    # Crop gallery
-                    st.subheader("🖼 Appearance Gallery")
-                    crop_paths = [
-                        s["crop_path"] for s in sightings if s.get("crop_path")
-                    ][:12]
-                    if crop_paths:
-                        gcols = st.columns(6)
-                        for ci, cp in enumerate(crop_paths):
-                            img = load_crop(cp)
-                            if img:
-                                sv = next(
-                                    (s for s in sightings if s.get("crop_path") == cp),
-                                    None,
-                                )
-                                with gcols[ci % 6]:
-                                    st.image(
-                                        img, width=90,
-                                        caption=f"Cam {sv['camera_id']}" if sv else "",
-                                    )
-
-                    # Full sighting log
-                    st.subheader("Full Sighting Log")
-                    st.dataframe(pd.DataFrame([{
-                        "Camera": f"Cam {s['camera_id']}",
-                        "Frame":  s["frame_idx"],
-                        "Time":   fmt_time(s["seen_at"]),
-                        "Conf":   f"{s['conf']:.2f}" if s["conf"] else "—",
-                    } for s in sightings]), use_container_width=True, height=280)
-
-                # ── Operator actions ───────────────────────────────────
-                st.markdown("---")
-                st.subheader("Operator Actions")
-                a1, a2, a3 = st.columns(3)
-
-                with a1:
-                    note_in = st.text_area(
-                        "Add note",
-                        key=f"detail_note_{selected}",   # stable key per person
-                        placeholder="Enter a note...",
-                    )
-                    if st.button(
-                        "💬 Save Note",
-                        key=f"detail_save_{selected}",
-                        disabled=not note_in,
-                    ):
-                        store.add_note(selected, note_in)
-                        st.success("Saved.")
-
-                with a2:
-                    if p["status"] == "lost":
-                        if st.button(
-                            "✅ Resolve",
-                            type="primary",
-                            key=f"detail_resolve_{selected}",
-                        ):
-                            store.resolve(selected, note_in or "Resolved via detail view")
-                            st.success("Resolved.")
-                            st.rerun()
-                    elif p["status"] == "resolved":
-                        if st.button(
-                            "🔄 Reactivate",
-                            key=f"detail_reactivate_{selected}",
-                        ):
-                            store.reactivate(selected)
-                            st.info("Reactivated.")
-                            st.rerun()
-
-                with a3:
-                    st.markdown("**Current status:**")
-                    st.markdown(f"### {status_badge(p['status'])}")
+        intensity = cols[2].slider("Intensity", 0.0, 1.0, 0.5, key=f"attack_intensity_{node_id}", label_visibility="collapsed")
+        if cols[3].button(f"Make node {node_id} lie", key=f"attack_btn_{node_id}"):
+            try:
+                resp = requests.post(
+                    f"http://{host}:{control_port}/attack",
+                    json={"attack": attack, "intensity": intensity},
+                    timeout=2.0,
+                )
+                if resp.ok:
+                    st.success(f"node-{node_id:02d} now running attack={attack} intensity={intensity}")
+                else:
+                    st.error(f"node-{node_id:02d} refused: HTTP {resp.status_code}")
+            except requests.RequestException as e:
+                st.error(f"Could not reach node-{node_id:02d}'s control endpoint at {host}:{control_port}: {e}")

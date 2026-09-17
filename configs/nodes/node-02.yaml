@@ -50,3 +50,6 @@ net:
   listen_port: 5557          # this node's gossip PUB port
   neighbours: ["node-01:5556", "node-03:5558"]  # ring topology (CLAUDE.md rule 4)
   gossip_interval_s: 2.0       # anti-entropy gossip round interval
+
+attack:
+  control_bind_host: "0.0.0.0"  # docker: dashboard container is a different loopback namespace (WP-13)

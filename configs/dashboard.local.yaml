@@ -1,0 +1,24 @@
+# Starling dashboard config (WP-13) — 127.0.0.1 variant for running nodes
+# directly without Docker (see configs/nodes/local/*.yaml's own node-side
+# equivalent). See configs/dashboard.yaml for the container-hostname variant.
+
+peers:
+  0: "127.0.0.1:5555"
+  1: "127.0.0.1:5556"
+  2: "127.0.0.1:5557"
+  3: "127.0.0.1:5558"
+
+keys_dir: "configs/keys"
+navmesh_path: "data/floorplan/demo_site.geojson"
+
+match:
+  sim_threshold: 0.60
+  margin_threshold: 0.10
+  gallery_size: 5
+
+geometry:
+  cell_size_m: 0.25
+
+lost_threshold_s: 120.0
+stale_after_s: 10.0
+control_port_offset: 1000

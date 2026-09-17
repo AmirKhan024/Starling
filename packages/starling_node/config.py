@@ -229,10 +229,20 @@ class AttackConfig(BaseModel):
     attack: str = "none"  # none | fabricate | suppress | replay | mixed
     intensity: float = 0.0
     replay_age_s: float = 30.0  # how far back a replayed claim's embedded HLC is dated
-    # apps/node.py's control HTTP endpoint (listen_port + 1000), bound to
-    # 127.0.0.1 only — the "Make node N lie" demo button / scenario runner
-    # hook. Demo-only; never expose beyond localhost (see attacks.py docstring).
+    # apps/node.py's control HTTP endpoint (listen_port + 1000) — the
+    # "Make node N lie" demo button / scenario runner hook. Demo-only.
     enable_control_endpoint: bool = True
+    # WP-13: the interface the control endpoint binds. "127.0.0.1" (the
+    # default) is correct and safe when the dashboard runs as the SAME OS
+    # process's neighbour on the SAME host (configs/nodes/local/*.yaml) —
+    # loopback is shared there. It is WRONG inside Docker: each container
+    # has its own independent loopback namespace, so a dashboard container
+    # can never reach another container's 127.0.0.1 no matter what port is
+    # published. The docker-hostname node configs (configs/nodes/node-NN
+    # .yaml) override this to "0.0.0.0", which only exposes the control
+    # port on the private `starling-net` bridge network (never the public
+    # internet) — still not exposed beyond this deployment's own containers.
+    control_bind_host: str = "127.0.0.1"
 
 
 class AggregateConfig(BaseModel):
@@ -387,7 +397,8 @@ attack:
   attack: "none"                  # none | fabricate | suppress | replay | mixed (WP-10)
   intensity: 0.0
   replay_age_s: 30.0
-  enable_control_endpoint: true   # demo-only HTTP control on listen_port+1000, localhost only
+  enable_control_endpoint: true   # demo-only HTTP control on listen_port+1000
+  control_bind_host: "127.0.0.1"  # "0.0.0.0" in the docker-hostname node configs — see config.py
 
 aggregate:
   trimmed_beta: 0.2               # fraction discarded from EACH end by trimmed_mean

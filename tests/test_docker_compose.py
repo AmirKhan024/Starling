@@ -68,6 +68,19 @@ def test_dashboard_has_no_node_data_mount():
     assert not any(_NODE_DATA_RE.search(v) for v in volumes)
 
 
+def test_dashboard_has_no_database_mount_or_env():
+    """WP-13: the dashboard is a read-only gossip observer, not a database
+    reader (CLAUDE.md rule 8) -- it must mount no database directory and
+    reference no database path via environment, unlike V1's dashboard.
+    """
+    compose = _load_compose()
+    service = compose["services"]["dashboard"]
+    volumes = service.get("volumes", [])
+    assert not any("database" in v for v in volumes)
+    env = service.get("environment", {}) or {}
+    assert not any("DB_PATH" in str(k) or "database" in str(v).lower() for k, v in env.items())
+
+
 def test_each_node_has_a_distinct_fixed_ip_and_net_admin():
     compose = _load_compose()
     ips = set()

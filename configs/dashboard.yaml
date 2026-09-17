@@ -1,0 +1,28 @@
+# Starling dashboard config (WP-13) — docker-compose / container-hostname
+# variant. See configs/dashboard.local.yaml for the 127.0.0.1 variant used
+# when running nodes directly (no Docker).
+#
+# `peers` lists every node's OWN gossip PUB address — the dashboard's SUB
+# sockets connect out to these, exactly like any node's configured
+# neighbours would, and it publishes nothing of its own (CLAUDE.md rule 8).
+
+peers:
+  0: "node-00:5555"
+  1: "node-01:5556"
+  2: "node-02:5557"
+  3: "node-03:5558"
+
+keys_dir: "configs/keys"
+navmesh_path: "data/floorplan/demo_site.geojson"
+
+match:
+  sim_threshold: 0.60
+  margin_threshold: 0.10
+  gallery_size: 5
+
+geometry:
+  cell_size_m: 0.25
+
+lost_threshold_s: 120.0
+stale_after_s: 10.0
+control_port_offset: 1000

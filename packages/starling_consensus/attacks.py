@@ -232,9 +232,15 @@ def _handler_for(injector: AttackInjector) -> type:
 class ControlServer:
     """Tiny stdlib `http.server` control endpoint for one node's
     `AttackInjector`. Demo-only (guarded by `AttackConfig.enable_control_endpoint`,
-    default `True` in dev configs) — ALWAYS binds to `127.0.0.1`, never
-    `0.0.0.0`: this is not meant to be reachable beyond the node's own
-    host, and nothing in this project needs it to be.
+    default `True` in dev configs). `host` defaults to `127.0.0.1` —
+    correct when the caller (e.g. `apps/dashboard/app.py`'s "make node N
+    lie" button, WP-13) runs as a neighbour process on the SAME host,
+    where loopback is shared. `AttackConfig.control_bind_host` overrides
+    this to `"0.0.0.0"` in the docker-hostname node configs, where each
+    container has its own independent loopback namespace — that still
+    only exposes the endpoint on the private `starling-net` bridge
+    network the dashboard container also sits on, never the public
+    internet.
 
         POST /attack  {"attack": "fabricate", "intensity": 0.5}
         GET  /status
