@@ -87,6 +87,47 @@ def test_penalise_omission_zero_weight_is_a_no_op():
     assert table.local_opinion(_ABOUT_NODE) == pytest.approx(1.0)
 
 
+def test_detect_omission_from_wp09_successfully_penalises_a_suppressing_node():
+    """The composition point docs/threat_model.md calls "the sentence that
+    makes C4 and C2 one contribution rather than two": WP-09's
+    detect_omission signal, fed straight into penalise_omission, actually
+    moves the suppressing node's reputation -- not just that
+    penalise_omission works in isolation (the tests above), but that the
+    real WP-09 detector's output is what's driving it here.
+    """
+    from dataclasses import dataclass
+
+    from starling_attest.negative_evidence import detect_omission
+    from starling_node.config import NegativeEvidenceConfig
+
+    @dataclass
+    class _Att:
+        node_id: int
+        crossing_observed: bool
+        attest_confidence: float
+        region_ids: list
+
+    @dataclass
+    class _Claim:
+        node_id: int
+
+    ne_cfg = NegativeEvidenceConfig(tau_attest=0.7, min_omission_corroborators=2)
+    # Node _ABOUT_NODE attests healthy coverage (no crossing), while two
+    # OTHER nodes' claims corroborate that a crossing actually happened --
+    # exactly WP-09's lying-by-omission case.
+    att = _Att(node_id=_ABOUT_NODE, crossing_observed=False, attest_confidence=0.9, region_ids=[1])
+    corroborating = [_Claim(node_id=1), _Claim(node_id=2)]
+
+    assert detect_omission(att, corroborating, ne_cfg) is True
+
+    table = _table()
+    before = table.local_opinion(_ABOUT_NODE)
+    table.penalise_omission(_ABOUT_NODE, weight=1.0)
+    after = table.local_opinion(_ABOUT_NODE)
+
+    assert after < before
+
+
 # ── aggregate() is a median, Byzantine-robust to one outlier ────────────
 
 def _gossiped_update(from_node: int, about_node: int, score: float) -> "starling_pb2.ReputationUpdate":
