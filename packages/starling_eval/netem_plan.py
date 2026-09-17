@@ -19,6 +19,8 @@ Mechanism choices (recorded here so they're defensible in a viva):
 
 from __future__ import annotations
 
+import json
+
 from starling_eval.scenario import (
     DegradeEvent,
     HealEvent,
@@ -92,12 +94,30 @@ def plan_revive(event: ReviveEvent) -> list[list[str]]:
     return [["docker", "start", container_name(event.node)]]
 
 
+_BASE_GOSSIP_PORT = 5555  # matches starling_node.config.NodeConfig.write_template's convention
+_CONTROL_PORT_OFFSET = 1000  # matches AttackConfig / apps/node.py's ControlServer port
+
+
 def plan_lie(event: LieEvent) -> list[list[str]]:
-    """Byzantine attack injection is consumed by a later work package.
-    Here it's a no-op placeholder command, so --dry-run still shows it on
-    the timeline.
+    """WP-10 Part 3: POST `{"attack", "intensity"}` to node `event.node`'s
+    control endpoint (`starling_consensus.attacks.ControlServer`, started
+    by `apps/node.py`), which binds to `127.0.0.1` ONLY inside its own
+    container (never exposed beyond localhost). Reaching it therefore
+    needs a command run INSIDE the container, exactly like `plan_partition`'s
+    own `_docker_exec` iptables calls above — `curl` is not guaranteed to be
+    in the node image, but `python3` is (it IS the node image), so this
+    uses a one-line `urllib` call instead. This is the scenario-timeline
+    counterpart to the demo's "Make node N lie" button.
     """
-    return [["echo", f"lie: node={event.node} attack={event.attack} intensity={event.intensity}"]]
+    port = _BASE_GOSSIP_PORT + event.node + _CONTROL_PORT_OFFSET
+    body = json.dumps({"attack": event.attack, "intensity": event.intensity})
+    script = (
+        "import urllib.request;"
+        f"urllib.request.urlopen(urllib.request.Request("
+        f"'http://127.0.0.1:{port}/attack', data={body!r}.encode(), "
+        f"headers={{'Content-Type': 'application/json'}}))"
+    )
+    return [_docker_exec(container_name(event.node), "python3", "-c", script)]
 
 
 def plan_event(event, scenario: Scenario) -> list[list[str]]:

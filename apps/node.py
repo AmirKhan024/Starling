@@ -32,6 +32,7 @@ from typing import Optional
 import structlog
 
 from starling_attest.attestation import Attestor
+from starling_consensus.attacks import AttackInjector, ControlServer
 from starling_geometry.calibration import CameraCalibration, bbox_floor_point
 from starling_geometry.navmesh import NavMesh
 from starling_net.gossip import GossipNode
@@ -177,6 +178,19 @@ def run(
     else:
         log.warning("gossip_disabled_no_keys", node_id=cfg.node_id, keys_dir=str(keys_dir))
 
+    # WP-10 Part 3: this node's own Byzantine behaviour, "none" by default
+    # and live-switchable via the control endpoint below / a scenario `lie`
+    # event (starling_eval.netem_plan.plan_lie). Constructed unconditionally
+    # (like Attestor below) so a node with gossip disabled is still
+    # testable in isolation.
+    injector = AttackInjector(
+        node_id=cfg.node_id, attack=cfg.attack.attack, intensity=cfg.attack.intensity, cfg=cfg.attack
+    )
+    control_server: Optional[ControlServer] = None
+    if cfg.attack.enable_control_endpoint:
+        control_server = ControlServer(injector, port=cfg.net.listen_port + 1000)
+        control_server.start()
+
     # WP-09 Part 2: an attesting node needs calibration, a navmesh, and a
     # configured ROI — any one missing means "nothing to attest about",
     # not a guess. Coverage attestation degrades independently of gossip:
@@ -202,6 +216,7 @@ def run(
         media_clock_approximate=media_clock.is_approximate,
         gossip_enabled=gossip is not None,
         attestation_enabled=attestor is not None,
+        control_endpoint_enabled=control_server is not None,
     )
 
     shutdown = {"requested": False}
@@ -221,6 +236,7 @@ def run(
                 break
 
             observations = perception.process(frame, t_media)
+            records = []
             for obs in observations:
                 world_pos = None
                 pos_sigma = None
@@ -230,12 +246,19 @@ def run(
                     pos_sigma = calib.position_sigma(obs.bbox)
 
                 record = store.append_local_observation(obs, world_pos=world_pos, pos_sigma=pos_sigma)
-                if gossip is not None:
+                records.append(record)
+                recent_confidences.append(obs.conf)
+
+            # WP-10 Part 3: this node's own ground truth (just stored above)
+            # is never altered — only what gets GOSSIPED is, exactly the
+            # "compromised node with valid credentials" model
+            # docs/threat_model.md and AttackInjector's own docstring state.
+            outgoing_records = injector.apply_to_claims(records, t_media, navmesh)
+            if gossip is not None:
+                for record in outgoing_records:
                     claim = record_to_claim_proto(record)
                     envelope = make_claim_envelope(claim, sender_node_id=cfg.node_id)
                     gossip.publish(envelope)
-
-                recent_confidences.append(obs.conf)
 
             if not baseline_confidences and len(recent_confidences) == recent_confidences.maxlen:
                 # Snapshot once, the first time the rolling window fills —
@@ -263,9 +286,11 @@ def run(
                     baseline_confidences=baseline_confidences or list(recent_confidences),
                 )
                 attestation = attestor.tick(t_media, frame, observations, stats)
-                if attestation is not None and gossip is not None:
-                    envelope = make_attestation_envelope(attestation, sender_node_id=cfg.node_id)
-                    gossip.publish(envelope)
+                if attestation is not None:
+                    for outgoing_att in injector.apply_to_attestations([attestation]):
+                        if gossip is not None:
+                            envelope = make_attestation_envelope(outgoing_att, sender_node_id=cfg.node_id)
+                            gossip.publish(envelope)
 
             frame_count += 1
             if frame_count % _HOUSEKEEPING_EVERY_N_FRAMES == 0:
@@ -292,6 +317,8 @@ def run(
                 break
     finally:
         log.info("node_stopped", frames=frame_count, dropped=source.dropped)
+        if control_server is not None:
+            control_server.stop()
         if gossip is not None:
             gossip.stop()
         store.close()

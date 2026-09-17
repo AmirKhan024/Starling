@@ -12,8 +12,8 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from starling_eval.netem_plan import build_timeline
-from starling_eval.scenario import Scenario, load_scenario
+from starling_eval.netem_plan import build_timeline, plan_lie
+from starling_eval.scenario import LieEvent, Scenario, load_scenario
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SCENARIOS_DIR = REPO_ROOT / "scenarios"
@@ -73,6 +73,25 @@ def test_partition_timeline_generates_drop_rules_for_every_cross_group_pair():
     assert heal_t == 300
     heal_flat = [" ".join(cmd) for cmd in heal_cmds]
     assert any("iptables -F" in c for c in heal_flat)
+
+
+def test_plan_lie_posts_to_the_nodes_control_endpoint_inside_its_container():
+    """WP-10 Part 3: the `lie` event runs a python3/urllib POST inside
+    node 2's own container against its control endpoint's port
+    (5555 + node + 1000 = 6557), not iptables/tc.
+    """
+    event = LieEvent(t=10.0, node=2, attack="fabricate", intensity=0.5)
+    commands = plan_lie(event)
+
+    assert len(commands) == 1
+    cmd = commands[0]
+    assert cmd[:3] == ["docker", "exec", "starling-node-02"]
+    assert "python3" in cmd
+    script = cmd[-1]
+    assert "6557" in script
+    assert "/attack" in script
+    assert "fabricate" in script
+    assert "0.5" in script
 
 
 def test_dry_run_cli_emits_iptables_at_120_and_flush_at_300():
