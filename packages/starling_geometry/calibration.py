@@ -153,7 +153,11 @@ class CameraCalibration:
 
             return cls(
                 K=k_node.mat(),
-                dist=dist_node.mat(),
+                # OpenCV FileStorage round-trips a 1-D array as a (N,1)
+                # matrix, not the original (N,) shape — flatten so
+                # `dist` compares equal to what was written (D-issue
+                # found in review: test_to_yaml_from_yaml_round_trips).
+                dist=dist_node.mat().flatten(),
                 reprojection_error=reprojection_error,
                 R=_opt_mat("R"),
                 t=_opt_mat("t"),

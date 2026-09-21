@@ -1,0 +1,41 @@
+# ═══════════════════════════════════════════════════════
+#  Starling — simulator-driven demo requirements
+#  No torch, no ultralytics, no GPU. Runs 4 sim nodes + the
+#  simulator + the dashboard on an ordinary laptop.
+#
+#  The full requirements.txt (video/YOLO/torch path) still
+#  works and keeps apps/baseline.py and the real-camera node
+#  path unchanged — this file is an alternative, smaller
+#  install for `source: "sim"` nodes only.
+# ═══════════════════════════════════════════════════════
+
+# ── Data ───────────────────────────────────────────────
+numpy>=1.24.0
+pandas>=2.0.0
+
+# ── Vision-adjacent (still needed: calibration.py's cv2.FileStorage
+#    dialect and MediaClock.from_video for the still-supported video
+#    path; NavMesh.render() uses Pillow) ─────────────────
+opencv-python>=4.8.0
+Pillow>=10.0.0
+
+# ── Dashboard ──────────────────────────────────────────
+streamlit>=1.32.0
+requests>=2.31.0             # dashboard -> node ControlServer HTTP calls
+
+# ── Config / logging ───────────────────────────────────
+pydantic>=2
+pyyaml
+structlog
+
+# ── Database ───────────────────────────────────────────
+python-ulid>=1.1.0
+
+# ── Network layer ──────────────────────────────────────
+protobuf>=5.26.1,<6
+pyzmq>=25
+pynacl>=1.5.0
+
+# ── Geometry ────────────────────────────────────────────
+scipy>=1.10.0
+shapely>=2.0.0

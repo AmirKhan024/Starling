@@ -56,6 +56,10 @@ ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# Repo root on sys.path so `import scripts.*`/`import apps.*` resolve to
+# this project rather than an unrelated same-named package elsewhere on
+# the machine's site-packages (observed on Windows dev setups).
+pythonpath = [".", "packages"]
 markers = [
     "integration: requires model weights or a dataset; skip cleanly when absent",
 ]
