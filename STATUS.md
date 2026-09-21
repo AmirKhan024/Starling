@@ -55,7 +55,16 @@ network partitions and stays robust when a node lies.
     (40x25m, 4 camera zones, 7 racking obstacles, one deliberate 3m blind
     aisle with both exits labelled as boundaries) plus
     `tests/test_warehouse_demo_floorplan.py` (5 new tests). Full suite now
-    258 passed, 4 deselected. Starting Step 3 (the simulator package).
+    258 passed, 4 deselected. Completed Step 3 (the simulator package):
+    built `packages/starling_sim/` end-to-end (world/worker movement,
+    per-worker identity embeddings, per-zone noisy observation
+    generation, ground-truth boundary-crossing detection, a node-side
+    `SimAttestor` that signs its own coverage attestations, ZMQ PUB/SUB
+    transport, a `SimulatorConfig`-driven runner, and the default
+    5-worker/2-occlusion demo scenario), with 38 new tests and a manual
+    check that no `starling_sim` module ever imports torch/ultralytics.
+    Full suite now 296 passed, 4 deselected. Starting Step 4 (wiring the
+    simulator into `apps/node.py`).
 
 ## 3. Current goal
 
@@ -120,8 +129,7 @@ complete acceptance criteria.
 
 ## 5. Step checklist
 
-- [x] **Step 1 — Setup and baseline health** — commit `<pending, see git log
-      after next commit>`
+- [x] **Step 1 — Setup and baseline health** — commit `5306ab2`
   - [x] Fixed `test_to_yaml_from_yaml_round_trips` (dist array flattened on
         YAML load)
   - [x] Fixed a pre-existing test-collection blocker unrelated to this task
@@ -133,14 +141,47 @@ complete acceptance criteria.
   - [x] Confirmed non-torch tests pass (253 passed, 4 deselected — exact
         command in §7)
   - [ ] mypy — not touched yet (deferred to Step 7 per the brief)
-- [x] **Step 2 — Warehouse floor plan** — commit `<pending, see git log
-      after next commit>`
+- [x] **Step 2 — Warehouse floor plan** — commit `0287e04`
   - [x] `data/floorplan/warehouse_demo.geojson` (4 zones, 7 racking
         obstacles, one deliberate blind aisle with both exits labelled)
   - [x] Loads via `NavMesh.from_geojson`; reachability verified across
         the blind aisle
   - [x] `tests/test_warehouse_demo_floorplan.py` (5 tests, all passing)
-- [ ] **Step 3 — The simulator (`packages/starling_sim/`)** — not started
+- [x] **Step 3 — The simulator (`packages/starling_sim/`)** — commit
+      `<pending, see git log after next commit>`
+  - [x] `identity.py` — per-worker unit-vector embeddings + noisy
+        per-observation re-noising, with a `uniform_similarity` knob
+  - [x] `world.py` — `Worker` (waypoint-loop walking with random
+        pausing), `World` (positions, zone membership, scripted
+        `OcclusionEvent`s), `load_camera_zones` (reads `camera_zone`
+        polygons straight from the floor plan GeoJSON)
+  - [x] `scenario.py` — YAML scenario loader (`ScenarioWorker`,
+        `ScenarioOcclusion`); default scenario ships at
+        `configs/sim/scenarios/warehouse_demo.yaml` (5 workers, one
+        shuttling through the blind aisle, 2 occlusion events on node 1)
+  - [x] `perception.py` — `observe_zone` (per-node, zone-filtered, noisy
+        detections — the simulator-side replacement for
+        `NodePerception.process()` + calibration); JSON encode/decode
+  - [x] `coverage.py` — ground-truth `coverage_state_for_node` +
+        `compute_boundary_crossings` (simulator side); `SimAttestor`
+        (**node-side** — signs its own attestations, mirrors
+        `Attestor.tick`'s admission rule exactly, silence preserved)
+  - [x] `transport.py` — `SimPublisher`/`SimSubscriber`, ZMQ PUB/SUB,
+        per-node topics + one ground-truth topic
+        (`starling_sim.messages`)
+  - [x] `config.py` — `SimulatorConfig` (+ loader), `SimNodeConfig`
+        (defined here, not yet wired into `NodeConfig` — that's Step 4)
+  - [x] `runner.py` — `SimulatorRunner` (`tick_once()` pure/testable,
+        `run()` the real-time publish loop), `python -m
+        starling_sim.runner --config ...` CLI
+  - [x] `node_client.py` — `SimNodeSource` + decode helpers, the
+        node-side counterpart Step 4 will call from `apps/node.py`
+  - [x] `configs/sim/warehouse.yaml` (`SimulatorConfig`) +
+        `configs/sim/scenarios/warehouse_demo.yaml` (default scenario)
+  - [x] 38 new tests across 7 test files (identity, world, scenario,
+        perception, coverage, transport, runner), all passing; verified
+        by hand that importing any `starling_sim` module never imports
+        torch/ultralytics
 - [ ] **Step 4 — Sim mode in the node (`apps/node.py`)** — not started
 - [ ] **Step 5 — Dashboard for the demo** — not started
 - [ ] **Step 6 — One-command launcher and run guide** — not started
@@ -153,24 +194,62 @@ tested (253/253 non-integration tests passing). The calibration YAML
 round-trip bug is fixed. Test collection is fixed. `requirements-sim.txt`
 exists but nothing yet uses it in anger (the sim package doesn't exist).
 
-**What's half-done**: nothing mid-flight — Steps 1 and 2 are fully
-committed before this checkpoint.
+**What's half-done**: nothing mid-flight — Steps 1, 2, and 3 are fully
+committed before this checkpoint. `packages/starling_sim/` is a complete,
+tested, standalone package but **nothing calls it yet** — `apps/node.py`
+and `apps/dashboard/` are both unchanged so far.
 
-**Exact next action**: build `packages/starling_sim/` (Step 3) — the
-largest remaining chunk of work. Read the "Step 3" section of the original
-task prompt for the full spec (worker waypoint routes over the navmesh,
-per-worker identity embeddings, per-node observation delivery via
-per-node ZMQ topics, coverage/occlusion events driving attestations, a
-YAML scenario file). Use `data/floorplan/warehouse_demo.geojson` (Step 2)
-as the floor plan and its `camera_zone`/`node_id` properties to assign
-each node's zone; the blind aisle (boundary_id 1 = node 0's exit,
-boundary_id 2 = node 1's exit) is the scripted route for the dead-zone
-demo moment. See §11 for exact API signatures already surveyed
-(`starling_net.anti_entropy.AntiEntropy`, `starling_consensus.attacks
-.ControlServer`, `starling_proto` envelope kinds, `starling_attest
-.negative_evidence.CandidateBelief`, `starling_store.identity_store
-.LocalStore`, `starling_geometry.reachability.ReachabilityModel`) so this
-isn't re-derived from scratch.
+**Exact next action**: Step 4 — wire the simulator into `apps/node.py`.
+Concretely:
+1. Add `sim: Optional[starling_sim.config.SimNodeConfig] = None` to
+   `NodeConfig` (`packages/starling_node/config.py`) and treat
+   `cfg.source == "sim"` as the branch selector (per the Appendix's note:
+   `source` stays a free-form string, this is just a new convention).
+2. In `apps/node.py::run()`, branch: when `cfg.source == "sim"`, skip
+   `MediaClock.from_video`/`PacedSource`/`NodePerception`/calibration
+   entirely (this is what makes the sim path torch-free — see STATUS.md
+   Step 1's deferred decision) and instead construct a
+   `starling_sim.node_client.SimNodeSource(cfg.sim.connect_endpoint,
+   cfg.node_id)`. Loop on `.recv(timeout_ms=...)` instead of iterating
+   `source`; each non-`None` tick dict feeds
+   `starling_sim.node_client.observations_from_tick(tick)` ->
+   `store.append_local_observation(obs, world_pos=.., pos_sigma=..)` (same
+   call the video path already makes) -> `injector.apply_to_claims` ->
+   `gossip.publish`, exactly mirroring the existing per-frame body.
+3. Build a `starling_sim.coverage.SimAttestor` per sim node (needs
+   `cfg.coverage.watched_boundary_ids`, `cfg.coverage.tau_attest` or
+   `cfg.attest.tau_attest`, `cfg.attest.tick_interval_s`, `keys`); call
+   `.observe_tick(tick["boundary_crossings"])` every tick and `.tick(t_media,
+   coverage_from_tick(tick))` on the housekeeping cadence, gossiping any
+   non-`None` result via `make_attestation_envelope` (already exists).
+4. Wire `starling_net.anti_entropy.AntiEntropy` into the node loop for
+   real (currently dead code — see the Appendix): construct it with
+   `(store, gossip, interval_s=cfg.net.gossip_interval_s)`, call `.tick()`
+   on the housekeeping cadence, and dispatch incoming `vv_digest`/
+   `vv_delta` envelope kinds in `_on_gossip_message` to `.on_digest`/
+   `.on_delta` (publishing the digest's/delta's response the same way
+   claims are published). This is required for the partition-heal demo
+   moment (§3.3) to actually reconverge.
+5. Add the application-level partition control (new, sibling to
+   `ControlServer`) and the periodic in-node
+   plausibility/reputation/resolver pass, per the Appendix's notes on
+   both.
+6. Add `make_reputation_envelope` to `starling_proto/convert.py` (mirror
+   `make_attestation_envelope`).
+7. Create 4 sim node configs under `configs/nodes/sim/` (ring topology,
+   `source: "sim"`, `sim.connect_endpoint: "tcp://127.0.0.1:5560"`,
+   `geometry.navmesh_path` pointing at `warehouse_demo.geojson`,
+   `coverage.watched_boundary_ids` set per node — node 0 watches
+   boundary 1, node 1 watches boundary 2, nodes 2/3 can watch none or be
+   given their own future boundaries).
+8. Add an integration test: run the simulator + 4 sim nodes (in-process
+   or as subprocesses) for ~10-30s headless, assert claims flow and (once
+   partition control exists) that a heal reconverges claim sets.
+
+See §11/Appendix for every exact signature this step needs
+(`AntiEntropy`, `ControlServer`, `make_attestation_envelope`,
+`ReputationTable`, `plausibility.check`, `LocalStore`) so it isn't
+re-derived from scratch.
 
 ## 7. How to run
 
@@ -219,6 +298,56 @@ There is no `scripts/run_demo.py` yet — nothing end-to-end to run yet.
   (no `teammate` rename was needed — see the git rules in the task prompt).
 - **Work branch**: `sim-demo`, per the task's git workflow. `main` gets a
   base push at the start and the final merge at the end of Step 6.
+- **Sim delivery via per-node ZMQ topics on a real ZMQ PUB socket**
+  (`starling_sim.transport`), not "each node replays its own copy of the
+  deterministic world" (the task brief's other acceptable option),
+  because the demo also needs a genuinely separate simulator OS process
+  publishing ground truth for the dashboard's overlay layer — with a live
+  PUB socket already required for that, reusing it for per-node delivery
+  avoids building and keeping two delivery mechanisms in sync. Topics are
+  plain strings (`node:0`..`node:3`, `ground_truth`); payloads are JSON,
+  not protobuf — this is a local, unsigned side channel standing in for
+  "a camera handing a frame to its own node's perception pipeline", not
+  part of the signed gossip mesh, so it doesn't need the wire schema's
+  size/signature discipline.
+- **The simulator computes noisy per-zone observations itself and sends
+  already-noised, already-filtered data to each node** (rather than
+  sending raw ground truth and having the node add its own noise/zone
+  filter), because the task brief's own wording ("send each node what
+  that node's own camera would see") describes the simulator as the
+  thing doing the sensing, mirroring how `apps/node.py`'s video path
+  already receives already-detected `Observation`s from
+  `NodePerception.process()` rather than raw pixels.
+- **Coverage attestation signing stays entirely node-side**
+  (`starling_sim.coverage.SimAttestor`, not something the simulator
+  builds and hands over pre-signed): the simulator sends only raw
+  ground-truth coverage facts (occlusion_ratio/illumination_score/
+  detector_health per node, plus a shared boundary-crossing-this-tick
+  dict sent to every node); each node's own `SimAttestor` decides
+  admission (mirrors `Attestor.tick`'s `tau_attest` gate exactly) and
+  signs with its own private key — consistent with CLAUDE.md rule 1/2:
+  nothing outside a node ever touches its keys or makes its claims for
+  it.
+- **Worker routes are hand-placed waypoint loops, not auto-pathfound.**
+  `ReachabilityModel.distance_field` could drive real A*-style routing,
+  but the floor plan's open rectangular zones make hand-placed waypoints
+  trivial to keep obstacle-free and are much easier to reason about for
+  scripting specific demo moments (e.g. "worker 2 shuttles through the
+  blind aisle") than a pathfinder's emergent routes would be.
+- **Worker pausing is a per-tick random chance** (`pause_prob_per_tick` +
+  a sampled duration), not a fixed pause scripted at specific waypoints,
+  because it reads as natural movement without needing segment-boundary
+  detection logic in `Worker.tick`.
+- **`starling_sim` duplicates two small pieces of logic instead of
+  importing them**: the boundary-crossing segment-sampling check
+  (`starling_attest.attestation._crosses_boundary`'s equivalent, in
+  `starling_sim.coverage._segment_crosses_boundary`) and the attestation
+  HLC-timestamp builder (`_hlc_proto`). Both are ~10 lines. Importing the
+  originals would pull `starling_attest.attestation` in transitively via
+  `starling_perception.coverage`/`starling_geometry.calibration` (cv2)
+  and keep `starling_sim` coupled to the real-camera stack's dependency
+  footprint — the whole point of this package is to be the lightweight,
+  torch-free alternative.
 
 ## 9. Known issues and limitations
 
@@ -229,10 +358,22 @@ There is no `scripts/run_demo.py` yet — nothing end-to-end to run yet.
   (not yet touched — Step 7).
 - `README.md` is still the original centralized-project description
   (rewrite is Step 6).
-- (Will be updated as the simulator/partition/reputation-in-node work
-  lands: application-level partition ≠ real netem packet loss; simulated
-  perception ≠ real cameras — both by design, see the task brief's
-  "Simulator's special status" section.)
+- A scripted occlusion event (`ScenarioOcclusion`) currently only degrades
+  a node's attestation confidence (`occlusion_ratio`/`detector_health`
+  fed to `SimAttestor`) — it does NOT also raise `observe_zone`'s
+  detection-miss probability for that node. A real partially-occluded
+  camera would plausibly miss more detections too, not just attest with
+  lower confidence. Simple to add later (Step 7 polish: pass the active
+  `OcclusionEvent` into `observe_zone` and scale `detection_miss_prob`);
+  left out for now since it wasn't required for any of the five demo
+  moments to work.
+- Application-level partition (Step 4, not yet built) will simulate a cut
+  link by having a node ignore inbound gossip/anti-entropy from specific
+  peer ids — not real packet loss/delay the way `deploy/netem` does for
+  the Docker deployment. By design; see §10's Docker/netem entry.
+- Simulated perception (this session's Step 3) stands in for real
+  cameras entirely — by design; see the task brief's "Simulator's special
+  status" section, reproduced in §4 above.
 
 ## 10. Deferred work (not now)
 
@@ -292,7 +433,24 @@ There is no `scripts/run_demo.py` yet — nothing end-to-end to run yet.
 - `data/floorplan/demo_site.geojson` — existing 2-zone corridor rig
   (roles: `floor`, `camera_zone`+`node_id`, `obstacle`, `boundary`
   +`boundary_id`) — the schema `warehouse_demo.geojson` (Step 2) follows.
-- `packages/starling_sim/` — **does not exist yet** (Step 3).
+- `data/floorplan/warehouse_demo.geojson` — the sim demo's 40x25m floor
+  plan (4 zones, 7 racking obstacles, one blind aisle) — Step 2.
+- `packages/starling_sim/` — the simulator package (Step 3), torch-free:
+  - `identity.py` — worker identity embeddings
+  - `world.py` — `Worker`/`World`/`OcclusionEvent`/`load_camera_zones`
+  - `scenario.py` — YAML scenario loader
+  - `perception.py` — per-zone noisy observation generation + JSON codec
+  - `coverage.py` — ground-truth coverage/crossing facts (simulator
+    side) + `SimAttestor` (**node-side** signing, Step 4 will call this)
+  - `transport.py` — `SimPublisher`/`SimSubscriber` (ZMQ PUB/SUB)
+  - `messages.py` — topic name helpers
+  - `config.py` — `SimulatorConfig`, `SimNodeConfig`
+  - `runner.py` — `SimulatorRunner` (`tick_once`/`run`), CLI entrypoint
+  - `node_client.py` — `SimNodeSource` + decode helpers (Step 4 calls
+    this from `apps/node.py`)
+- `configs/sim/warehouse.yaml` — the shipped `SimulatorConfig`.
+- `configs/sim/scenarios/warehouse_demo.yaml` — the shipped default
+  scenario (5 workers, 2 occlusion events on node 1).
 - `scripts/run_demo.py` — **does not exist yet** (Step 6).
 
 ## Appendix — API reference for Step 3+ (from a session-1 codebase survey)
