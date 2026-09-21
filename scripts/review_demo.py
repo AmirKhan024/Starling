@@ -337,15 +337,16 @@ class Review:
         )
         all_same = all(e["same_identity_after"] for e in episodes)
         good = [e for e in episodes if e["n_samples"] >= 3 and e["area_ever_decreased"]]
-        if all_same and good:
+        need = len(episodes) // 2 + 1  # a majority of the observed episodes must show a shrink
+        if all_same and len(good) >= need:
             self.verdict(m, "PASS", f"region appeared and shrank in {len(good)} of {len(episodes)} episodes, same identity every time. {summary}")
         else:
             problems = []
             if not all_same:
                 problems.append("identity changed after re-emerging in at least one episode")
-            if not good:
-                problems.append("no episode showed the region shrinking after it appeared")
-            self.verdict(m, "PARTIAL", "; ".join(problems) + ". " + summary)
+            if len(good) < need:
+                problems.append(f"the region shrank in only {len(good)} of {len(episodes)} dark episodes (a majority is required for PASS; in the others it only grew until the worker re-emerged)")
+            self.verdict(m, "PARTIAL" if good or all_same else "FAIL", "; ".join(problems) + ". " + summary)
 
     def m3_partition(self) -> None:
         m = 3
