@@ -125,6 +125,10 @@
   </div>
 
   <div class="col">
+    <section data-testid="demo-script">
+      <h2>Demo script — walk through the moments in order</h2>
+      <ol id="demo-steps" style="margin:0; padding-left:20px"></ol>
+    </section>
     <section>
       <h2>Controls</h2>
       <div class="controls" style="margin-bottom:6px">
@@ -386,7 +390,26 @@ function renderQuery(r) {
   el.innerHTML = h;
 }
 
+const DEMO_STEPS = [
+  { title: "Normal walk", watch: "Four workers patrol their own camera zones. Dots keep one colour (identity) as they move; the faint dashed ring is simulator ground truth.", buttons: [["Reset view", () => act("Reset", "/api/reset", {})]] },
+  { title: "Dead zone — healthy exits", watch: "Worker-2 enters the uncovered block for ~27 s. The coloured region stays INSIDE the block; the faint grey area is what plain reachability would allow.", buttons: [["Start episode", () => act("Dead zone (healthy exits)", "/api/script", { name: "dead_zone_healthy" })]] },
+  { title: "Dead zone — occluded camera", watch: "Same walk, but camera 1 (north) is occluded: it sends no healthy attestation, so the region leaks into its zone — and only that one.", buttons: [["Start episode", () => act("Dead zone (camera 1 occluded)", "/api/script", { name: "dead_zone_occluded" })]] },
+  { title: "Partition and heal", watch: "Cut {2,3} from {0,1}. Starling: both halves keep tracking. Centralized: the cut-off side is lost. Then heal: replicas converge.", buttons: [["Partition", () => act("Partition", "/api/partition", {})], ["Heal", () => act("Heal", "/api/heal", {})]] },
+  { title: "Lying node", watch: "Node 2 fabricates sightings; its reputation (as its peers see it) drops and its claims are rejected.", buttons: [["Node 2 lies", () => act("Node 2 lies", "/api/lie", { node_id: 2 })], ["Stop lying", () => act("Stop lying", "/api/stop_lie", {})]] },
+  { title: "Query and refusal", watch: "A structured answer separates confirmed from inferred; try 'where is worker 9' (refused) or the productivity purpose (refused).", buttons: [["Ask: where is worker 2", async () => { $("query-input").value = "where is worker 2"; $("query-submit").click(); }], ["Ask: where is worker 9", async () => { $("query-input").value = "where is worker 9"; $("query-submit").click(); }]] },
+  { title: "Conflict — resolvable", watch: "The network splits, each side anchors a look-alike as the SAME face identity. After healing a fork appears and physics rules out one branch; the reason is shown.", buttons: [["Run (≈50 s)", () => act("Conflict (resolvable)", "/api/conflict", { variant: "resolvable" })]] },
+  { title: "Conflict — ambiguous", watch: "Same set-up but both branches are physically possible: the fork stays OPEN and both candidate positions are drawn. Nobody guesses.", buttons: [["Run (≈50 s)", () => act("Conflict (ambiguous)", "/api/conflict", { variant: "ambiguous" })]] },
+  { title: "Centralized server dies", watch: "Kill the central server: its panel goes DOWN and tracks nothing. Starling is unaffected.", buttons: [["Kill central server", () => act("Kill central server", "/api/central/kill", {})], ["Restart it", () => act("Restart central server", "/api/central/restart", {})]] },
+];
+
+function buildDemoScript() {
+  $("demo-steps").innerHTML = DEMO_STEPS.map((st, i) => `<li data-testid="demo-step-${i + 1}" style="margin-bottom:6px"><b>${esc(st.title)}</b><div class="legend">${esc(st.watch)}</div><div class="controls" style="margin-top:2px">` +
+    st.buttons.map((b, j) => `<button data-testid="demo-run-${i + 1}${j ? "-" + "abc"[j] : ""}" data-step="${i}" data-btn="${j}">${esc(b[0])}</button>`).join("") + `</div></li>`).join("");
+  document.querySelectorAll("#demo-steps button").forEach((el) => { el.onclick = () => DEMO_STEPS[+el.dataset.step].buttons[+el.dataset.btn][1](); });
+}
+
 async function boot() {
+  buildDemoScript();
   CFG = await api("/api/config");
   cellSize = 0.25;
   $("btn-partition").onclick = () => act("Partition", "/api/partition", {});

@@ -101,6 +101,7 @@ class GossipObserver:
         # anti-entropy digest — how the dashboard learns "how many claims
         # does node N hold" from gossip alone, never from a node's DB.
         self._digests: dict[int, VersionVector] = {}
+        self.catchup_ids: set[str] = set()  # claims that arrived in anti-entropy deltas
         self._last_seen: dict[int, float] = {}
         self._start_time: Optional[float] = None
 
@@ -191,7 +192,9 @@ class GossipObserver:
             # Claims a peer sent another peer to fill a gap: overheard like
             # any other gossip, and merged into the same grow-only set.
             for c in envelope.vv_delta.claims:
-                self.claims.add(claim_proto_to_record(c))
+                rec = claim_proto_to_record(c)
+                self.claims.add(rec)
+                self.catchup_ids.add(rec["claim_id"])
         # topology is not consumed here; this observer never participates
         # in anti-entropy itself (it has nothing of its own to offer a
         # peer; see module docstring) — it only reads digests and deltas.

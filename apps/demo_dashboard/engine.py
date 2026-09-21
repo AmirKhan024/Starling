@@ -132,7 +132,7 @@ class DashboardEngine:
         return GossipObserver(peers, Path(self.cfg.keys_dir))
 
     def _new_reputation_loop(self) -> _ReputationLoop:
-        return _ReputationLoop(
+        loop = _ReputationLoop(
             node_id=_OBSERVER_ID,
             store=self.observer.store,
             geometry=self.reachability,
@@ -140,6 +140,8 @@ class DashboardEngine:
             reputation_table=ReputationTable(node_id=_OBSERVER_ID, cfg=ReputationConfig()),
             lookback_s=self.cfg.resolve_window_s,
         )
+        loop.catchup_ids = self.observer.catchup_ids
+        return loop
 
     def start(self) -> None:
         self.observer.start()

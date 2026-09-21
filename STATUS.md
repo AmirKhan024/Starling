@@ -739,6 +739,28 @@ curl -X POST http://127.0.0.1:6557/attack -d "{\"attack\": \"fabricate\", \"inte
   stops it (a dashboard-restarted copy is stopped via `data/demo/central.pid`).
   The central map hard-codes the zone rectangles (cosmetic).
 
+- **Session 3, Part D: false rejections of honest nodes (real, fixed).** Nodes now
+  log every rejected claim (`plausibility_rejected`, with reason, position and
+  baseline). Findings, all in the node-side `_ReputationLoop` (my Step 4 code), not
+  in `plausibility.check`: (1) it passed EVERY other node's claim within +/-5 s as a
+  "corroborator", but camera zones do not overlap so those are other people:
+  corroboration was always 0 and only the graded score kept live claims passing;
+  now only claims within `_CORROBORATION_RADIUS_M` (4 m) can corroborate. (2) After
+  a partition heals, honest claims arrive late through anti-entropy and failed
+  freshness + corroboration ("claim_age_s: 39"), dragging honest nodes to ~0.5;
+  claims that arrived through the anti-entropy channel (`catchup_ids`) now skip the
+  age check IF their HLC is monotone in the origin's own sequence, so a replay (old
+  timestamp on a new seq) delivered through catch-up is still rejected; a claim
+  that is too old on the LIVE channel is now rejected on freshness alone. (3) A new
+  track first seen inside a catch-up burst was graded against an unrelated worker
+  of the same node for every claim of the burst; it now uses its own first claim
+  from that pass (once 2 s old). Residual, by design: the first claim of a genuinely
+  new track (a person entering, a scripted actor spawning) is graded against the
+  node's established tracks and can fail once (one 5% EWMA step, recovered in
+  seconds). The 2 rejections on node 1 in the last review were this family.
+- **Demo script panel + `--presenter`** (D2): nine ordered steps, each with what to
+  watch and one button. README demo section rewritten for the new moments.
+
 ## 9. Known issues and limitations
 
 - The video/YOLO path (`apps/node.py` with a real `source:` video file) has
