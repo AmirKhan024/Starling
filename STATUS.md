@@ -268,36 +268,55 @@ complete acceptance criteria.
         then `python scripts/run_demo.py --headless`): 4 nodes live, claims flow
         (found and fixed: `requirements-sim.txt` had non-ASCII box-drawing
         characters that pip on Windows failed to decode as cp1252)
+- [x] **Automated visual review (session 2, Part D)** — `scripts/review_demo.py`
+      -> `review/review.html` (+ `review_summary.md`, `screenshots/`, `results.json`,
+      `first_run_results.json`, `first_run_findings.md`, `final_run_console.log`)
 - [ ] **Step 7 — Polish** — not started (only after 1–6)
 
 ## 6. Current status
 
-**What works right now**: the full distributed core, plus a working
-simulator-driven node mesh. Verified live, multiple times, with 4 real
-`apps/node.py` sim-mode processes + the simulator running together:
-claims replicate and merge across the ring; a worker shuttling through
-the blind aisle produces no observations from any zone while inside the
-gap; coverage attestations flow (including during a scripted occlusion);
-`POST /partition` demonstrably stops a node from merging a cut peer's
-claims and `POST /partition {"drop_node_ids": []}` resumes it; a live
-`POST /attack {"attack": "fabricate", ...}` visibly drives an honest
-peer's in-node opinion of the lying node down (from ~1.0 toward ~0.5,
-see Known issues for why it's not closer to `r_min` and why an honest
-node isn't pinned at a perfect 1.0 either). `apps/dashboard/` is
-**still completely unchanged** — nothing in it knows the simulator or
-sim-mode nodes exist yet; it would today only work against the
-video-path node configs it already supports.
+**What works right now**: the whole demo, end to end, with one command
+(`python scripts/run_demo.py`): a simulator process, four sim-mode node
+processes (own SQLite replica, own gossip socket, ring topology) and the
+dashboard at http://127.0.0.1:8765. All five demo moments work live (normal
+walk with stable identities; dead zone with a candidate region; partition and
+heal with equal, gap-free replicas ~2-3 s after healing; a lying node whose
+peer-reported reputation falls to ~0.5-0.6 with ~50 claims rejected and
+recovers after it stops; capability-scoped queries with structured answers
+and refusals). The old Streamlit `apps/dashboard/` is unchanged (its
+`GossipObserver` is reused by the new dashboard).
 
-**What's half-done**: nothing mid-flight — Steps 1-4 are fully committed
-before this checkpoint.
+**What's half-done**: nothing mid-flight; everything is committed and pushed.
 
-**Session 2: Part A DONE** (gap-aware anti-entropy), **Part B DONE** (dashboard
-at `apps/demo_dashboard/`, verified live: heal converged 3.0s after a
-partition; a lying node's reputation fell 1.0 -> ~0.51 with ~100 claims
-rejected and recovered to ~1.0 after "stop lying"; queries answer / refuse
-correctly). `scripts/run_demo.py` already exists (built alongside, for
-testing). **Part C DONE** (launcher, README, integration test, clean-venv install
-verified). **Next**: Part D (Playwright review -> `review/review.html`).
+**Session 2 is complete: Parts A, B, C and D are all DONE and pushed to `main`
+and `sim-demo`** (github.com/AmirKhan024/Starling). Part A: gap-aware
+anti-entropy. Part B: dashboard (`apps/demo_dashboard/`). Part C: launcher,
+README, headless integration test, clean-venv install verified. Part D:
+automated Playwright review of the real running system. Full non-torch suite:
+369 passed; integration: 3 passed (`tests/test_demo_integration.py`).
+
+**Review result (final run; first run and its findings are kept separately in
+`review/first_run_results.json` / `review/first_run_findings.md`):**
+
+| # | Moment | Verdict | Reason (shortened; full text in review/review_summary.md) |
+|---|---|---|---|
+| 0 | Startup | PASS | all 4 nodes live 4.1s after launch (page loaded, claims flowing) |
+| 1 | Normal walk | PASS | 5 identities tracked, worker-2 kept P-003 across nodes [0, 1], mean error 0.32 m vs ground truth |
+| 2 | Dead zone | PARTIAL | the region shrank in only 1 of 3 dark episodes (a majority is required for PASS; in the others it only grew until the worker re-emerged). ep1 (sim t=45.2 s): 9 samples, p... |
+| 3 | Partition and heal | PASS | partition shown on all nodes, spread grew to 51.0, converged 2.4s after heal with gaps=0; open forks: 0 |
+| 4 | Lying node | PASS | liar's reputation < 0.7 after 3.6s (48.0 claims rejected), honest nodes stayed >= 1.0, recovered > 0.9 8.1s after stopping |
+| 5 | Query and refusal | PASS | valid query answered with confirmed/inferred/unreachable; unknown worker and productivity purpose refused with reasons; partition edge case gave: refused — Reason: 'P-002... |
+| 6 | Robustness | PASS | reload recovered in 0.0s; killed node OFFLINE after 5.3s; LIVE again 2.5s after restart; converged 3.8s after restart |
+
+Moment 2 is PARTIAL on purpose: the dead-zone region appears, follows the right
+identity and the identity is restored every time, but it shrank in only 1 of 3
+dark episodes (growth dominates; see Known issues and the review's limitations).
+
+**Exact next action: Await external review of `review/review.html`** (give the
+reviewer `review/review.html`, `review/review_summary.md` and the
+`review/screenshots/` folder). Regenerate with `python scripts/review_demo.py`
+(needs `pip install -r requirements-review.txt` and `playwright install chromium`).
+Then Step 7 (polish: mypy on `starling_crdt`/`starling_consensus`, ruff).
 
 (Historical Step-5 plan, kept for reference — now implemented differently,
 see Decisions:)
@@ -643,7 +662,7 @@ curl -X POST http://127.0.0.1:6557/attack -d "{\"attack\": \"fabricate\", \"inte
   needs its stated evidence (for example moment 1 needs exactly 5 workers as 5
   identities at the end; moment 2 follows worker-2's OWN region through up to 3
   dark episodes and requires the same identity after each and a visible shrink
-  in at least one); a process found dead after a moment downgrades it; the
+  in a MAJORITY of them); a process found dead after a moment downgrades it; the
   first run's results are kept in `review/first_run_results.json` and
   `review/first_run_findings.md`.
 
@@ -671,6 +690,20 @@ curl -X POST http://127.0.0.1:6557/attack -d "{\"attack\": \"fabricate\", \"inte
   "broken," not to claim this is perfectly tuned. Worth another pass in
   Step 7 if the demo's reputation bars look noisier than desired for an
   UNATTACKED node.
+- **Dead-zone region rarely shrinks.** With `v_max` 1.6 m/s against a 0.6 m/s
+  worker and a 25 m long, 3 m wide blind aisle the candidate region mostly
+  grows until the worker re-emerges; attestations cut it (a shrink was observed
+  in 1 of 3 review episodes, e.g. 42.6 -> 32.2 m2) but a camera that sees nothing
+  in its own zone is not modelled as negative evidence (only boundary
+  attestations are), and an occluded node is silent by design. Review moment 2
+  is therefore PARTIAL.
+- **The claim-count "converged" badge is tolerance-based** (30 claims, about a
+  second of production) plus gaps == 0, because the simulator keeps producing
+  ~25 claims/s; byte-identical sets are asserted only in unit tests.
+- Requires free local ports 5555-5560 and 8765; `scripts/run_demo.py` deletes
+  `data/nodes/sim/` and `data/demo/logs/` at start. A throwaway virtualenv at
+  `C:\sv` was created to verify the clean install and could not be deleted from
+  the session (protected path); safe to remove by hand.
 - mypy still reports ~15 errors in `starling_crdt`/`starling_consensus`
   (not yet touched — Step 7).
 - `README.md` is still the original centralized-project description

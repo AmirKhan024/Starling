@@ -1,0 +1,37 @@
+starting the demo ...
+  [    5.0s] 0a_startup_loaded: Dashboard fully loaded with all four nodes live.
+  => moment 0 PASS: all 4 nodes live 4.1s after launch (page loaded, claims flowing)
+  [    5.1s] 1a_walk_start: Five workers, five identities; solid dots = believed, dashed rings = ground truth.
+  [   11.2s] 1b_walk_6s_later: Six seconds later: the same identities at new positions.
+  [   33.4s] 1c_zone_boundary_crossed: worker-2 is now seen by a different node's camera and still carries identity P-003 (was P-003).
+  => moment 1 PASS: 5 identities tracked, worker-2 kept P-003 across nodes [0, 1], mean error 0.32 m vs ground truth
+  [   33.4s] 2a_approaching_aisle: worker-2 (P-003) approaches the blind aisle and is still seen.
+  [   47.0s] 2b_region_appears: worker-2 (P-003) is unseen: its candidate region appears with its area in m².
+  [   49.4s] 2c_region_mid: Region P-003 after 2.4 s unseen: 35.94 m².
+  [   49.5s] 2e_region_shrinks: Region P-003 SHRANK from 63.31 to 35.94 m² after 2.4 s unseen (sim t = 47.2 s).
+  [   51.4s] 2d_reemerged: worker-2 re-emerges; identity now P-003 (before: P-003).
+  => moment 2 PARTIAL: the region shrank in only 1 of 3 dark episodes (a majority is required for PASS; in the others it only grew until the worker re-emerged). ep1 (sim t=45.2 s): 9 samples, peak 84.56 m², final 84.56 m², shrank, same identity after; ep2 (sim t=63.2 s): 9 samples, peak 116.5 m², final 116.5 m², no shrink, same identity after; ep3 (sim t=81.4 s): 11 samples, peak 86.56 m², final 86.56 m², no shrink, same identity after
+  [   89.7s] 3a_before_partition: Before: all nodes hold (almost) the same number of claims.
+  [   91.0s] 3b_partition_during: Partition applied: every node card reports 'partitioned: yes'.
+  [  103.2s] 3c_partition_later: 12 s into the partition: the two sides' claim counts have drifted apart.
+  [  106.1s] 3d_after_heal: After heal: convergence badge CONVERGED, spread 6, gaps 0 (2.4s after pressing Heal).
+  => moment 3 PASS: partition shown on all nodes, spread grew to 51.0, converged 2.4s after heal with gaps=0; open forks: 0
+  [  106.2s] 4a_before_lie: Before: reputation of all nodes = [1.0, 1.0, 1.0, 1.0].
+  [  112.1s] 4b_lying_early: 5.4s after 'Make node 2 lie': reputation [1.0, 1.0, 0.6, 1.0], rejected [0.0, 2.0, 23.0, 0.0].
+  [  119.4s] 4c_lying_dropped: Node 2's reputation has dropped: [1.0, 1.0, 0.57, 1.0], rejected [0.0, 2.0, 48.0, 0.0].
+  [  125.9s] 4d_recovering: 6.0s after 'Stop lying': reputation [1.0, 1.0, 0.83, 1.0].
+  [  128.0s] 4e_after_stop: End of recovery window: reputation [1.0, 1.0, 0.93, 1.0].
+  => moment 4 PASS: liar's reputation < 0.7 after 3.6s (48.0 claims rejected), honest nodes stayed >= 1.0, recovered > 0.9 8.1s after stopping
+  [  128.5s] 5a_answer_worker2: Valid query 'where is worker 2' (purpose safety).
+  [  129.0s] 5b_refusal_unknown: Unanswerable query 'where is worker 9': refused with its reason.
+  [  133.8s] 5c_query_while_partitioned: Edge case: 'where is worker 3' while {2,3} is cut off from the querying side.
+  [  137.7s] 5d_refusal_productivity: Same query under a `productivity` token: refused (purpose limitation).
+  => moment 5 PASS: valid query answered with confirmed/inferred/unreachable; unknown worker and productivity purpose refused with reasons; partition edge case gave: refused — Reason: 'P-002' was only observed by node 2, which is/are unreachable for the entire requested window — a partitioned wing, not an absence
+  [  137.8s] 6a_after_reload: Page reloaded mid-run; dashboard recovered in 0.0s with 4 nodes live.
+  [  143.2s] 6b_node1_killed: Node 1's process was killed; its card reads OFFLINE after 5.3s; nodes live: 3.
+  [  145.8s] 6c_node1_restarted: Node 1 restarted; card reads LIVE after 2.5s.
+  [  147.1s] 6d_after_recovery: After recovery: CONVERGED, gaps 0, claims [3277.0, 3290.0, 3270.0, 3279.0].
+  => moment 6 PASS: reload recovered in 0.0s; killed node OFFLINE after 5.3s; LIVE again 2.5s after restart; converged 3.8s after restart
+
+VERDICTS: {0: 'PASS', 1: 'PASS', 2: 'PARTIAL', 3: 'PASS', 4: 'PASS', 5: 'PASS', 6: 'PASS'}
+wrote C:\Users\Amir Khan\Documents\starling\review\review.html (5.9 MB)
