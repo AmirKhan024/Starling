@@ -113,3 +113,17 @@ def test_occluded_script_occludes_node_1_and_manual_control_is_thread_safe_by_qu
     runner.tick_once()
     assert runner.world.active_occlusion(1) is not None
     assert runner.world.active_occlusion(0) is None
+
+
+def test_delayed_script_step_spawns_the_second_twin_later():
+    cfg = load_simulator_config(DEFAULT_SIM_CONFIG)
+    cfg.auto = False
+    cfg.control_port = 0
+    runner = SimulatorRunner(cfg)
+    runner.command({"kind": "script", "name": "conflict_ambiguous"})
+    runner.tick_once()
+    active = {w["worker_id"] for w in runner.tick_once()[1]["workers"]}
+    assert 5 in active and 6 not in active
+    for _ in range(5 * 26):
+        gt = runner.tick_once()[1]
+    assert 6 in {w["worker_id"] for w in gt["workers"]}

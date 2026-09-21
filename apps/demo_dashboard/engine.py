@@ -112,6 +112,11 @@ class DashboardEngine:
         self._resolved_count = -1
         self._resolved_wall = 0.0
         self._loop_wall = 0.0
+        self._held: set[str] = set()  # far-side claims not yet visible from the vantage node's side
+        self._seen_ids: set[str] = set()
+        self._fork_memory: dict[str, dict[str, Any]] = {}
+        self._conflict: dict[str, Any] = {}
+        self._conflict_thread: Optional[threading.Thread] = None
         self._max_t = 0.0
         self._claim_label: dict[str, str] = {}
         self._label_seq = 0
@@ -214,6 +219,36 @@ class DashboardEngine:
         self._log_event("script", f"SCRIPT {name}: {'started' if ok else 'FAILED (simulator unreachable?)'}")
         return {"ok": ok, "name": name}
 
+    def run_conflict(self, variant: str) -> dict[str, Any]:
+        """Scripted conflict: partition the network, spawn the two face-twins (one
+        on each side; both are reported as the same identity by a face gate), then
+        heal after `conflict_heal_after_s`. Everything is done by the real nodes,
+        simulator and resolver; this thread only presses the same buttons."""
+        script = {"resolvable": "conflict_resolvable", "ambiguous": "conflict_ambiguous"}.get(variant)
+        if script is None:
+            return {"ok": False, "error": "unknown variant"}
+        if self._conflict_thread is not None and self._conflict_thread.is_alive():
+            return {"ok": False, "error": "a conflict scenario is already running"}
+
+        def run() -> None:
+            t0 = time.monotonic()
+            self._conflict = {"variant": variant, "phase": "starting"}
+            self.heal()
+            self._log_event("conflict", f"CONFLICT ({variant}): partitioning the network and sending the two face-twins in")
+            self.partition()
+            self.run_script(script)
+            self._conflict = {"variant": variant, "phase": "partitioned", "since_s": 0}
+            while time.monotonic() - t0 < self.cfg.conflict_heal_after_s and not self._stop.is_set():
+                self._conflict = {"variant": variant, "phase": "partitioned", "since_s": round(time.monotonic() - t0)}
+                self._stop.wait(1.0)
+            self.heal()
+            self._log_event("conflict", f"CONFLICT ({variant}): network healed; the two sides now merge their claims")
+            self._conflict = {"variant": variant, "phase": "healed", "since_s": round(time.monotonic() - t0)}
+
+        self._conflict_thread = threading.Thread(target=run, daemon=True, name="demo-conflict")
+        self._conflict_thread.start()
+        return {"ok": True, "variant": variant}
+
     def partition(self) -> dict[str, Any]:
         """Cut group A from group B. Receive-side drop on BOTH sides, since
         `POST /partition` only filters inbound traffic (see STATUS.md)."""
@@ -245,6 +280,9 @@ class DashboardEngine:
         recover on their own as honest claims arrive)."""
         self.heal()
         self.stop_lying()
+        self._fork_memory.clear()
+        self._held.clear()
+        self._conflict = {}
         with self._lock:
             old = self.observer
             self.observer = self._new_observer()
@@ -290,6 +328,12 @@ class DashboardEngine:
         vals = list(self.observer.reputation.gossiped_opinions(node_id).values())
         return statistics.median(vals) if vals else None
 
+    def _cut_nodes(self) -> set[int]:
+        """Nodes the vantage node currently ignores (application-level partition)."""
+        with self._lock:
+            st = self._control.get(self.cfg.query_vantage_node, {})
+        return set(st.get("partition", {}).get("dropped_node_ids", [])) if st.get("reachable") else set()
+
     def _resolve(self) -> dict[str, Any]:
         """Deterministic resolve over the last `resolve_window_s` of the merged
         claim set (a pure function of that set), recomputed only when the set
@@ -314,6 +358,23 @@ class DashboardEngine:
             r = self._peer_reputation(n)
             rep_map[n] = 1.0 if r is None else r
         assignment, forks = resolve(_Windowed(records), self.reachability, rep_map, None, self.cfg.match)
+
+        # Fork view = what the VANTAGE node's side can see. While the vantage
+        # node ignores some peers, claims those peers made are held back and only
+        # released when the link heals: a conflict between the two halves of a
+        # split network therefore appears on RECONNECTION, not before.
+        cut = self._cut_nodes()
+        if not cut:
+            self._held.clear()
+        else:
+            for r in records:
+                if r["claim_id"] not in self._seen_ids and r["node_id"] in cut:
+                    self._held.add(r["claim_id"])
+        self._seen_ids = {r["claim_id"] for r in records}
+        forks_view = forks
+        if self._held:
+            visible = [r for r in records if r["claim_id"] not in self._held]
+            _, forks_view = resolve(_Windowed(visible), self.reachability, rep_map, None, self.cfg.match)
 
         # Stable labels: each window identity takes the label most of its
         # claims already carried; otherwise it gets a fresh one.
@@ -340,6 +401,8 @@ class DashboardEngine:
         self._resolved = {
             "assignment": assignment,
             "forks": forks,
+            "forks_view": forks_view,
+            "held": len(self._held),
             "claims_by_id": {r["claim_id"]: r for r in records},
             "max_t": max_t,
             "label_of_ref": label_of_ref,
@@ -465,10 +528,17 @@ class DashboardEngine:
 
         # ── candidate regions for unseen identities ───────────────────
         occluded_now = set(gt.get("occluded_nodes", [])) if gt else set()
+        # An identity with an OPEN fork has no single last position (two branches
+        # claim it), so it gets no candidate region until the conflict is settled.
+        forked = {m["identity"] for m in self._fork_memory.values() if m.get("status") == "OPEN"}
         regions = []
         for ident in identities:
             ref = ident["id"]
             b = self._beliefs.get(ref)
+            if ref in forked:
+                self._beliefs.pop(ref, None)
+                ident["status"] = "forked"
+                continue
             if ident["status"] == "unseen":
                 if b is None:
                     origin = self._snap_to_free((ident["x"], ident["y"]))
@@ -534,20 +604,50 @@ class DashboardEngine:
                 self._log_event("identity", f"new identity {ident['short']}")
 
         # ── forks ─────────────────────────────────────────────────────
-        fork_list = []
-        for f in forks.open_forks():
-            fork_list.append(
-                {
-                    "id": f.fork_id,
-                    "short": str(f.fork_id)[:10],
-                    "identity": label_of_ref.get(f.identity_ref, f.identity_ref),
-                    "branches": len(f.branches),
-                    "opened_ms": f.opened_at.physical_ms,
-                }
-            )
-            if f.fork_id not in self._known_forks:
-                self._known_forks.add(f.fork_id)
-                self._log_event("fork", f"OPEN FORK {str(f.fork_id)[:10]} on {label_of_ref.get(f.identity_ref, f.identity_ref)} ({len(f.branches)} branches)")
+        wall = time.monotonic()
+        for f in resolved["forks_view"].all_forks():
+            key = f"{f.identity_ref}@{f.opened_at.physical_ms}"
+            branches = []
+            for i, br in enumerate(f.branches):
+                last = by_id.get(br.claim_ids[-1]) if br.claim_ids else None
+                branches.append({
+                    "index": i, "n_claims": len(br.claim_ids),
+                    "x": None if br.last_position is None else round(br.last_position[0], 2),
+                    "y": None if br.last_position is None else round(br.last_position[1], 2),
+                    "node": None if last is None else last["node_id"],
+                    "t_last": None if last is None else round(last["t_media"], 1),
+                })
+            status = str(f.status.name if hasattr(f.status, "name") else f.status)
+            label = label_of_ref.get(f.identity_ref, f.identity_ref)
+            mem = self._fork_memory.get(key)
+            if mem is None:
+                self._log_event("fork", f"FORK OPENED on {label} (face id {f.identity_ref}): {len(branches)} claim chains bind it to incompatible positions "
+                                + " vs ".join(f"({b['x']}, {b['y']})" for b in branches))
+                mem = {"first_wall": wall, "status": None}
+                self._fork_memory[key] = mem
+            if mem["status"] != status:
+                if status != "OPEN":
+                    self._log_event("fork", f"FORK RESOLVED on {label} by {status.replace('RESOLVED_', '').lower()}: {f.resolution_reason}")
+                mem["status"] = status
+            if status == "OPEN":
+                expl = ("Both trajectories are physically possible from the identity's last confirmed anchor, so the system does NOT pick one "
+                        "(never by score). It is an ambiguity for a human: " + " OR ".join(f"branch {b['index']} at ({b['x']}, {b['y']})" for b in branches) + ".")
+            else:
+                win = f.resolved_branch
+                expl = (f"Resolved by {status.replace('RESOLVED_', '').lower()}: branch {win} kept. Rejected: {f.resolution_reason}.")
+            mem.update({
+                "key": key, "short": key.split("@")[0] + "@" + str(f.opened_at.physical_ms // 1000) + "s", "identity": label, "face_identity": f.identity_ref,
+                "status": status, "reason": f.resolution_reason, "resolved_branch": f.resolved_branch, "branches": branches,
+                "opened_media_s": round(f.opened_at.physical_ms / 1000.0, 1), "explanation": expl, "last_wall": wall, "in_window": True,
+            })
+        for key, mem in list(self._fork_memory.items()):
+            if wall - mem.get("last_wall", wall) > cfg.fork_memory_s:
+                del self._fork_memory[key]
+            elif mem.get("last_wall") != wall:
+                mem["in_window"] = False
+        fork_list = [
+            {k: v for k, v in m.items() if k not in ("first_wall", "last_wall")} for m in sorted(self._fork_memory.values(), key=lambda m: m["first_wall"])
+        ]
 
         # ── nodes ─────────────────────────────────────────────────────
         healthy_all = healthy_zone_mask(attestations, self.zone_masks, now_t, cfg.negative_evidence.tau_attest, cfg.attest_validity_s, self.navmesh.grid.shape)
@@ -610,6 +710,9 @@ class DashboardEngine:
             "identities": identities,
             "regions": regions,
             "forks": fork_list,
+            "forks_open": sum(1 for f in fork_list if f["status"] == "OPEN"),
+            "held_back_claims": resolved.get("held", 0),
+            "conflict": dict(self._conflict),
             "nodes": nodes,
             "convergence": {
                 "spread": spread,

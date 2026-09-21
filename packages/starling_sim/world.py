@@ -197,6 +197,7 @@ class World:
             w.active = sw.active
             w.face_identity = sw.face_identity
         self.anchors = list(scenario.anchors)
+        self.last_anchor_t: dict[tuple[int, int], float] = {}
         self.scripts = dict(scenario.scripts)
         self._pending: list[tuple[float, dict]] = []  # (due t_media, step)
         self.occlusions = [
@@ -211,7 +212,8 @@ class World:
         if steps is None:
             return False
         for step in steps:
-            self._pending.append((self.t_media + float(step.get("delay_s", 0.0)), step))
+            delay = step.get("delay_s", (step.get("assign") or step.get("occlude") or {}).get("delay_s", 0.0))
+            self._pending.append((self.t_media + float(delay), step))
         return True
 
     def occlude(self, node_id: int, duration_s: float, occlusion_ratio: float = 0.9, detector_health: float = 0.3) -> None:
@@ -229,6 +231,7 @@ class World:
                 a = step["assign"]
                 w = by_id.get(a["worker_id"])
                 if w is not None:
+                    self.last_anchor_t = {k: v for k, v in self.last_anchor_t.items() if k[0] != w.worker_id}
                     w.assign_route(a["route"], a.get("speed"), a.get("loop", False), a.get("on_done", "deactivate"))
             if "occlude" in step:
                 o = step["occlude"]

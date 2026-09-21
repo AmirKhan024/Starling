@@ -47,6 +47,9 @@ class AnchorPoint:
     x: float
     y: float
     radius: float = 2.0
+    # A real face gate produces ONE recognition event per pass, not one per
+    # video frame: the same worker is re-anchored at this gate only after this.
+    cooldown_s: float = 20.0
 
 
 @dataclass
@@ -101,7 +104,7 @@ def load_scenario(path: Union[str, Path]) -> Scenario:
         )
         for o in data.get("occlusions", [])
     ]
-    anchors = [AnchorPoint(a["node_id"], a["x"], a["y"], a.get("radius", 2.0)) for a in data.get("anchors", [])]
+    anchors = [AnchorPoint(a["node_id"], a["x"], a["y"], a.get("radius", 2.0), a.get("cooldown_s", 20.0)) for a in data.get("anchors", [])]
     return Scenario(
         name=data.get("name", Path(path).stem), workers=workers, occlusions=occlusions, anchors=anchors,
         scripts=data.get("scripts", {}) or {}, auto=data.get("auto", []) or [],

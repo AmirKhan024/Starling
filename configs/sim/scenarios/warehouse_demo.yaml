@@ -43,17 +43,19 @@ scripts:
   dead_zone_occluded:
     - occlude: {node_id: 1, duration_s: 75, occlusion_ratio: 0.9, detector_health: 0.3}
     - assign: {worker_id: 2, speed: 0.9, on_done: stay, route: [[1, 14.5], [14.5, 14.5], [19, 14.5], [19, 10.5], [22, 10.5], [22, 15.2], [25, 15.2], [25, 12], [26.5, 12], [33, 12], [33, 17.5], [13, 17.5], [1, 17.5], [1, 14.5]]}
-  # Twin A is face-anchored at the west gate early, then keeps walking in zone 0
-  # (appearance-tracked). Twin B is face-anchored as the SAME identity at the
-  # east gate ~25 s later. Both are physically possible => the fork stays open.
+  # Twin A starts inside the west gate (face-anchored), then keeps walking in
+  # zone 0 (appearance-tracked). Twin B starts inside the east gate ~25 s later
+  # and is face-anchored as the SAME identity. Both are physically possible => the fork stays open.
   conflict_ambiguous:
-    - assign: {worker_id: 5, speed: 0.9, on_done: deactivate, route: [[2, 12.5], [12, 12.5], [12, 22], [5, 22], [5, 17], [11, 17], [11, 5], [5, 5], [5, 10], [11, 10], [11, 20]]}
-    - assign: {worker_id: 6, speed: 0.9, on_done: deactivate, delay_s: 27, route: [[39, 12.5], [30, 12.5], [30, 20], [38, 20], [38, 5], [30, 5], [30, 9]]}
+    - deactivate: 6
+    - assign: {worker_id: 5, speed: 0.9, on_done: deactivate, route: [[6.5, 12.5], [12, 12.5], [12, 22], [5, 22], [5, 5], [11, 5], [11, 22], [5, 22]]}
+    - assign: {worker_id: 6, speed: 0.9, on_done: deactivate, delay_s: 25, route: [[33.5, 12.5], [29, 12.5], [29, 20], [38, 20], [38, 5], [29, 5], [29, 9], [38, 9]]}
   # Twin A passes the west gate AGAIN just before twin B reaches the east gate,
   # so B's position is physically impossible from A's last confirmed anchor.
   conflict_resolvable:
-    - assign: {worker_id: 5, speed: 0.9, on_done: deactivate, route: [[2, 12.5], [12, 12.5], [12, 20], [6, 20], [6, 16], [8, 12.5], [11, 12.5], [11, 5], [5, 5], [5, 10], [11, 10]]}
-    - assign: {worker_id: 6, speed: 0.9, on_done: deactivate, delay_s: 29, route: [[39, 12.5], [30, 12.5], [30, 20], [38, 20], [38, 5], [30, 5], [30, 9]]}
+    - deactivate: 6
+    - assign: {worker_id: 5, speed: 0.9, on_done: deactivate, route: [[6.5, 12.5], [12, 12.5], [12, 20], [6, 20], [6, 16], [8, 12.5], [12, 12.5], [12, 5], [5, 5], [5, 22], [11, 22]]}
+    - assign: {worker_id: 6, speed: 0.9, on_done: deactivate, delay_s: 32, route: [[33.5, 12.5], [29, 12.5], [29, 20], [38, 20], [38, 5], [29, 5], [29, 9], [38, 9]]}
 
 auto:
   - {at_s: 12, script: dead_zone_healthy}

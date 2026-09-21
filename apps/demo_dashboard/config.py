@@ -61,6 +61,12 @@ class DemoDashboardConfig(DashboardConfig):
     lie_intensity: float = 0.9
     event_log_size: int = 60
     resolve_min_interval_s: float = 1.0
+    # A fork the resolver reported stays on the panel this long (wall s) after it
+    # leaves the resolver window, so it can be read (display memory of a DERIVED
+    # result; the resolver itself is a pure function of the window).
+    fork_memory_s: float = 150.0
+    # Conflict scenarios: heal the partition this many seconds after starting it.
+    conflict_heal_after_s: float = 38.0
     # A zone-coverage attestation counts as current for this long (media s) after
     # its interval ends; nodes attest every 2 s, so a few missed ones are tolerated.
     attest_validity_s: float = 4.5

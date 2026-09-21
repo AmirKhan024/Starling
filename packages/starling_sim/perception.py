@@ -91,8 +91,12 @@ def observe_zone(
 def _anchor_identity(world: World, node_id: int, worker) -> Optional[str]:
     if not worker.face_identity:
         return None
-    for a in world.anchors:
+    for idx, a in enumerate(world.anchors):
         if a.node_id == node_id and (worker.pos[0] - a.x) ** 2 + (worker.pos[1] - a.y) ** 2 <= a.radius**2:
+            last = world.last_anchor_t.get((worker.worker_id, idx))
+            if last is not None and world.t_media - last < a.cooldown_s:
+                return None  # already recognised at this gate on this pass
+            world.last_anchor_t[(worker.worker_id, idx)] = world.t_media
             return worker.face_identity
     return None
 

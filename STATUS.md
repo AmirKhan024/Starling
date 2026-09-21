@@ -697,6 +697,31 @@ curl -X POST http://127.0.0.1:6557/attack -d "{\"attack\": \"fabricate\", \"inte
   reachable, 0 m2 inside healthy zones; camera 1 occluded -> region leaks into
   zone 1 only (105 m2), 0 m2 in the healthy zones.
 
+- **Session 3, Part B: identity conflicts (forks).** How a fork is produced: the
+  RESOLVER, unchanged, only forks on FACE_ANCHOR claims that bind one
+  `identity_ref` to positions not explainable as a continuation of its live
+  branch; it resolves the fork by reachability from the LAST CONFIRMED ANCHOR
+  (`evaluate_reachability`) only if exactly one branch is physically possible,
+  else it stays OPEN. The simulator therefore gained face-recognition gates
+  (`anchors:` in the scenario; ONE recognition event per pass via a per-worker
+  `cooldown_s`, since anchoring every 5 Hz tick made one fork per frame) and
+  "twins" (`twin_of`: near-identical appearance, same `face_identity`).
+  `conflict_ambiguous`: twin A anchored at the west gate at t=0 then walks on;
+  twin B anchored as the SAME identity at the east gate 25 s later while the
+  network is partitioned -> after heal both are reachable from A's old anchor ->
+  fork stays OPEN. `conflict_resolvable`: A passes the gate again ~2 s before B
+  appears -> B needs ~7 m/s -> RESOLVED_REACHABILITY, reason
+  "branch 1 requires 7.4 m/s over 3.8 s, exceeds v_max 1.6 m/s". The dashboard
+  sequences partition -> script -> heal (`POST /api/conflict`) by pressing the same
+  controls. The fork VIEW is what the vantage node (node 0) can see: claims from
+  peers it ignores are held back while partitioned and released on heal, so the
+  conflict appears on RECONNECTION (the map itself is still the global observer
+  view). Forks are remembered for 150 s of display time (`fork_memory_s`) because
+  the resolver window is 45 s; an identity with an open fork gets no candidate
+  region. Bugs found on the way: `delay_s` was read at the wrong level of the
+  script step (twin B spawned immediately), a leftover twin from a previous run
+  produced early forks (scripts now `deactivate` it first).
+
 ## 9. Known issues and limitations
 
 - The video/YOLO path (`apps/node.py` with a real `source:` video file) has

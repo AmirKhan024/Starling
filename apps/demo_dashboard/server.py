@@ -41,6 +41,10 @@ class ScriptBody(BaseModel):
     name: str
 
 
+class ConflictBody(BaseModel):
+    variant: str
+
+
 class QueryBody(BaseModel):
     text: str
     purpose: str = "safety"
@@ -83,6 +87,10 @@ def create_app(cfg: DemoDashboardConfig) -> FastAPI:
     @app.post("/api/script")
     def script(body: ScriptBody) -> dict:
         return engine.run_script(body.name)
+
+    @app.post("/api/conflict")
+    def conflict(body: ConflictBody) -> dict:
+        return engine.run_conflict(body.variant)
 
     @app.post("/api/partition")
     def partition() -> dict:
