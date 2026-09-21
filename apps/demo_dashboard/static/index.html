@@ -87,7 +87,8 @@
         <g id="layer-believed" data-testid="layer-believed"></g>
       </svg>
       <div data-testid="region-summary" id="region-summary" class="legend" style="color:var(--ink)">Candidate regions: <span class="muted">none — every tracked worker is currently seen</span></div>
-      <div class="legend">Solid coloured dot = network's believed position (one colour per resolved identity). Faint dashed ring = simulator ground truth, for comparison only. Shaded area = "could be here" candidate region for an unseen worker.</div>
+      <div id="region-cards" data-testid="region-cards"></div>
+      <div class="legend">Solid coloured dot = network's believed position (one colour per resolved identity). Faint dashed ring = simulator ground truth, for comparison only. Coloured shading = "could be here" candidate region for an unseen worker; faint grey = what plain reachability would allow without negative evidence. Zone outline: green = camera healthy (attesting), amber = silent.</div>
     </section>
 
     <section>
@@ -175,8 +176,9 @@ function drawStatic(fp, nodeState) {
   for (const f of polys.filter((f) => f.properties.role === "camera_zone")) {
     const id = f.properties.node_id, off = nodeState && nodeState[id] && !nodeState[id].live;
     const xs = f.geometry.coordinates[0].map((p) => p[0]), ys = f.geometry.coordinates[0].map((p) => p[1]);
-    h += `<polygon data-testid="zone-${id}" points="${pts(f.geometry.coordinates[0])}" fill="${off ? "var(--zone-off)" : "var(--zone)"}" stroke="var(--accent)" stroke-width="0.08" stroke-dasharray="0.4 0.3"/>`;
-    h += `<text x="${(Math.min(...xs) + Math.max(...xs)) / 2}" y="-0.35" text-anchor="middle" font-size="0.75" fill="var(--muted)">node ${id}${off ? " (OFFLINE)" : ""}</text>`;
+    const cov = nodeState && nodeState[id] ? nodeState[id] : null, silent = cov && !cov.coverage_healthy;
+    h += `<polygon data-testid="zone-${id}" data-coverage="${cov ? (cov.coverage_healthy ? "healthy" : "silent") : "?"}" points="${pts(f.geometry.coordinates[0])}" fill="${off ? "var(--zone-off)" : "var(--zone)"}" stroke="${silent ? "var(--warn)" : "var(--ok)"}" stroke-width="${silent ? 0.16 : 0.1}" stroke-dasharray="0.4 0.3"/>`;
+    h += `<text x="${(Math.min(...xs) + Math.max(...xs)) / 2}" y="${Math.min(...ys) === 0 ? -0.35 : Math.min(...ys) + 0.9}" text-anchor="middle" font-size="0.75" fill="${silent ? "var(--warn)" : "var(--muted)"}">node ${id}${off ? " (OFFLINE)" : silent ? (cov.occluded ? " OCCLUDED - silent" : " silent") : " healthy"}</text>`;
   }
   for (const f of polys.filter((f) => f.properties.role === "obstacle"))
     h += `<polygon points="${pts(f.geometry.coordinates[0])}" fill="var(--obst)"/>`;
@@ -184,8 +186,8 @@ function drawStatic(fp, nodeState) {
     const [a, b] = f.geometry.coordinates;
     h += `<line x1="${a[0]}" y1="${a[1]}" x2="${b[0]}" y2="${b[1]}" stroke="var(--bad)" stroke-width="0.1" stroke-dasharray="0.3 0.25"/>`;
   }
-  h += `<rect data-testid="blind-aisle" x="8" y="0" width="3" height="25" fill="var(--bad)" fill-opacity="0.07"/>`;
-  h += `<text x="9.5" y="26.2" text-anchor="middle" font-size="0.8" fill="var(--bad)">blind aisle (no camera)</text>`;
+  h += `<rect data-testid="blind-block" x="14" y="9" width="12" height="7" fill="var(--bad)" fill-opacity="0.07" stroke="var(--bad)" stroke-width="0.1" stroke-dasharray="0.3 0.25"/>`;
+  h += `<text x="20" y="26.2" text-anchor="middle" font-size="0.8" fill="var(--bad)">uncovered block (no camera) at the centre</text>`;
   g.innerHTML = h;
 }
 
@@ -198,7 +200,10 @@ function regionSvg(r) {
     sx += ((i0 + i1 + 1) / 2) * cs * (i1 - i0 + 1); sy += (j + 0.5) * cs * (i1 - i0 + 1); n += i1 - i0 + 1;
   }
   const cx = n ? sx / n : r.origin[0], cy = n ? sy / n : r.origin[1];
-  return `<g data-testid="candidate-region-${esc(r.id.slice(-6))}" fill="${c}" fill-opacity="0.30" stroke="none">${rects}</g>` +
+  let reach = "";
+  for (const [j, i0, i1] of (r.reach_runs || [])) reach += `<rect x="${(i0 * cs).toFixed(2)}" y="${(j * cs).toFixed(2)}" width="${((i1 - i0 + 1) * cs).toFixed(2)}" height="${cs}" />`;
+  return `<g data-testid="reach-outline-${esc(r.id)}" fill="#8a94a6" fill-opacity="0.13" stroke="none">${reach}</g>` +
+    `<g data-testid="candidate-region-${esc(r.id.slice(-6))}" fill="${c}" fill-opacity="0.30" stroke="none">${rects}</g>` +
     `<text data-testid="region-area-label-${esc(r.id.slice(-6))}" x="${cx.toFixed(2)}" y="${cy.toFixed(2)}" text-anchor="middle" font-size="0.85" font-weight="700" fill="${c}" stroke="var(--floor)" stroke-width="0.12" paint-order="stroke">could be here: ${r.area_m2.toFixed(1)} m²</text>`;
 }
 
@@ -218,7 +223,7 @@ function render(s) {
   $("layer-trails").innerHTML = s.identities.map((i) =>
     i.trail.length > 1 ? `<polyline points="${i.trail.map((p) => p.join(",")).join(" ")}" fill="none" stroke="${colour(i.colour)}" stroke-width="0.12" stroke-opacity="0.5"/>` : "").join("");
   $("layer-gt").innerHTML = s.gt ? s.gt.workers.map((w) =>
-    `<g data-testid="gt-marker-${w.id}" data-x="${w.x}" data-y="${w.y}" opacity="0.55"><circle cx="${w.x}" cy="${w.y}" r="0.75" fill="none" stroke="var(--muted)" stroke-width="0.12" stroke-dasharray="0.25 0.2"/><text x="${w.x + 0.9}" y="${w.y + 1.4}" font-size="0.7" fill="var(--muted)">truth: ${esc(w.name)}</text></g>`).join("") : "";
+    `<g data-testid="gt-marker-${w.id}" data-x="${w.x}" data-y="${w.y}" opacity="0.55"><circle cx="${w.x}" cy="${w.y}" r="0.75" fill="none" stroke="var(--muted)" stroke-width="0.12" stroke-dasharray="0.25 0.2"/><text x="${w.x > 31 ? w.x - 0.9 : w.x + 0.9}" y="${w.y + 1.4}" text-anchor="${w.x > 31 ? "end" : "start"}" font-size="0.7" fill="var(--muted)">truth: ${esc(w.name)}</text></g>`).join("") : "";
   $("layer-believed").innerHTML = s.identities.map((i) => {
     const c = colour(i.colour), unseen = i.status === "unseen";
     return `<g data-testid="marker-${esc(i.short)}" data-x="${i.x}" data-y="${i.y}" data-status="${i.status}" opacity="${unseen ? 0.45 : 1}">` +
@@ -229,6 +234,22 @@ function render(s) {
   $("region-summary").innerHTML = "Candidate regions: " + (s.regions.length
     ? s.regions.map((r) => `<span data-testid="region-${esc(r.id)}" data-area="${r.area_m2}" style="margin-right:12px"><span class="sw" style="background:${colour(r.colour)}"></span>${esc(r.id)}: <b data-testid="region-area-${esc(r.id)}">${r.area_m2.toFixed(1)}</b> m² <span class="muted">(unseen ${r.unseen_for_s}s)</span></span>`).join("")
     : `<span class="muted">none — every tracked worker is currently seen</span>`);
+  $("region-cards").innerHTML = s.regions.map((r) => {
+    const h = r.history, W = 200, H = 34;
+    const tmax = Math.max(1, ...h.map((p) => p[0])), amax = Math.max(1, ...h.map((p) => Math.max(p[1], p[2])));
+    const line = (k) => h.map((p) => `${(p[0] / tmax * W).toFixed(1)},${(H - p[k] / amax * H).toFixed(1)}`).join(" ");
+    return `<div class="card" style="margin-top:6px" data-testid="region-card-${esc(r.id)}">` +
+      `<div><b>${esc(r.id)}</b> hidden <b data-testid="region-hidden-${esc(r.id)}">${r.unseen_for_s}</b> s · search area <b data-testid="region-area-${esc(r.id)}-m2">${r.area_m2.toFixed(1)}</b> m² ` +
+      `vs <span data-testid="region-reach-${esc(r.id)}">${r.reachable_area_m2.toFixed(1)}</span> m² reachable without negative evidence ` +
+      `(<span data-testid="region-ratio-${esc(r.id)}">${r.ratio == null ? "–" : Math.round(r.ratio * 100)}%</span>) · ` +
+      `inside the blind block <span data-testid="region-blind-${esc(r.id)}">${r.blind_block_area_m2}</span> m² · ` +
+      `inside healthy cameras' zones <b data-testid="region-healthy-overlap-${esc(r.id)}">${r.healthy_zone_overlap_m2}</b> m²</div>` +
+      `<div class="legend" style="color:var(--ink)" data-testid="region-explanation-${esc(r.id)}">${esc(r.explanation)}</div>` +
+      `<svg data-testid="region-spark-${esc(r.id)}" viewBox="0 0 ${W} ${H}" width="100%" height="${H}" preserveAspectRatio="none" style="margin-top:4px">` +
+      `<polyline points="${line(2)}" fill="none" stroke="#8a94a6" stroke-width="1" stroke-dasharray="3 2"/>` +
+      `<polyline points="${line(1)}" fill="none" stroke="${colour(r.colour)}" stroke-width="1.6"/></svg>` +
+      `<div class="legend">solid = search area with negative evidence · dashed grey = reachable area without it</div></div>`;
+  }).join("");
   const regionOf = {}; s.regions.forEach((r) => (regionOf[r.id] = r));
   $("identity-rows").innerHTML = s.identities.map((i) => {
     const r = regionOf[i.id];

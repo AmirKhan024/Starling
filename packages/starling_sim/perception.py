@@ -19,6 +19,7 @@ Step 1 decision about keeping the sim path torch-free.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Optional
 
 import numpy as np
 
@@ -38,6 +39,9 @@ class SimObservation:
     # purely so this duck-types Observation completely, in case future
     # code inspects it.
     bbox: tuple[int, int, int, int] = (0, 0, 1, 1)
+    # Set when the worker stands at a face-recognition gate: the identity the
+    # face matcher reports (a FACE_ANCHOR claim). Two people can share one.
+    anchor_identity: Optional[str] = None
 
 
 @dataclass
@@ -78,9 +82,19 @@ def observe_zone(
             embedding=embedding,
             quality=float(rng.uniform(cfg.quality_min, cfg.quality_max)),
             t_media=world.t_media,
+            anchor_identity=_anchor_identity(world, node_id, worker),
         )
         results.append((obs, noisy_pos, cfg.pos_noise_sigma_m))
     return results
+
+
+def _anchor_identity(world: World, node_id: int, worker) -> Optional[str]:
+    if not worker.face_identity:
+        return None
+    for a in world.anchors:
+        if a.node_id == node_id and (worker.pos[0] - a.x) ** 2 + (worker.pos[1] - a.y) ** 2 <= a.radius**2:
+            return worker.face_identity
+    return None
 
 
 def obs_to_dict(obs: SimObservation, world_pos: tuple[float, float], pos_sigma: float) -> dict:
@@ -95,6 +109,7 @@ def obs_to_dict(obs: SimObservation, world_pos: tuple[float, float], pos_sigma: 
         "world_x": world_pos[0],
         "world_y": world_pos[1],
         "pos_sigma": pos_sigma,
+        "anchor_identity": obs.anchor_identity,
     }
 
 
@@ -107,5 +122,6 @@ def dict_to_obs(d: dict) -> tuple[SimObservation, tuple[float, float], float]:
         embedding=np.array(d["embedding"], dtype=np.float32),
         quality=d["quality"],
         t_media=d["t_media"],
+        anchor_identity=d.get("anchor_identity"),
     )
     return obs, (d["world_x"], d["world_y"]), d["pos_sigma"]

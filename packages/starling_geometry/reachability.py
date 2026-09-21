@@ -29,7 +29,7 @@ from collections import OrderedDict
 import math
 
 import numpy as np
-from scipy.sparse import csr_matrix
+from scipy.sparse import csr_matrix, diags
 from scipy.sparse.csgraph import dijkstra as _sp_dijkstra
 
 from starling_geometry.navmesh import NavMesh
@@ -105,6 +105,20 @@ class ReachabilityModel:
                 shape=(height * width, height * width),
             )
         return self._csr
+
+    def graph_without(self, blocked: np.ndarray) -> csr_matrix:
+        """The free-space graph with every cell in `blocked` removed (no edge
+        touches it). Cached for the last blocked mask, since a caller re-uses
+        the same one for many steps."""
+        key = blocked.tobytes()
+        if getattr(self, "_blocked_key", None) == key:
+            return self._blocked_graph
+        keep = (~blocked).ravel().astype(np.float64)
+        d = diags(keep)
+        g = (d @ self._graph() @ d).tocsr()
+        g.eliminate_zeros()
+        self._blocked_key, self._blocked_graph = key, g
+        return g
 
     def _dijkstra_from_cell(self, origin_cell: tuple[int, int], limit: float = np.inf) -> np.ndarray:
         """Geodesic distance from `origin_cell` (scipy sparse Dijkstra over

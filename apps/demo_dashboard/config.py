@@ -24,6 +24,9 @@ class DemoDashboardConfig(DashboardConfig):
     # ground-truth topic (CLAUDE.md rule 8 + the task's "gossip and the
     # simulator's ground-truth topic only").
     sim_endpoint: str = "tcp://127.0.0.1:5560"
+    # The simulator's HTTP control endpoint (scenario scripts). The dashboard
+    # drives the WORLD with it, exactly like the partition/lie buttons drive nodes.
+    sim_control_url: str = "http://127.0.0.1:6560"
     # Pre-issued capability tokens (the launcher signs them; the dashboard
     # never holds a private key). File name = purpose.
     token_dir: str = "data/demo/tokens"
@@ -39,7 +42,7 @@ class DemoDashboardConfig(DashboardConfig):
     # An identity unseen for longer than this (media seconds) is no longer
     # drawn: it is almost always a stale duplicate fragment, and its region
     # would only grow to cover the whole floor.
-    hide_unseen_after_s: float = 12.0
+    hide_unseen_after_s: float = 40.0
     # Display-only naming of a resolved identity as "worker N": nearest
     # ground-truth worker within this many metres, needing this many votes.
     name_match_max_dist_m: float = 3.0
@@ -58,6 +61,9 @@ class DemoDashboardConfig(DashboardConfig):
     lie_intensity: float = 0.9
     event_log_size: int = 60
     resolve_min_interval_s: float = 1.0
+    # A zone-coverage attestation counts as current for this long (media s) after
+    # its interval ends; nodes attest every 2 s, so a few missed ones are tolerated.
+    attest_validity_s: float = 4.5
     # The dashboard resolves the last N media-seconds of claims (the resolver
     # is O(claims x identities); a demo runs for many minutes). Labels stay
     # stable across windows via claim overlap.

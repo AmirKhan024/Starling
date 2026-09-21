@@ -259,7 +259,7 @@ def test_resolver_gate_extra_slack_keeps_one_identity_across_a_noisy_small_step(
     def claim(i: int, t: float, y: float) -> dict:
         return {
             "claim_id": f"c{i:03d}", "node_id": 1, "seq": i, "hlc_physical_ms": int(t * 1000), "hlc_logical": 0,
-            "local_track_id": 1, "t_media": t, "embedding": emb, "embed_scale": 1.0, "world_x": 18.01, "world_y": y,
+            "local_track_id": 1, "t_media": t, "embedding": emb, "embed_scale": 1.0, "world_x": 18.01, "world_y": y - 13.0,
             "pos_sigma": 0.08, "anchor_type": "UNANCHORED", "identity_ref": None, "last_anchor_t": None,
             "confidence": 0.85, "quality": 0.85, "signature": None,
         }

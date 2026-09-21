@@ -1,65 +1,61 @@
 # Default demo scenario for data/floorplan/warehouse_demo.geojson.
-# Routes are hand-placed waypoint loops, not auto-pathfound — each one is
-# checked by hand to stay clear of that zone's racking obstacles (see the
-# floor plan's own obstacle coordinates). Designed to produce all five demo
-# moments (STATUS.md section 3) within about 3 minutes at speed 1.0:
-#   - worker-0, worker-1, worker-3, worker-4: normal walks, one per node's
-#     own zone, consistent identity as they loop.
-#   - worker-2: shuttles straight through the blind aisle (x=8..11) between
-#     node 0's and node 1's zones — the dead-zone demo moment.
-#   - the node-1 occlusion event (starting at 20s) is timed to overlap
-#     worker-2's crossings, so the "could be here" region and node 1's
-#     degraded attestation confidence are visible together.
+#
+# Floor plan: 40x25 m. Four camera zones surround a 12x7 m UNCOVERED block in
+# the middle (x 14-26, y 9-16) that contains three short racking aisles:
+#   node 0 = west  (x 0-14),  node 1 = north (x 14-26, y 0-9),
+#   node 2 = south (x 14-26, y 16-25),  node 3 = east (x 26-40).
+# Every exit of the block borders one of those zones.
+#
+# Workers 0, 1, 3, 4 patrol inside their own zone forever. Worker 2 and the
+# twins 5/6 are ACTORS that only exist while a script runs (they "walk in from
+# the door", then leave), so each demo moment can be replayed on demand from
+# the dashboard's controls; `auto` replays the two dead-zone episodes by
+# itself so an unattended run still shows them.
 name: warehouse_demo
 
 workers:
-  - worker_id: 0
-    name: "worker-0"
-    route: [[1, 2], [7, 2], [7, 24], [1, 24]]
-    speed_m_s: 1.2
-    pause_prob_per_tick: 0.02
-    pause_duration_s: [1.0, 2.5]
-    loop: true
+  - {worker_id: 0, name: "worker-0", route: [[1, 1.5], [12, 1.5], [12, 23.5], [1, 23.5]], speed_m_s: 1.2, pause_prob_per_tick: 0.02, pause_duration_s: [1.0, 2.5], loop: true}
+  - {worker_id: 1, name: "worker-1", route: [[15, 1.5], [25, 1.5], [25, 7.5], [15, 7.5]], speed_m_s: 1.0, pause_prob_per_tick: 0.02, pause_duration_s: [1.0, 2.5], loop: true}
+  # Stage actor for the dead-zone episodes (spawned by a script).
+  - {worker_id: 2, name: "worker-2", route: [[1, 14.5], [2, 14.5]], speed_m_s: 0.9, loop: false, active: false}
+  - {worker_id: 3, name: "worker-3", route: [[27, 1.5], [39, 1.5], [39, 23.5], [27, 23.5]], speed_m_s: 1.1, pause_prob_per_tick: 0.03, pause_duration_s: [1.0, 3.0], loop: true}
+  - {worker_id: 4, name: "worker-4", route: [[15, 17.5], [25, 17.5], [25, 23.5], [15, 23.5]], speed_m_s: 1.0, pause_prob_per_tick: 0.02, pause_duration_s: [1.0, 2.0], loop: true}
+  # Face-recognition "twins": near-identical appearance and BOTH reported as
+  # P-100 by a face gate (a face mismatch). Only spawned by the conflict scripts.
+  - {worker_id: 5, name: "worker-5", route: [[2, 12.5], [3, 12.5]], speed_m_s: 0.9, loop: false, active: false, face_identity: "P-100"}
+  - {worker_id: 6, name: "worker-6", route: [[39, 12.5], [38, 12.5]], speed_m_s: 0.9, loop: false, active: false, face_identity: "P-100", twin_of: 5}
 
-  - worker_id: 1
-    name: "worker-1"
-    route: [[12, 2], [18, 2], [18, 24], [12, 24]]
-    speed_m_s: 1.1
-    pause_prob_per_tick: 0.02
-    pause_duration_s: [1.0, 2.5]
-    loop: true
+# Face-recognition gates (a FACE_ANCHOR claim is produced within `radius`).
+anchors:
+  - {node_id: 0, x: 8.0, y: 12.5, radius: 2.0}
+  - {node_id: 3, x: 32.0, y: 12.5, radius: 2.0}
 
-  - worker_id: 2
-    name: "worker-2"
-    route: [[4, 12], [15, 12]]
-    speed_m_s: 0.6   # slow enough that the 3m blind aisle stays dark for ~5s (long enough to watch the region)
-    pause_prob_per_tick: 0.0
-    loop: true
+occlusions: []
 
-  - worker_id: 3
-    name: "worker-3"
-    route: [[25, 2], [31, 2], [31, 24], [25, 24]]
-    speed_m_s: 1.0
-    pause_prob_per_tick: 0.03
-    pause_duration_s: [1.0, 3.0]
-    loop: true
+scripts:
+  # Worker-2 starts at the west door, spends ~25 s inside the uncovered block
+  # wandering between its aisles, leaves through the east zone and walks a full
+  # circuit back to the door, where it waits (so a re-run continues the SAME person).
+  dead_zone_healthy:
+    - assign: {worker_id: 2, speed: 0.9, on_done: stay, route: [[1, 14.5], [14.5, 14.5], [19, 14.5], [19, 10.5], [22, 10.5], [22, 15.2], [25, 15.2], [25, 12], [26.5, 12], [33, 12], [33, 17.5], [13, 17.5], [1, 17.5], [1, 14.5]]}
+  # Same walk, but camera 1 (the north exit) is occluded for the whole episode
+  # (a pallet in front of it): it sends no healthy attestation.
+  dead_zone_occluded:
+    - occlude: {node_id: 1, duration_s: 75, occlusion_ratio: 0.9, detector_health: 0.3}
+    - assign: {worker_id: 2, speed: 0.9, on_done: stay, route: [[1, 14.5], [14.5, 14.5], [19, 14.5], [19, 10.5], [22, 10.5], [22, 15.2], [25, 15.2], [25, 12], [26.5, 12], [33, 12], [33, 17.5], [13, 17.5], [1, 17.5], [1, 14.5]]}
+  # Twin A is face-anchored at the west gate early, then keeps walking in zone 0
+  # (appearance-tracked). Twin B is face-anchored as the SAME identity at the
+  # east gate ~25 s later. Both are physically possible => the fork stays open.
+  conflict_ambiguous:
+    - assign: {worker_id: 5, speed: 0.9, on_done: deactivate, route: [[2, 12.5], [12, 12.5], [12, 22], [5, 22], [5, 17], [11, 17], [11, 5], [5, 5], [5, 10], [11, 10], [11, 20]]}
+    - assign: {worker_id: 6, speed: 0.9, on_done: deactivate, delay_s: 27, route: [[39, 12.5], [30, 12.5], [30, 20], [38, 20], [38, 5], [30, 5], [30, 9]]}
+  # Twin A passes the west gate AGAIN just before twin B reaches the east gate,
+  # so B's position is physically impossible from A's last confirmed anchor.
+  conflict_resolvable:
+    - assign: {worker_id: 5, speed: 0.9, on_done: deactivate, route: [[2, 12.5], [12, 12.5], [12, 20], [6, 20], [6, 16], [8, 12.5], [11, 12.5], [11, 5], [5, 5], [5, 10], [11, 10]]}
+    - assign: {worker_id: 6, speed: 0.9, on_done: deactivate, delay_s: 29, route: [[39, 12.5], [30, 12.5], [30, 20], [38, 20], [38, 5], [30, 5], [30, 9]]}
 
-  - worker_id: 4
-    name: "worker-4"
-    route: [[36, 3], [39, 3], [39, 6], [36, 6]]
-    speed_m_s: 1.0
-    pause_prob_per_tick: 0.02
-    pause_duration_s: [1.0, 2.0]
-    loop: true
-
-occlusions:
-  - node_id: 1
-    start_s: 20.0
-    duration_s: 25.0
-    occlusion_ratio: 0.9
-    detector_health: 0.3
-  - node_id: 1
-    start_s: 80.0
-    duration_s: 25.0
-    occlusion_ratio: 0.9
-    detector_health: 0.3
+auto:
+  - {at_s: 12, script: dead_zone_healthy}
+  - {at_s: 130, script: dead_zone_occluded}
+auto_period_s: 260

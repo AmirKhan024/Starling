@@ -37,6 +37,11 @@ class SimulatorConfig(BaseModel):
     quality_min: float = 0.5
     quality_max: float = 0.95
     seed: int = 1234
+    # HTTP control endpoint of the simulator (scripts / manual occlusion), the
+    # dashboard's "demo script" buttons call it. 0 disables it.
+    control_port: int = 6560
+    # Run the scenario's `auto` episodes by themselves.
+    auto: bool = True
     # 0 = workers' appearances as distinct as random unit vectors get;
     # 1 = every worker collapses onto one shared vector (worst case for
     # appearance-based matching — a "same uniform" stress test).

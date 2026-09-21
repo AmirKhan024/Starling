@@ -13,8 +13,11 @@ Usage
 from __future__ import annotations
 
 import argparse
+import json
 import signal
+import threading
 import time
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any, Optional
 
@@ -59,9 +62,61 @@ class SimulatorRunner:
         self._rng = np.random.default_rng(cfg.seed + 1)
         self._prev_positions = self.world.positions()
         self.tick_count = 0
+        self.auto_enabled = cfg.auto
+        self._auto_rounds = 0  # how many auto_period_s cycles have completed
+        self._auto_fired: set[tuple[int, int]] = set()
+        self._scenario = scenario
+        self._commands: list[dict[str, Any]] = []
+        self._cmd_lock = threading.Lock()
+        self.last_script: Optional[str] = None
+
+    # -- control (thread-safe: applied at the start of the next tick) ----
+
+    def command(self, cmd: dict[str, Any]) -> bool:
+        with self._cmd_lock:
+            self._commands.append(cmd)
+        return True
+
+    def _apply_commands(self) -> None:
+        with self._cmd_lock:
+            cmds, self._commands = self._commands, []
+        for cmd in cmds:
+            kind = cmd.get("kind")
+            if kind == "script":
+                if self.world.run_script(cmd["name"]):
+                    self.last_script = cmd["name"]
+            elif kind == "occlude":
+                self.world.occlude(int(cmd["node_id"]), float(cmd.get("duration_s", 60.0)))
+            elif kind == "clear_occlusions":
+                self.world.clear_occlusions()
+            elif kind == "auto":
+                self.auto_enabled = bool(cmd["on"])
+
+    def _run_auto(self) -> None:
+        if not self.auto_enabled:
+            return
+        period = self._scenario.auto_period_s
+        for i, item in enumerate(self._scenario.auto):
+            round_no = int(max(0.0, self.world.t_media - item["at_s"]) // period) if period > 0 else 0
+            due = item["at_s"] + round_no * period
+            if self.world.t_media >= due and (i, round_no) not in self._auto_fired:
+                self._auto_fired.add((i, round_no))
+                if self.world.run_script(item["script"]):
+                    self.last_script = item["script"]
+
+    def status(self) -> dict[str, Any]:
+        return {
+            "t_media": self.world.t_media,
+            "scripts": sorted(self.world.scripts),
+            "auto": self.auto_enabled,
+            "last_script": self.last_script,
+            "active_workers": [w.worker_id for w in self.world.workers if w.active],
+        }
 
     def tick_once(self) -> tuple[dict[int, dict[str, Any]], dict[str, Any]]:
         dt = 1.0 / self.cfg.tick_hz
+        self._apply_commands()
+        self._run_auto()
         self.world.tick(dt)
         cur_positions = self.world.positions()
         crossings = compute_boundary_crossings(self.navmesh, self._prev_positions, cur_positions)
@@ -95,6 +150,7 @@ class SimulatorRunner:
             "workers": [
                 {"worker_id": w.worker_id, "name": w.name, "x": w.pos[0], "y": w.pos[1]}
                 for w in self.world.workers
+                if w.active
             ],
             "occluded_nodes": [
                 node_id
@@ -115,6 +171,7 @@ class SimulatorRunner:
         signal.signal(signal.SIGTERM, _handle_signal)
 
         wall_dt = (1.0 / self.cfg.tick_hz) / max(self.cfg.speed, 1e-6)
+        server = self._start_control_server()
         try:
             while not shutdown["requested"]:
                 per_node, ground_truth = self.tick_once()
@@ -124,17 +181,66 @@ class SimulatorRunner:
                 time.sleep(wall_dt)
         finally:
             publisher.close()
+            if server is not None:
+                server.shutdown()
+
+    def _start_control_server(self) -> Optional[ThreadingHTTPServer]:
+        if not self.cfg.control_port:
+            return None
+        runner = self
+
+        class Handler(BaseHTTPRequestHandler):
+            def log_message(self, *a: Any) -> None:  # silence stderr access log
+                pass
+
+            def _send(self, code: int, payload: dict) -> None:
+                body = json.dumps(payload).encode("utf-8")
+                self.send_response(code)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
+            def do_GET(self) -> None:  # noqa: N802
+                self._send(200 if self.path == "/status" else 404, runner.status() if self.path == "/status" else {"error": "not found"})
+
+            def do_POST(self) -> None:  # noqa: N802
+                length = int(self.headers.get("Content-Length", 0) or 0)
+                try:
+                    body = json.loads(self.rfile.read(length) or b"{}")
+                except json.JSONDecodeError:
+                    return self._send(400, {"error": "invalid JSON"})
+                if self.path == "/script":
+                    if body.get("name") not in runner.world.scripts:
+                        return self._send(404, {"error": "unknown script"})
+                    runner.command({"kind": "script", "name": body["name"]})
+                elif self.path == "/occlude":
+                    runner.command({"kind": "occlude", "node_id": body["node_id"], "duration_s": body.get("duration_s", 60)})
+                elif self.path == "/clear_occlusions":
+                    runner.command({"kind": "clear_occlusions"})
+                elif self.path == "/auto":
+                    runner.command({"kind": "auto", "on": bool(body.get("on", True))})
+                else:
+                    return self._send(404, {"error": "not found"})
+                self._send(200, {"ok": True})
+
+        server = ThreadingHTTPServer(("127.0.0.1", self.cfg.control_port), Handler)
+        threading.Thread(target=server.serve_forever, daemon=True, name="sim-control").start()
+        return server
 
 
 def main(argv: Optional[list] = None) -> None:
     parser = argparse.ArgumentParser(description="Starling simulator process")
     parser.add_argument("--config", required=True, type=Path)
     parser.add_argument("--speed", type=float, default=None)
+    parser.add_argument("--no-auto", action="store_true", help="do not run the scenario's automatic episodes")
     args = parser.parse_args(argv)
 
     cfg = load_simulator_config(args.config)
     if args.speed is not None:
         cfg.speed = args.speed
+    if args.no_auto:
+        cfg.auto = False
 
     SimulatorRunner(cfg).run()
 

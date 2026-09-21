@@ -35,7 +35,7 @@ coverage:
   # Node 1 sits on the EAST side of the blind aisle (boundary_id 2,
   # "blind_aisle_east_exit") — the aisle's other exit, and also the node
   # the default scenario's scripted occlusion events target.
-  watched_boundary_ids: [2]
+  watched_boundary_ids: []
   tau_attest: 0.7
 
 attest:

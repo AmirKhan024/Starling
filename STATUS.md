@@ -666,6 +666,37 @@ curl -X POST http://127.0.0.1:6557/attack -d "{\"attack\": \"fabricate\", \"inte
   first run's results are kept in `review/first_run_results.json` and
   `review/first_run_findings.md`.
 
+- **Session 3, Part A: C4 dead zone (why the region leaked, and the fix).**
+  ROOT CAUSE: the candidate region was a pure geodesic dilation from the last
+  confirmed position (`v_max * elapsed`). The only negative evidence it ever
+  received was "nobody crossed boundary N" for two hand-drawn boundary lines, and
+  attestations never said WHICH AREA a camera covered, so nothing subtracted a
+  healthy camera's zone: the region grew straight through cameras 0 and 1's
+  zones. Also only nodes 0 and 1 attested at all. FIX: (1) every sim node now
+  attests its OWN zone (`region_ids` contains `ZONE_REGION_BASE (1000) + node_id`);
+  (2) `starling_attest.negative_evidence.healthy_zone_mask` = union of the zones
+  of nodes whose latest gossiped zone attestation is confident
+  (`attest_confidence >= tau_attest`) and recent (`attest_validity_s`, 4.5 media
+  s); a silent / low-confidence / stale camera contributes nothing (rule 7);
+  (3) `CandidateBelief.set_forbidden` removes those cells AND dilates only through
+  allowed cells (`ReachabilityModel.graph_without`), so the region cannot leak
+  through, or hop over, a healthy zone; if the last sighting was inside a covered
+  zone the belief re-seeds at the nearest uncovered cells (the person has left
+  it). A second belief with negative evidence switched off gives the "reachable
+  without negative evidence" comparison. Everything comes from gossiped
+  attestations; the simulator's ground truth is used only to LABEL a silent
+  camera as "occluded". The old boundary-line bookkeeping in the dashboard was
+  removed (the floor plan no longer has boundary lines).
+  New floor plan: 40x25 m, four camera zones (0 west, 1 north, 2 south, 3 east)
+  around an uncovered 12x7 m block with three racking aisles; every exit borders
+  a zone. Worker-2 (a scripted actor) is hidden ~27 s inside it. Scripts and
+  auto-episodes live in the scenario YAML and run through a new simulator
+  control endpoint (`POST /script`, port 6560); `--presenter` (or
+  `DemoLauncher(auto=False)`) disables the automatic episodes.
+  Live result: healthy exits -> region 69 m2 (the whole free block) vs 933 m2
+  reachable, 0 m2 inside healthy zones; camera 1 occluded -> region leaks into
+  zone 1 only (105 m2), 0 m2 in the healthy zones.
+
 ## 9. Known issues and limitations
 
 - The video/YOLO path (`apps/node.py` with a real `source:` video file) has

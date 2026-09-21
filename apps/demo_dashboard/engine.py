@@ -36,7 +36,7 @@ from nacl.signing import SigningKey
 from apps.dashboard.observer import GossipObserver
 from apps.demo_dashboard.config import DemoDashboardConfig
 from apps.node import _ReputationLoop
-from starling_attest.negative_evidence import CandidateBelief
+from starling_attest.negative_evidence import CandidateBelief, healthy_zone_mask
 from starling_consensus.reputation import ReputationTable
 from starling_crdt.claims import claim_order_key
 from starling_crdt.resolver import resolve
@@ -64,17 +64,19 @@ class _Windowed:
 
 
 class _Belief:
-    """One unseen identity's candidate-region state."""
+    """One unseen identity's candidate-region state: `belief` uses negative
+    evidence (healthy attested zones removed); `reach` is the SAME dilation with
+    negative evidence switched off (what plain reachability alone would allow)."""
 
-    def __init__(self, belief: CandidateBelief, last_seen_t: float, origin: tuple[float, float]) -> None:
+    def __init__(self, belief: CandidateBelief, reach: CandidateBelief, last_seen_t: float, origin: tuple[float, float]) -> None:
         self.belief = belief
+        self.reach = reach
         self.last_seen_t = last_seen_t
         self.last_step_t = last_seen_t
         self.origin = origin
         self.started_t = last_seen_t
-        self.seen_attestations: set[tuple[int, int]] = set()
-        self.crossed: set[int] = set()
-        self.area_history: deque[tuple[float, float]] = deque(maxlen=200)  # (media t, m^2)
+        self.healthy_nodes: list[int] = []
+        self.area_history: deque[tuple[float, float, float]] = deque(maxlen=400)  # (media t, region m2, reachable m2)
 
 
 class DashboardEngine:
@@ -84,6 +86,8 @@ class DashboardEngine:
         self.navmesh = NavMesh.from_geojson(Path(cfg.navmesh_path), cell_size_m=cfg.geometry.cell_size_m)
         self.reachability = ReachabilityModel(self.navmesh)
         self.floorplan = json.loads(Path(cfg.navmesh_path).read_text(encoding="utf-8"))
+        self.zone_masks = self.navmesh.zone_masks(cfg.navmesh_path)
+        self.blind_mask = self.navmesh.grid & ~np.any(list(self.zone_masks.values()), axis=0)
 
         self._lock = threading.RLock()
         self._stop = threading.Event()
@@ -195,6 +199,20 @@ class DashboardEngine:
     def _log_event(self, kind: str, text: str) -> None:
         with self._lock:
             self._events.append({"wall_s": round(time.monotonic() - self._started_wall, 1), "kind": kind, "text": text})
+
+    def sim_post(self, path: str, body: dict[str, Any]) -> bool:
+        try:
+            return requests.post(self.cfg.sim_control_url + path, json=body, timeout=1.5).ok
+        except Exception:
+            return False
+
+    def run_script(self, name: str) -> dict[str, Any]:
+        """Start a scripted scenario in the simulator (an actor walks in, a
+        camera is occluded, ...). The world does everything; nothing is drawn
+        by the dashboard itself."""
+        ok = self.sim_post("/script", {"name": name})
+        self._log_event("script", f"SCRIPT {name}: {'started' if ok else 'FAILED (simulator unreachable?)'}")
+        return {"ok": ok, "name": name}
 
     def partition(self) -> dict[str, Any]:
         """Cut group A from group B. Receive-side drop on BOTH sides, since
@@ -446,6 +464,7 @@ class DashboardEngine:
         identities.sort(key=lambda d: d["colour"])
 
         # ── candidate regions for unseen identities ───────────────────
+        occluded_now = set(gt.get("occluded_nodes", [])) if gt else set()
         regions = []
         for ident in identities:
             ref = ident["id"]
@@ -454,23 +473,52 @@ class DashboardEngine:
                 if b is None:
                     origin = self._snap_to_free((ident["x"], ident["y"]))
                     if origin is not None:
-                        cb = CandidateBelief(self.navmesh, self.reachability, cfg.negative_evidence)
+                        ne_cfg = cfg.negative_evidence
+                        cb = CandidateBelief(self.navmesh, self.reachability, ne_cfg)
                         cb.initialise(origin)
-                        b = self._beliefs[ref] = _Belief(cb, ident["t_media"], origin)
+                        rb = CandidateBelief(self.navmesh, self.reachability, ne_cfg.model_copy(update={"negative_evidence_enabled": False}))
+                        rb.initialise(origin)
+                        b = self._beliefs[ref] = _Belief(cb, rb, ident["t_media"], origin)
                         self._log_event("unseen", f"{ident['name'] or ident['short']} went UNSEEN at ({ident['x']}, {ident['y']}) — candidate region opened")
                 if b is not None:
                     self._advance_belief(b, now_t, attestations)
-                    area = b.belief.area_m2()
-                    b.area_history.append((now_t, area))
+                    area, reach_area = b.belief.area_m2(), b.reach.area_m2()
+                    b.area_history.append((now_t, area, reach_area))
+                    mask = b.belief.mask()
+                    healthy = sorted(b.healthy_nodes)
+                    silent = [n for n in self.node_ids if n not in healthy]
+                    leak = {n: round(self.navmesh.area_m2(mask & z), 1) for n, z in self.zone_masks.items() if (mask & z).any()}
+                    blind_m2 = round(self.navmesh.area_m2(mask & self.blind_mask), 1)
+                    hidden_s = now_t - b.started_t
+                    name = ident["name"] or ident["short"]
+                    why = []
+                    for n in silent:
+                        why.append(f"camera {n} is silent ({'occluded, ' if n in occluded_now else ''}no healthy attestation): its silence is not counted as evidence")
+                    text = f"{name} unseen {hidden_s:.0f} s. "
+                    text += (f"Cameras {', '.join(map(str, healthy))} are healthy and saw nobody, so their zones are ruled out. " if healthy else "No camera has a healthy attestation. ")
+                    text += ("; ".join(why) + ". " if why else "")
+                    if leak and silent:
+                        text += f"The region therefore leaks into camera {', '.join(str(n) for n in leak if n in silent)}'s zone. " if any(n in silent for n in leak) else ""
+                    text += f"Search area {area:.0f} m² instead of {reach_area:.0f} m² reachable."
                     regions.append(
                         {
                             "id": ref,
                             "colour": ident["colour"],
                             "area_m2": round(area, 2),
+                            "reachable_area_m2": round(reach_area, 2),
+                            "ratio": round(area / reach_area, 3) if reach_area > 0 else None,
                             "origin": [round(b.origin[0], 2), round(b.origin[1], 2)],
-                            "unseen_for_s": round(now_t - b.started_t, 1),
-                            "runs": self._mask_runs(b.belief.mask()),
-                            "history": [[round(t - b.started_t, 1), round(a, 1)] for t, a in list(b.area_history)[-40:]],
+                            "unseen_for_s": round(hidden_s, 1),
+                            "runs": self._mask_runs(mask),
+                            "reach_runs": self._mask_runs(b.reach.mask()),
+                            "healthy_nodes": healthy,
+                            "silent_nodes": silent,
+                            "occluded_nodes": sorted(n for n in silent if n in occluded_now),
+                            "zone_overlap_m2": {str(n): a2 for n, a2 in leak.items()},
+                            "healthy_zone_overlap_m2": round(sum(a2 for n, a2 in leak.items() if n in healthy), 2),
+                            "blind_block_area_m2": blind_m2,
+                            "explanation": text,
+                            "history": [[round(t - b.started_t, 1), round(a3, 1), round(r3, 1)] for t, a3, r3 in list(b.area_history)[-120:]],
                         }
                     )
             elif b is not None:
@@ -502,6 +550,8 @@ class DashboardEngine:
                 self._log_event("fork", f"OPEN FORK {str(f.fork_id)[:10]} on {label_of_ref.get(f.identity_ref, f.identity_ref)} ({len(f.branches)} branches)")
 
         # ── nodes ─────────────────────────────────────────────────────
+        healthy_all = healthy_zone_mask(attestations, self.zone_masks, now_t, cfg.negative_evidence.tau_attest, cfg.attest_validity_s, self.navmesh.grid.shape)
+        coverage_ok = {n: bool((self.zone_masks[n] & healthy_all).any()) for n in self.zone_masks}
         live = obs.liveness(cfg.stale_after_s)
         counts = obs.node_claim_counts()
         holes = obs.node_holes()
@@ -518,6 +568,8 @@ class DashboardEngine:
                     "live": bool(live.get(n, False)),
                     "control_reachable": bool(st.get("reachable")),
                     "partitioned": bool(part),
+                    "coverage_healthy": coverage_ok.get(n, False),
+                    "occluded": bool(n in occluded_now),
                     "dropped": part,
                     "attack": st.get("attack", "unknown") if st.get("reachable") else "unknown",
                     "intensity": st.get("intensity", 0.0) if st.get("reachable") else 0.0,
@@ -573,38 +625,21 @@ class DashboardEngine:
         }
 
     def _advance_belief(self, b: _Belief, now_t: float, attestations: list) -> None:
-        """One `CandidateBelief` tick: dilate by elapsed media time, then
-        apply attestations gossiped since the identity was last seen."""
+        """One tick: recompute which cameras are CURRENTLY healthy (gossiped,
+        recent, confident zone attestations), forbid their zones, then dilate
+        by the elapsed media time. A silent or unhealthy camera forbids nothing
+        (silence is never evidence). Uses gossiped attestations only."""
+        ne = self.cfg.negative_evidence
+        forbidden = healthy_zone_mask(
+            attestations, self.zone_masks, now_t, ne.tau_attest, self.cfg.attest_validity_s, self.navmesh.grid.shape
+        )
+        b.healthy_nodes = [n for n, z in self.zone_masks.items() if (forbidden & z).any() and (z & forbidden).sum() == z.sum()]
+        b.belief.set_forbidden(forbidden)
         dt = now_t - b.last_step_t
         if dt > 0:
             b.belief.step(dt)
+            b.reach.step(dt)
             b.last_step_t = now_t
-        fresh = []
-        for att in attestations:
-            key = (att.node_id, att.t_start.physical_ms)
-            if key in b.seen_attestations or att.t_end.physical_ms / 1000.0 < b.last_seen_t:
-                continue
-            b.seen_attestations.add(key)
-            fresh.append(att)
-        for att in sorted(fresh, key=lambda a: a.t_start.physical_ms):
-            regions = set(att.region_ids)
-            if att.crossing_observed:
-                # Someone crossed that boundary after we last saw the
-                # identity. Assume it was this identity (the only one near
-                # that boundary): it is now on the FAR side, so later "no
-                # crossing" attestations must rule out the ORIGIN side
-                # instead (applied below with a far-side reference point).
-                b.crossed |= regions
-                continue
-            crossed_here = regions & b.crossed
-            if crossed_here:
-                for boundary_id in crossed_here:
-                    far = np.argwhere(self.navmesh.cells_beyond(boundary_id, b.origin))
-                    if len(far):
-                        far_xy = self.navmesh.cell_to_world(int(far[0][1]), int(far[0][0]))
-                        b.belief.apply_attestation(att, reference_xy=far_xy)
-                continue
-            b.belief.apply_attestation(att)
         b.belief.normalise()
 
     # ── query ──────────────────────────────────────────────────────────

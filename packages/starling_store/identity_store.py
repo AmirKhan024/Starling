@@ -528,9 +528,11 @@ class LocalStore:
             "world_x": world_pos[0] if world_pos is not None else None,
             "world_y": world_pos[1] if world_pos is not None else None,
             "pos_sigma": pos_sigma,
-            "anchor_type": "UNANCHORED",
-            "identity_ref": None,
-            "last_anchor_t": None,
+            # A face-recognition gate (the simulator's) may have anchored this
+            # observation to a named identity.
+            "anchor_type": "FACE_ANCHOR" if getattr(obs, "anchor_identity", None) else "UNANCHORED",
+            "identity_ref": getattr(obs, "anchor_identity", None),
+            "last_anchor_t": float(obs.t_media) if getattr(obs, "anchor_identity", None) else None,
             "confidence": float(obs.conf),
             "quality": float(obs.quality),
             "signature": None,

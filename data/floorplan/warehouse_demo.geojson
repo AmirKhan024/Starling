@@ -1,122 +1,519 @@
 {
-  "type": "FeatureCollection",
-  "properties": {
-    "name": "warehouse_demo",
-    "scale": "metres",
-    "description": "Simulated 40m x 25m warehouse floor for the sim-driven demo (STATUS.md Step 2). Four camera zones (node 0..3), each an 8m-wide north-south column with racking-aisle obstacles inside it. Node 0's zone (x in [0, 8]) and node 1's zone (x in [11, 19]) flank a deliberate 3m-wide blind aisle (x in [8, 11]) that spans the full 25m depth of the floor — the C3/C4 demo apparatus this floor plan exists for. Its two exits are boundary_id 1 (x=8, node 0's side) and boundary_id 2 (x=11, node 1's side); a worker crossing either one while under that node's camera produces the coverage attestation the 'could be here' region shrinks against. Node 2 (x in [24, 32]) and node 3 (x in [35, 40]) cover two further zones with their own racking; the strips x in [19, 24] and x in [32, 35] are plain uncovered floor (no boundary instrumented there) — camera coverage deliberately does not span the whole building, matching the real deployment this demo represents."
+ "type": "FeatureCollection",
+ "features": [
+  {
+   "type": "Feature",
+   "properties": {
+    "role": "floor",
+    "name": "warehouse_floor"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       0,
+       0
+      ],
+      [
+       40,
+       0
+      ],
+      [
+       40,
+       25
+      ],
+      [
+       0,
+       25
+      ],
+      [
+       0,
+       0
+      ]
+     ]
+    ]
+   }
   },
-  "features": [
-    {
-      "type": "Feature",
-      "properties": {"role": "floor", "name": "warehouse_floor"},
-      "geometry": {
-        "type": "Polygon",
-        "coordinates": [[[0, 0], [40, 0], [40, 25], [0, 25], [0, 0]]]
-      }
-    },
-    {
-      "type": "Feature",
-      "properties": {"role": "camera_zone", "name": "zone_node0", "node_id": 0},
-      "geometry": {
-        "type": "Polygon",
-        "coordinates": [[[0, 0], [8, 0], [8, 25], [0, 25], [0, 0]]]
-      }
-    },
-    {
-      "type": "Feature",
-      "properties": {"role": "camera_zone", "name": "zone_node1", "node_id": 1},
-      "geometry": {
-        "type": "Polygon",
-        "coordinates": [[[11, 0], [19, 0], [19, 25], [11, 25], [11, 0]]]
-      }
-    },
-    {
-      "type": "Feature",
-      "properties": {"role": "camera_zone", "name": "zone_node2", "node_id": 2},
-      "geometry": {
-        "type": "Polygon",
-        "coordinates": [[[24, 0], [32, 0], [32, 25], [24, 25], [24, 0]]]
-      }
-    },
-    {
-      "type": "Feature",
-      "properties": {"role": "camera_zone", "name": "zone_node3", "node_id": 3},
-      "geometry": {
-        "type": "Polygon",
-        "coordinates": [[[35, 0], [40, 0], [40, 25], [35, 25], [35, 0]]]
-      }
-    },
-    {
-      "type": "Feature",
-      "properties": {"role": "obstacle", "name": "racking_node0_a"},
-      "geometry": {
-        "type": "Polygon",
-        "coordinates": [[[2, 3], [3.5, 3], [3.5, 10], [2, 10], [2, 3]]]
-      }
-    },
-    {
-      "type": "Feature",
-      "properties": {"role": "obstacle", "name": "racking_node0_b"},
-      "geometry": {
-        "type": "Polygon",
-        "coordinates": [[[2, 15], [3.5, 15], [3.5, 22], [2, 22], [2, 15]]]
-      }
-    },
-    {
-      "type": "Feature",
-      "properties": {"role": "obstacle", "name": "racking_node1_a"},
-      "geometry": {
-        "type": "Polygon",
-        "coordinates": [[[13, 3], [14.5, 3], [14.5, 10], [13, 10], [13, 3]]]
-      }
-    },
-    {
-      "type": "Feature",
-      "properties": {"role": "obstacle", "name": "racking_node1_b"},
-      "geometry": {
-        "type": "Polygon",
-        "coordinates": [[[13, 15], [14.5, 15], [14.5, 22], [13, 22], [13, 15]]]
-      }
-    },
-    {
-      "type": "Feature",
-      "properties": {"role": "obstacle", "name": "racking_node2_a"},
-      "geometry": {
-        "type": "Polygon",
-        "coordinates": [[[26, 3], [27.5, 3], [27.5, 10], [26, 10], [26, 3]]]
-      }
-    },
-    {
-      "type": "Feature",
-      "properties": {"role": "obstacle", "name": "racking_node2_b"},
-      "geometry": {
-        "type": "Polygon",
-        "coordinates": [[[26, 15], [27.5, 15], [27.5, 22], [26, 22], [26, 15]]]
-      }
-    },
-    {
-      "type": "Feature",
-      "properties": {"role": "obstacle", "name": "racking_node3"},
-      "geometry": {
-        "type": "Polygon",
-        "coordinates": [[[36.5, 8], [38, 8], [38, 17], [36.5, 17], [36.5, 8]]]
-      }
-    },
-    {
-      "type": "Feature",
-      "properties": {"role": "boundary", "boundary_id": 1, "name": "blind_aisle_west_exit"},
-      "geometry": {
-        "type": "LineString",
-        "coordinates": [[8, 0], [8, 25]]
-      }
-    },
-    {
-      "type": "Feature",
-      "properties": {"role": "boundary", "boundary_id": 2, "name": "blind_aisle_east_exit"},
-      "geometry": {
-        "type": "LineString",
-        "coordinates": [[11, 0], [11, 25]]
-      }
-    }
-  ]
+  {
+   "type": "Feature",
+   "properties": {
+    "role": "camera_zone",
+    "name": "zone_node0_west",
+    "node_id": 0
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       0,
+       0
+      ],
+      [
+       14,
+       0
+      ],
+      [
+       14,
+       25
+      ],
+      [
+       0,
+       25
+      ],
+      [
+       0,
+       0
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "role": "camera_zone",
+    "name": "zone_node1_north",
+    "node_id": 1
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       14,
+       0
+      ],
+      [
+       26,
+       0
+      ],
+      [
+       26,
+       9
+      ],
+      [
+       14,
+       9
+      ],
+      [
+       14,
+       0
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "role": "camera_zone",
+    "name": "zone_node2_south",
+    "node_id": 2
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       14,
+       16
+      ],
+      [
+       26,
+       16
+      ],
+      [
+       26,
+       25
+      ],
+      [
+       14,
+       25
+      ],
+      [
+       14,
+       16
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "role": "camera_zone",
+    "name": "zone_node3_east",
+    "node_id": 3
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       26,
+       0
+      ],
+      [
+       40,
+       0
+      ],
+      [
+       40,
+       25
+      ],
+      [
+       26,
+       25
+      ],
+      [
+       26,
+       0
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "role": "blind_block",
+    "name": "blind_block"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       14,
+       9
+      ],
+      [
+       26,
+       9
+      ],
+      [
+       26,
+       16
+      ],
+      [
+       14,
+       16
+      ],
+      [
+       14,
+       9
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "role": "obstacle",
+    "name": "racking_node0_a"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       2,
+       3
+      ],
+      [
+       3.5,
+       3
+      ],
+      [
+       3.5,
+       10
+      ],
+      [
+       2,
+       10
+      ],
+      [
+       2,
+       3
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "role": "obstacle",
+    "name": "racking_node0_b"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       2,
+       15
+      ],
+      [
+       3.5,
+       15
+      ],
+      [
+       3.5,
+       22
+      ],
+      [
+       2,
+       22
+      ],
+      [
+       2,
+       15
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "role": "obstacle",
+    "name": "racking_node1_a"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       18,
+       3
+      ],
+      [
+       19.5,
+       3
+      ],
+      [
+       19.5,
+       5
+      ],
+      [
+       18,
+       5
+      ],
+      [
+       18,
+       3
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "role": "obstacle",
+    "name": "racking_node2_a"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       18,
+       19
+      ],
+      [
+       19.5,
+       19
+      ],
+      [
+       19.5,
+       22
+      ],
+      [
+       18,
+       22
+      ],
+      [
+       18,
+       19
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "role": "obstacle",
+    "name": "racking_node3_a"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       28,
+       3
+      ],
+      [
+       29.5,
+       3
+      ],
+      [
+       29.5,
+       10
+      ],
+      [
+       28,
+       10
+      ],
+      [
+       28,
+       3
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "role": "obstacle",
+    "name": "racking_node3_b"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       36.5,
+       8
+      ],
+      [
+       38,
+       8
+      ],
+      [
+       38,
+       17
+      ],
+      [
+       36.5,
+       17
+      ],
+      [
+       36.5,
+       8
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "role": "obstacle",
+    "name": "racking_block_a"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       16.5,
+       9.5
+      ],
+      [
+       17.7,
+       9.5
+      ],
+      [
+       17.7,
+       13.5
+      ],
+      [
+       16.5,
+       13.5
+      ],
+      [
+       16.5,
+       9.5
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "role": "obstacle",
+    "name": "racking_block_b"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       20,
+       11.5
+      ],
+      [
+       21.2,
+       11.5
+      ],
+      [
+       21.2,
+       15.5
+      ],
+      [
+       20,
+       15.5
+      ],
+      [
+       20,
+       11.5
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "role": "obstacle",
+    "name": "racking_block_c"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       23,
+       9.5
+      ],
+      [
+       24.2,
+       9.5
+      ],
+      [
+       24.2,
+       13.5
+      ],
+      [
+       23,
+       13.5
+      ],
+      [
+       23,
+       9.5
+      ]
+     ]
+    ]
+   }
+  }
+ ]
 }

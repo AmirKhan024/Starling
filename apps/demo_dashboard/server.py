@@ -37,6 +37,10 @@ class StopLieBody(BaseModel):
     node_id: Optional[int] = None
 
 
+class ScriptBody(BaseModel):
+    name: str
+
+
 class QueryBody(BaseModel):
     text: str
     purpose: str = "safety"
@@ -75,6 +79,10 @@ def create_app(cfg: DemoDashboardConfig) -> FastAPI:
     @app.get("/api/state")
     def state() -> JSONResponse:
         return JSONResponse(engine.snapshot(), headers={"Cache-Control": "no-store"})
+
+    @app.post("/api/script")
+    def script(body: ScriptBody) -> dict:
+        return engine.run_script(body.name)
 
     @app.post("/api/partition")
     def partition() -> dict:

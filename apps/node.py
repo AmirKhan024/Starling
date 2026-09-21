@@ -485,7 +485,7 @@ def _run_sim(ctx: _RunContext, keys: Optional[NodeKeys]) -> int:
     cfg = ctx.cfg
 
     sim_attestor: Optional[SimAttestor] = None
-    if ctx.navmesh is not None and cfg.coverage.watched_boundary_ids:
+    if ctx.navmesh is not None:  # every sim node attests its own zone's coverage (ZONE_REGION_BASE)
         sim_attestor = SimAttestor(
             node_id=cfg.node_id,
             watched_boundary_ids=cfg.coverage.watched_boundary_ids,

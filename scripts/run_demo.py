@@ -48,8 +48,11 @@ STOP_GRACE_S = 4.0
 
 
 class DemoLauncher:
-    def __init__(self, speed: Optional[float] = None, port: Optional[int] = None, log_dir: Path = DEFAULT_LOG_DIR) -> None:
+    def __init__(
+        self, speed: Optional[float] = None, port: Optional[int] = None, log_dir: Path = DEFAULT_LOG_DIR, auto: bool = True
+    ) -> None:
         self.speed = speed
+        self.auto = auto  # False = presenter mode: no automatic dead-zone episodes
         self.dash_cfg = load_demo_config(DASHBOARD_CONFIG)
         if port is not None:
             self.dash_cfg.http_port = port
@@ -103,6 +106,8 @@ class DemoLauncher:
         sim_args = ["-m", "starling_sim.runner", "--config", str(SIM_CONFIG)]
         if self.speed is not None:
             sim_args += ["--speed", str(self.speed)]
+        if not self.auto:
+            sim_args.append("--no-auto")
         self._spawn("simulator", sim_args)
         for n in NODE_IDS:
             self._spawn(f"node-{n}", self._node_args(n))
@@ -176,9 +181,10 @@ def main(argv: Optional[list] = None) -> int:
     ap.add_argument("--headless", action="store_true", help="do not open a browser")
     ap.add_argument("--speed", type=float, default=None, help="simulator speed multiplier (1.0 = real time)")
     ap.add_argument("--port", type=int, default=None, help="dashboard HTTP port (default from configs/demo_dashboard.yaml)")
+    ap.add_argument("--presenter", action="store_true", help="no automatic episodes: trigger every moment from the dashboard's demo-script panel")
     args = ap.parse_args(argv)
 
-    launcher = DemoLauncher(speed=args.speed, port=args.port)
+    launcher = DemoLauncher(speed=args.speed, port=args.port, auto=not args.presenter)
     launcher.prepare()
     print("starting simulator, 4 nodes and the dashboard ...", flush=True)
     launcher.start()

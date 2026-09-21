@@ -23,7 +23,7 @@ name: tiny
 workers:
   - worker_id: 0
     name: w0
-    route: [[4.0, 12.0], [15.0, 12.0]]
+    route: [[4.0, 14.5], [19.0, 14.5]]
     speed_m_s: 1.3
     loop: true
 occlusions: []
@@ -62,28 +62,16 @@ def test_tick_once_is_deterministic_given_the_same_seed(tmp_path):
     assert per_node_a[0]["observations"] == per_node_b[0]["observations"]
 
 
-def test_worker_shuttling_through_the_blind_aisle_is_invisible_to_every_zone_while_inside_it(tmp_path):
+def test_worker_inside_the_blind_block_is_invisible_to_every_zone(tmp_path):
     runner = _tiny_runner(tmp_path)
-    saw_the_gap = False
-    for _ in range(30):  # a few seconds, enough for the shuttle worker to enter the gap
+    saw_the_block = False
+    for _ in range(60):  # enough for the worker to walk from the west zone into the block
         per_node, ground_truth = runner.tick_once()
-        worker_x = ground_truth["workers"][0]["x"]
-        if 8.0 < worker_x < 11.0:
-            saw_the_gap = True
+        x, y = ground_truth["workers"][0]["x"], ground_truth["workers"][0]["y"]
+        if 14.3 < x < 25.7 and 9.3 < y < 15.7:
+            saw_the_block = True
             assert all(payload["observations"] == [] for payload in per_node.values())
-
-    assert saw_the_gap, "test's own tick budget never put the shuttle worker inside the gap"
-
-
-def test_boundary_crossing_is_reported_when_the_shuttle_worker_crosses_it(tmp_path):
-    runner = _tiny_runner(tmp_path)
-    any_crossing_seen = False
-    for _ in range(30):
-        per_node, _ = runner.tick_once()
-        if any(payload["boundary_crossings"]["1"] for payload in per_node.values()):
-            any_crossing_seen = True
-            break
-    assert any_crossing_seen
+    assert saw_the_block, "the tick budget never put the worker inside the block"
 
 
 def test_default_shipped_config_and_scenario_load_and_run_one_tick():
@@ -92,4 +80,36 @@ def test_default_shipped_config_and_scenario_load_and_run_one_tick():
     per_node, ground_truth = runner.tick_once()
 
     assert set(per_node.keys()) == {0, 1, 2, 3}
-    assert len(ground_truth["workers"]) == 5
+    assert len(ground_truth["workers"]) == 4  # patrols; the actors are spawned by scripts
+
+
+def test_dead_zone_script_keeps_worker_2_hidden_for_20_to_30_seconds():
+    cfg = load_simulator_config(DEFAULT_SIM_CONFIG)
+    cfg.auto = False
+    cfg.control_port = 0
+    runner = SimulatorRunner(cfg)
+    runner.command({"kind": "script", "name": "dead_zone_healthy"})
+    hidden_ticks, appeared = 0, False
+    for _ in range(5 * 80):
+        per_node, gt = runner.tick_once()
+        w2 = [w for w in gt["workers"] if w["worker_id"] == 2]
+        if not w2:
+            continue
+        appeared = True
+        seen = any(o["local_track_id"] == 2 for p in per_node.values() for o in p["observations"])
+        if 14.0 < w2[0]["x"] < 26.0 and 9.0 < w2[0]["y"] < 16.0:
+            assert not seen
+            hidden_ticks += 1
+    assert appeared and 20.0 <= hidden_ticks / 5.0 <= 32.0
+
+
+def test_occluded_script_occludes_node_1_and_manual_control_is_thread_safe_by_queue():
+    cfg = load_simulator_config(DEFAULT_SIM_CONFIG)
+    cfg.auto = False
+    cfg.control_port = 0
+    runner = SimulatorRunner(cfg)
+    runner.command({"kind": "script", "name": "dead_zone_occluded"})
+    runner.tick_once()
+    runner.tick_once()
+    assert runner.world.active_occlusion(1) is not None
+    assert runner.world.active_occlusion(0) is None

@@ -193,7 +193,7 @@ def _two_worker_claims(store: LocalStore, injector: AttackInjector, navmesh, n_t
     tick by tick (what a real zone with two people looks like)."""
     seq, t = seq0, t0
     for k in range(n_ticks):
-        for track, base in ((10, (29.0, 5.0)), (11, (29.0, 20.0))):
+        for track, base in ((10, (33.0, 5.0)), (11, (33.0, 20.0))):
             seq += 1
             claim = _honest_claim(seq, t, (base[0] + 0.2 * k * 0.2, base[1]), rng)
             claim["local_track_id"] = track
