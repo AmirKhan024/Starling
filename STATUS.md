@@ -63,8 +63,35 @@ network partitions and stays robust when a node lies.
     transport, a `SimulatorConfig`-driven runner, and the default
     5-worker/2-occlusion demo scenario), with 38 new tests and a manual
     check that no `starling_sim` module ever imports torch/ultralytics.
-    Full suite now 296 passed, 4 deselected. Starting Step 4 (wiring the
-    simulator into `apps/node.py`).
+    Full suite now 296 passed, 4 deselected. Completed Step 4 (wiring
+    the simulator into `apps/node.py`): added `NodeConfig.sim`, rewrote
+    `apps/node.py` to branch `_run_video`/`_run_sim`, wired
+    `starling_net.anti_entropy.AntiEntropy` into the node loop for the
+    first time ever (it existed and was tested but no app dispatched to
+    it before this), added application-level `PartitionControl` +
+    `ControlServer`'s `POST /partition`, and added `_ReputationLoop` (an
+    in-node periodic plausibility pass that gossips
+    `ReputationUpdate`s). Manual end-to-end multi-process testing (4 sim
+    nodes + the simulator) surfaced and fixed three real, non-obvious
+    bugs along the way — see Decisions and Known issues for the full
+    story of each: (1) a `VVDelta` reply carrying more than ~3 claims
+    exceeded the wire-safety byte cap and silently killed a node's
+    gossip receive thread (fixed: chunked replies); (2) comparing every
+    claim against the immediately-prior one made the reachability check
+    fire on ordinary position noise / grid quantization alone, crashing
+    an honest node's reputation with no attack running (fixed: a
+    minimum baseline-refresh interval); (3) a claim delivered late via
+    anti-entropy catch-up could be graded against an already-advanced
+    baseline, giving `dt_s≈0` (fixed: skip the baseline when it's not
+    chronologically before the claim). Also found, and left as a
+    documented (not fixed — pre-existing, shared-code) limitation: exact
+    reconvergence after a partition heal isn't always 100% within a
+    bounded window, because `LocalStore.claim_version_vector` is a bare
+    per-node MAX(seq) with no gap-awareness, and ZMQ PUB/SUB doesn't
+    guarantee ordered delivery. Added `tests/test_node_reputation_loop.py`,
+    `tests/test_sim_node_integration.py`, and 4 new tests in
+    `tests/test_attacks.py`. Full suite: see §7 for the exact command
+    and latest result. Starting Step 5 (the dashboard).
 
 ## 3. Current goal
 
@@ -169,8 +196,10 @@ complete acceptance criteria.
   - [x] `transport.py` — `SimPublisher`/`SimSubscriber`, ZMQ PUB/SUB,
         per-node topics + one ground-truth topic
         (`starling_sim.messages`)
-  - [x] `config.py` — `SimulatorConfig` (+ loader), `SimNodeConfig`
-        (defined here, not yet wired into `NodeConfig` — that's Step 4)
+  - [x] `config.py` — `SimulatorConfig` (+ loader); `SimNodeConfig` is
+        NOT here (see Step 4's note — it ended up defined directly in
+        `starling_node.config` instead, matching that file's existing
+        convention)
   - [x] `runner.py` — `SimulatorRunner` (`tick_once()` pure/testable,
         `run()` the real-time publish loop), `python -m
         starling_sim.runner --config ...` CLI
@@ -182,80 +211,120 @@ complete acceptance criteria.
         perception, coverage, transport, runner), all passing; verified
         by hand that importing any `starling_sim` module never imports
         torch/ultralytics
-- [ ] **Step 4 — Sim mode in the node (`apps/node.py`)** — not started
+- [x] **Step 4 — Sim mode in the node (`apps/node.py`)** — commit
+      `<pending, see git log after next commit>`
+  - [x] `NodeConfig.sim: SimNodeConfig` (new field, `starling_node/config.py`)
+  - [x] `apps/node.py` rewritten: `_run_video`/`_run_sim` split (video
+        path unchanged in behaviour; sim path uses
+        `starling_sim.node_client.SimNodeSource` +
+        `starling_sim.coverage.SimAttestor`, never imports torch)
+  - [x] `AntiEntropy` wired for real: `vv_digest`/`vv_delta` dispatched
+        in `_on_gossip_message`, `.tick()` called every housekeeping
+        round (previously dead code from the app's perspective)
+  - [x] `PartitionControl` (new, `starling_consensus/attacks.py`) +
+        `ControlServer`'s new `POST /partition` endpoint — application-
+        level partition, receive-side filtering
+  - [x] `_ReputationLoop` (new, `apps/node.py`) — periodic in-node
+        plausibility pass over the merged claim set +
+        `ReputationTable.observe`, gossiped via new
+        `make_reputation_envelope` (`starling_proto/convert.py`)
+  - [x] `configs/nodes/sim/node-0{0..3}.yaml` — 4 sim node configs, ring
+        topology, node 0/1 watch the blind aisle's two boundaries
+  - [x] 3 real, non-obvious bugs found and fixed while wiring this up
+        live (see Decisions and Known issues): an oversized-envelope
+        crash that silently killed a node's gossip receive thread, a
+        false-positive reachability check on honest claims, and a
+        late-anti-entropy-delivery false positive
+  - [x] `tests/test_node_reputation_loop.py` (8 tests: honest-claims
+        regression, fabricate-drops-reputation, chunk-size-under-cap,
+        etc.) and `tests/test_sim_node_integration.py` (1
+        `@pytest.mark.integration` test: two real node processes + a
+        real simulator, claims flow, partition cuts merging, heal
+        resumes it) — plus 4 new tests in `tests/test_attacks.py` for
+        `PartitionControl`
+  - [x] Manually verified end-to-end with 4 real sim-mode node
+        processes + the simulator: claims replicate, attestations flow,
+        reputation gossips, and a live fabricate attack visibly drops
+        the lying node's reputation as seen by an honest peer
 - [ ] **Step 5 — Dashboard for the demo** — not started
 - [ ] **Step 6 — One-command launcher and run guide** — not started
 - [ ] **Step 7 — Polish** — not started (only after 1–6)
 
 ## 6. Current status
 
-**What works right now**: the pre-existing distributed core, unchanged and
-tested (253/253 non-integration tests passing). The calibration YAML
-round-trip bug is fixed. Test collection is fixed. `requirements-sim.txt`
-exists but nothing yet uses it in anger (the sim package doesn't exist).
+**What works right now**: the full distributed core, plus a working
+simulator-driven node mesh. Verified live, multiple times, with 4 real
+`apps/node.py` sim-mode processes + the simulator running together:
+claims replicate and merge across the ring; a worker shuttling through
+the blind aisle produces no observations from any zone while inside the
+gap; coverage attestations flow (including during a scripted occlusion);
+`POST /partition` demonstrably stops a node from merging a cut peer's
+claims and `POST /partition {"drop_node_ids": []}` resumes it; a live
+`POST /attack {"attack": "fabricate", ...}` visibly drives an honest
+peer's in-node opinion of the lying node down (from ~1.0 toward ~0.5,
+see Known issues for why it's not closer to `r_min` and why an honest
+node isn't pinned at a perfect 1.0 either). `apps/dashboard/` is
+**still completely unchanged** — nothing in it knows the simulator or
+sim-mode nodes exist yet; it would today only work against the
+video-path node configs it already supports.
 
-**What's half-done**: nothing mid-flight — Steps 1, 2, and 3 are fully
-committed before this checkpoint. `packages/starling_sim/` is a complete,
-tested, standalone package but **nothing calls it yet** — `apps/node.py`
-and `apps/dashboard/` are both unchanged so far.
+**What's half-done**: nothing mid-flight — Steps 1-4 are fully committed
+before this checkpoint.
 
-**Exact next action**: Step 4 — wire the simulator into `apps/node.py`.
-Concretely:
-1. Add `sim: Optional[starling_sim.config.SimNodeConfig] = None` to
-   `NodeConfig` (`packages/starling_node/config.py`) and treat
-   `cfg.source == "sim"` as the branch selector (per the Appendix's note:
-   `source` stays a free-form string, this is just a new convention).
-2. In `apps/node.py::run()`, branch: when `cfg.source == "sim"`, skip
-   `MediaClock.from_video`/`PacedSource`/`NodePerception`/calibration
-   entirely (this is what makes the sim path torch-free — see STATUS.md
-   Step 1's deferred decision) and instead construct a
-   `starling_sim.node_client.SimNodeSource(cfg.sim.connect_endpoint,
-   cfg.node_id)`. Loop on `.recv(timeout_ms=...)` instead of iterating
-   `source`; each non-`None` tick dict feeds
-   `starling_sim.node_client.observations_from_tick(tick)` ->
-   `store.append_local_observation(obs, world_pos=.., pos_sigma=..)` (same
-   call the video path already makes) -> `injector.apply_to_claims` ->
-   `gossip.publish`, exactly mirroring the existing per-frame body.
-3. Build a `starling_sim.coverage.SimAttestor` per sim node (needs
-   `cfg.coverage.watched_boundary_ids`, `cfg.coverage.tau_attest` or
-   `cfg.attest.tau_attest`, `cfg.attest.tick_interval_s`, `keys`); call
-   `.observe_tick(tick["boundary_crossings"])` every tick and `.tick(t_media,
-   coverage_from_tick(tick))` on the housekeeping cadence, gossiping any
-   non-`None` result via `make_attestation_envelope` (already exists).
-4. Wire `starling_net.anti_entropy.AntiEntropy` into the node loop for
-   real (currently dead code — see the Appendix): construct it with
-   `(store, gossip, interval_s=cfg.net.gossip_interval_s)`, call `.tick()`
-   on the housekeeping cadence, and dispatch incoming `vv_digest`/
-   `vv_delta` envelope kinds in `_on_gossip_message` to `.on_digest`/
-   `.on_delta` (publishing the digest's/delta's response the same way
-   claims are published). This is required for the partition-heal demo
-   moment (§3.3) to actually reconverge.
-5. Add the application-level partition control (new, sibling to
-   `ControlServer`) and the periodic in-node
-   plausibility/reputation/resolver pass, per the Appendix's notes on
-   both.
-6. Add `make_reputation_envelope` to `starling_proto/convert.py` (mirror
-   `make_attestation_envelope`).
-7. Create 4 sim node configs under `configs/nodes/sim/` (ring topology,
-   `source: "sim"`, `sim.connect_endpoint: "tcp://127.0.0.1:5560"`,
-   `geometry.navmesh_path` pointing at `warehouse_demo.geojson`,
-   `coverage.watched_boundary_ids` set per node — node 0 watches
-   boundary 1, node 1 watches boundary 2, nodes 2/3 can watch none or be
-   given their own future boundaries).
-8. Add an integration test: run the simulator + 4 sim nodes (in-process
-   or as subprocesses) for ~10-30s headless, assert claims flow and (once
-   partition control exists) that a heal reconverges claim sets.
+**Exact next action**: Step 5 — the dashboard. Concretely:
+1. `apps/dashboard/config.py`'s `DashboardConfig.peers` already points
+   at gossip addresses — point it at the 4 sim node configs'
+   `net.listen_port`s (`configs/nodes/sim/node-0{0..3}.yaml`, ports
+   5555-5558) instead of (or alongside) the video-path ones. No change
+   needed to `GossipObserver` itself — it's SUB-only against real
+   `GossipNode` PUB sockets, which sim-mode nodes still run unchanged.
+2. New: a ground-truth SUB client for the simulator's OWN
+   `starling_sim.messages.GROUND_TRUTH_TOPIC` (`starling_sim.transport
+   .SimSubscriber` — already exists, built in Step 3) so the dashboard
+   can render faint "true position" markers alongside the network's
+   resolved belief. This is new code the dashboard doesn't have any
+   equivalent of today.
+3. Floor plan tab: switch from `demo_site.geojson` to
+   `warehouse_demo.geojson` (or make it configurable); render the 4
+   zones, 7 obstacles, blind aisle; overlay resolved identities (from
+   `GossipObserver.claims` + `starling_crdt.resolver.resolve`, which the
+   dashboard already calls) in one colour per identity; overlay a
+   `CandidateBelief` region (`starling_attest.negative_evidence`,
+   already used elsewhere per the Appendix) for any identity currently
+   unseen, fed by `GossipObserver.attestations`.
+4. Controls tab: add "Partition {2,3} vs {0,1}" / "Heal" buttons — each
+   is 4 `requests.post(f"http://127.0.0.1:{control_port}/partition",
+   json={"drop_node_ids": [...]})` calls (`control_port = gossip_port +
+   1000`, per node — see `AttackConfig`/`ControlServer`). Remember:
+   partition control is receive-side only (Decisions) — both sides of
+   the intended split must be told to drop the other for it to actually
+   behave like a cut.
+5. Node panel: reputation is no longer only the dashboard's own
+   locally-computed opinion — nodes now gossip `ReputationUpdate`s
+   themselves (Step 4), so `GossipObserver.reputation` (already a
+   `ReputationTable`, already fed via `ingest_gossiped` per the
+   Appendix) should already reflect this once pointed at sim-mode node
+   addresses; verify it rather than assuming.
+6. Query box: wire up `starling_query.cli.run_query` (or the lower-level
+   `answer_query`) against the sim node mesh — needs a capability token
+   (`starling_query.capability.issue`, purpose `"safety"`) and a peers
+   config pointing at the sim ports.
+7. Streamlit vs. FastAPI+HTML: try Streamlit first (existing dashboard
+   is already Streamlit); only fall back per the task brief's own
+   allowance if the live map proves too clunky. Record the choice here
+   either way.
 
-See §11/Appendix for every exact signature this step needs
-(`AntiEntropy`, `ControlServer`, `make_attestation_envelope`,
-`ReputationTable`, `plausibility.check`, `LocalStore`) so it isn't
-re-derived from scratch.
+See §11/Appendix for exact signatures (`GossipObserver`, `DashboardConfig`,
+`CandidateBelief`, `resolve`, `starling_query`) and the new
+`starling_sim.transport`/`starling_sim.messages` API from Step 3.
 
 ## 7. How to run
 
-Install (sim path, no torch needed once Step 4 lands; right now the repo
-still has the full `requirements.txt` — torch/ultralytics — installed in
-this dev environment, since the video path isn't being removed):
+Install (this dev environment has the full `requirements.txt` —
+torch/ultralytics included — installed; a from-scratch sim-only machine
+would use `pip install -r requirements-sim.txt` plus `pip install -e .
+--no-deps` or equivalent, not yet actually verified on a clean machine —
+that verification is part of Step 6):
 
 ```
 pip install -e ".[dev]"
@@ -265,10 +334,36 @@ Run tests (exact command, exact result as of this session):
 
 ```
 python -m pytest -q -m "not integration"
-# 253 passed, 4 deselected
+# 304 passed, 5 deselected
 ```
 
-There is no `scripts/run_demo.py` yet — nothing end-to-end to run yet.
+Generate keys (once; `configs/keys/` is gitignored):
+
+```
+python -m starling_net.keys --generate 4
+```
+
+Manually run the sim demo mesh (no launcher script yet — that's Step 6),
+each in its own terminal from the repo root:
+
+```
+python -m starling_sim.runner --config configs/sim/warehouse.yaml
+python apps/node.py --config configs/nodes/sim/node-00.yaml
+python apps/node.py --config configs/nodes/sim/node-01.yaml
+python apps/node.py --config configs/nodes/sim/node-02.yaml
+python apps/node.py --config configs/nodes/sim/node-03.yaml
+```
+
+Try the partition/lie controls by hand while that's running (control port
+= gossip port + 1000, e.g. node 0's gossip port 5555 -> control port
+6555):
+
+```
+curl -X POST http://127.0.0.1:6557/partition -d "{\"drop_node_ids\": [0,1]}"
+curl -X POST http://127.0.0.1:6557/attack -d "{\"attack\": \"fabricate\", \"intensity\": 0.9}"
+```
+
+`apps/dashboard/` is unchanged and not yet wired to any of this — Step 5.
 
 ## 8. Decisions
 
@@ -348,12 +443,108 @@ There is no `scripts/run_demo.py` yet — nothing end-to-end to run yet.
   and keep `starling_sim` coupled to the real-camera stack's dependency
   footprint — the whole point of this package is to be the lightweight,
   torch-free alternative.
+- **`NodeConfig.sim: SimNodeConfig` is defined directly in
+  `starling_node/config.py`**, not imported from `starling_sim.config`
+  (which is where the task brief's own Step 3 wording implied it might
+  live). Every other node config concern (`PerceptionConfig`,
+  `MatchConfig`, `NetConfig`, ...) is already defined this same way —
+  once in `starling_node`, regardless of which package consumes the
+  field — so this keeps the established pattern instead of making
+  `starling_node` depend on `starling_sim`.
+- **Anti-entropy delta replies are chunked to 3 claims per envelope**
+  (`apps/node.py`'s `_ANTI_ENTROPY_CHUNK_SIZE`), found necessary the hard
+  way: this project's claim embeddings are raw float32 (not the
+  int8-quantized form the wire schema's own comments describe), so one
+  `IdentityClaim` is ~2.2KB and a `VVDelta` carrying more than ~3 of them
+  already exceeds `starling_proto.limits.MAX_MESSAGE_BYTES` (8192B).
+  `GossipNode.publish` raising inside `_on_gossip_message` — itself
+  called from `GossipNode`'s own background poll thread, with no
+  exception handling around that call — silently killed the node's
+  ability to receive ANY further gossip (the thread just dies; the rest
+  of the process keeps running normally, which made this very
+  non-obvious to diagnose from the node's own logs). A short
+  `time.sleep(0.01)` between chunks was also added after observing that
+  a tight back-to-back publish burst could still lose a fraction of a
+  large chunk sequence in practice (ZMQ PUB/SUB has no delivery
+  guarantee, and the receiver's ed25519 signature verification happens
+  synchronously on its single poll thread).
+- **`_ReputationLoop` refreshes its corroborated-position baseline at
+  most once every `_MIN_BASELINE_REFRESH_S` (2.0s), not on every
+  claim.** Found via a fast, deterministic single-process repro
+  (packages under test called directly, no sockets) that an HONEST
+  node's reputation crashed to `r_min` with no attack running at all,
+  purely from comparing consecutive ~0.2s-apart sim-tick claims: the
+  reachability check's implied-speed math divides by `dt_s`, and at
+  that timescale ordinary position noise
+  (`SimulatorConfig.pos_noise_sigma_m`) and `ReachabilityModel`'s own
+  grid-quantized geodesic distance (`NavMesh.cell_size`) are both
+  large enough, relative to the true per-tick displacement, to
+  occasionally exceed `PlausibilityConfig.v_max_m_s` on their own. A
+  fabricated claim's actual (tens-of-metres) jump still fails by a wide
+  margin at any `dt_s`, so this costs nothing in detection power.
+- **`_ReputationLoop` also refuses to compare a claim against a baseline
+  that is not strictly BEFORE it in time** (`usable_baseline` in
+  `run_pass`). Anti-entropy catch-up can deliver a claim "late" (after
+  the baseline has already advanced past its timestamp from other,
+  more-promptly-delivered claims); without this guard, `dt_s` computes
+  to ~0 and produces the same false-positive failure mode as above, for
+  a claim that was never actually implausible — it just arrived out of
+  order. Found the same way, via the fast single-process repro.
+- **Partition control is receive-side only, on both ends of a cut
+  symmetrically** (documented on `PartitionControl` itself): `apps/node
+  .py` never gates what it SENDS on `partition_control` — `GossipNode
+  .publish` has no per-peer send in this project's PUB/SUB transport
+  layer to gate in the first place. The dashboard's partition button
+  (Step 5) must call `POST /partition` on every node on BOTH sides of
+  the intended split, not just one, for it to actually behave like a
+  cut link.
+- **`_ReputationLoop` lives directly in `apps/node.py`**, not as a new
+  package, because it is pure orchestration glue over existing
+  `starling_consensus`/`starling_crdt` primitives (`plausibility.check`,
+  `ReputationTable`, `ClaimSet`) — there was no new algorithm to give its
+  own module, only a policy for what to feed those functions and when.
 
 ## 9. Known issues and limitations
 
 - The video/YOLO path (`apps/node.py` with a real `source:` video file) has
   never run end-to-end — no `data/videos/*.mp4` exist. Out of scope to fix;
   the simulator is being added as an alternative input, not a replacement.
+  Also observed this session (info, not a Step 4 regression): a manual
+  run of `tests/test_node_process.py::test_node_process_writes_only_its_own_db`
+  (the one real video-path integration test, guarded by
+  `@pytest.mark.integration`, excluded from the suite this project tracks)
+  took over 3 minutes and needed to be killed on this dev machine — the
+  code's own docstring already documents YOLO/torch cold-start thread
+  contention costing "over 80 seconds" on this project's dev machine; not
+  investigated further, since the video/YOLO path is explicitly
+  deprioritized for this work.
+- **`LocalStore.claim_version_vector` is a bare per-node `MAX(seq)`, not
+  gap-aware** (`starling_store/identity_store.py`) — a real, pre-existing
+  limitation of the shared anti-entropy design, surfaced (not introduced)
+  by Step 4 being the first thing to actually stress it under realistic
+  message volume. ZMQ PUB/SUB does not guarantee ordered or loss-free
+  delivery; if a node merges a HIGH seq from a peer before a handful of
+  LOWER ones (plausible under load, e.g. right after many nodes' claims
+  all arrive in a burst following a partition heal), its version vector
+  reports "caught up to N" even though specific claims below N are still
+  missing — and no future digest/delta exchange has any way to notice
+  that hole, since the comparison is a single per-node integer, not a
+  bitmap or explicit gap list. `tests/test_sim_node_integration.py`'s own
+  heal-reconvergence check tolerates this (asserts ≥50% of a frozen
+  pre-heal snapshot propagates, not 100%) with a full explanation inline.
+  A proper fix (a gap-aware version vector, or reliable delivery) is a
+  real chunk of work in shared, well-tested code and out of scope here —
+  worth flagging clearly for anyone extending anti-entropy further.
+- **A healthy, honest node's in-node reputation opinion of another honest
+  node isn't perfectly pinned at 1.0** — small residual noise-sensitivity
+  remains even after the two false-positive fixes above (observed in
+  live multi-process testing hovering around 0.83-0.95, never crashing
+  toward `r_min` the way the pre-fix bug did). `tests
+  /test_node_reputation_loop.py::test_honest_claims_alone_never_drag_reputation_down`
+  asserts `> 0.6` — a bar chosen to clearly separate "healthy" from
+  "broken," not to claim this is perfectly tuned. Worth another pass in
+  Step 7 if the demo's reputation bars look noisier than desired for an
+  UNATTACKED node.
 - mypy still reports ~15 errors in `starling_crdt`/`starling_consensus`
   (not yet touched — Step 7).
 - `README.md` is still the original centralized-project description
@@ -403,33 +594,47 @@ There is no `scripts/run_demo.py` yet — nothing end-to-end to run yet.
 ## 11. Key files map
 
 - `apps/baseline.py` — original centralized system, frozen, do not modify.
-- `apps/node.py` — one node process; video-only today; gains `source: "sim"`
-  in Step 4.
+- `apps/node.py` — one node process. `run()` builds shared infra (store,
+  tracker, keys, gossip, `AntiEntropy`, `ReputationTable` +
+  `_ReputationLoop`, `AttackInjector`, `PartitionControl`,
+  `ControlServer`) then branches to `_run_video` (unchanged behaviour,
+  torch imported lazily inside it only) or `_run_sim` (Step 4, uses
+  `starling_sim.node_client`/`starling_sim.coverage.SimAttestor`).
+  `_on_gossip_message` now dispatches all 6 `Envelope` payload kinds,
+  including `vv_digest`/`vv_delta` (chunked replies —
+  `_ANTI_ENTROPY_CHUNK_SIZE` — see Decisions) and `reputation`.
 - `apps/dashboard/app.py`, `apps/dashboard/observer.py` — read-only
-  Streamlit dashboard and its SUB-only gossip observer.
+  Streamlit dashboard and its SUB-only gossip observer. **Still
+  completely unchanged** — Step 5.
 - `packages/starling_crdt/` — `ClaimSet`, `resolver.resolve`, `forks`.
 - `packages/starling_net/` — `gossip.GossipNode`, `anti_entropy.AntiEntropy`
-  (built, tested, **not yet wired into `apps/node.py`**),
-  `partition.PartitionTracker`, `timebase.MediaClock`, `keys`.
+  (built in an earlier session, tested, **wired into `apps/node.py` for
+  real as of Step 4** — see its Known issues entry on version-vector
+  gaps), `partition.PartitionTracker`, `timebase.MediaClock`, `keys`.
 - `packages/starling_consensus/` — `plausibility.check`,
   `reputation.ReputationTable`, `aggregate.aggregate_position`,
   `attacks.AttackInjector` + `ControlServer` (plain HTTP, `POST /attack`,
-  `GET /status`).
-- `packages/starling_attest/` — `attestation.Attestor`,
+  `POST /partition` (Step 4), `GET /status`), `attacks.PartitionControl`
+  (Step 4, application-level, receive-side only — see Decisions).
+- `packages/starling_attest/` — `attestation.Attestor` (video path only),
   `negative_evidence.CandidateBelief` + `detect_omission`.
 - `packages/starling_geometry/` — `calibration.CameraCalibration`,
   `navmesh.NavMesh`, `reachability.ReachabilityModel`.
 - `packages/starling_store/identity_store.py` — `LocalStore`, the only
-  thing allowed to touch a node's SQLite file.
+  thing allowed to touch a node's SQLite file. `claim_version_vector` /
+  `claims_since` — see the Known issues entry on their gap-blindness.
 - `packages/starling_proto/` — wire schema (`Envelope` oneof: `claim`,
   `attestation`, `reputation`, `topology`, `vv_digest`, `vv_delta`) and
-  `convert.py` helpers (no `make_reputation_envelope`/
-  `make_topology_envelope` exist yet — needed for Step 4).
+  `convert.py` helpers, now including `make_reputation_envelope` (Step
+  4, mirrors `make_attestation_envelope`; `make_topology_envelope` still
+  doesn't exist — nothing gossips `TopologyObservation` yet).
   `starling_query/` — C5 CLI (`cli.run_query`), capability tokens
   (`capability.issue`/`verify`, purposes `{safety, incident, audit}`).
 - `packages/starling_node/config.py` — `NodeConfig` pydantic schema;
-  `source` is a free-form string today (video path/RTSP/webcam index);
-  `source: "sim"` will be a new convention, not a schema enum change.
+  `source` is a free-form string (video path/RTSP/webcam index, or the
+  literal `"sim"`). `SimNodeConfig` (Step 4) is defined here too, as
+  `NodeConfig.sim` — see Decisions for why it isn't imported from
+  `starling_sim.config` instead.
 - `data/floorplan/demo_site.geojson` — existing 2-zone corridor rig
   (roles: `floor`, `camera_zone`+`node_id`, `obstacle`, `boundary`
   +`boundary_id`) — the schema `warehouse_demo.geojson` (Step 2) follows.
@@ -444,13 +649,23 @@ There is no `scripts/run_demo.py` yet — nothing end-to-end to run yet.
     side) + `SimAttestor` (**node-side** signing, Step 4 will call this)
   - `transport.py` — `SimPublisher`/`SimSubscriber` (ZMQ PUB/SUB)
   - `messages.py` — topic name helpers
-  - `config.py` — `SimulatorConfig`, `SimNodeConfig`
+  - `config.py` — `SimulatorConfig` only (`SimNodeConfig` ended up in
+    `starling_node.config` instead — see Decisions)
   - `runner.py` — `SimulatorRunner` (`tick_once`/`run`), CLI entrypoint
-  - `node_client.py` — `SimNodeSource` + decode helpers (Step 4 calls
-    this from `apps/node.py`)
+  - `node_client.py` — `SimNodeSource` + decode helpers (used by
+    `apps/node.py::_run_sim` since Step 4)
 - `configs/sim/warehouse.yaml` — the shipped `SimulatorConfig`.
 - `configs/sim/scenarios/warehouse_demo.yaml` — the shipped default
   scenario (5 workers, 2 occlusion events on node 1).
+- `configs/nodes/sim/node-0{0..3}.yaml` — the 4 sim-mode node configs
+  (Step 4), ring topology, ports 5555-5558 (same convention as
+  `configs/nodes/local/`); nodes 0/1 watch the blind aisle's boundary
+  1/2 respectively, 2/3 watch nothing.
+- `tests/test_node_reputation_loop.py` — `_ReputationLoop` unit tests +
+  the anti-entropy chunk-size wire-safety regression test (Step 4).
+- `tests/test_sim_node_integration.py` — the one `@pytest.mark.integration`
+  end-to-end test: real simulator + 2 real sim-mode node processes,
+  claims flow, partition cuts merging, heal resumes it (Step 4).
 - `scripts/run_demo.py` — **does not exist yet** (Step 6).
 
 ## Appendix — API reference for Step 3+ (from a session-1 codebase survey)

@@ -47,12 +47,3 @@ def load_simulator_config(path: Union[str, Path]) -> SimulatorConfig:
     with open(path, encoding="utf-8") as f:
         data = yaml.safe_load(f)
     return SimulatorConfig.model_validate(data)
-
-
-class SimNodeConfig(BaseModel):
-    """A `source: "sim"` node's side of the connection (wired into
-    `starling_node.config.NodeConfig` as an optional `sim` field in
-    STATUS.md Step 4). Only meaningful when `NodeConfig.source == "sim"`.
-    """
-
-    connect_endpoint: str = "tcp://127.0.0.1:5560"

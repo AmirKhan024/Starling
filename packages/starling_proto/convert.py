@@ -133,3 +133,22 @@ def make_attestation_envelope(
         env.sent_hlc.CopyFrom(sent_hlc)
     env.attestation.CopyFrom(attestation)
     return env
+
+
+def make_reputation_envelope(
+    update: starling_pb2.ReputationUpdate,
+    sender_node_id: int,
+    sent_hlc: Optional[starling_pb2.HLC] = None,
+) -> starling_pb2.Envelope:
+    """Wrap a `ReputationUpdate` (`starling_consensus.reputation
+    .ReputationTable.to_updates`'s per-item return value) in a fresh
+    `Envelope`, mirroring `make_claim_envelope` exactly. Added in
+    STATUS.md Step 4 — a node's in-process reputation opinions were never
+    gossiped before this (only the dashboard's own observer computed
+    reputation, locally, from claims it saw itself).
+    """
+    env = starling_pb2.Envelope(msg_id=bytes(ULID()), sender_node_id=sender_node_id)
+    if sent_hlc is not None:
+        env.sent_hlc.CopyFrom(sent_hlc)
+    env.reputation.CopyFrom(update)
+    return env
