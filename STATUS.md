@@ -175,7 +175,7 @@ complete acceptance criteria.
         the blind aisle
   - [x] `tests/test_warehouse_demo_floorplan.py` (5 tests, all passing)
 - [x] **Step 3 — The simulator (`packages/starling_sim/`)** — commit
-      `<pending, see git log after next commit>`
+      `ef3f2ab`
   - [x] `identity.py` — per-worker unit-vector embeddings + noisy
         per-observation re-noising, with a `uniform_similarity` knob
   - [x] `world.py` — `Worker` (waypoint-loop walking with random
@@ -212,7 +212,7 @@ complete acceptance criteria.
         by hand that importing any `starling_sim` module never imports
         torch/ultralytics
 - [x] **Step 4 — Sim mode in the node (`apps/node.py`)** — commit
-      `<pending, see git log after next commit>`
+      `6ef6096`
   - [x] `NodeConfig.sim: SimNodeConfig` (new field, `starling_node/config.py`)
   - [x] `apps/node.py` rewritten: `_run_video`/`_run_sim` split (video
         path unchanged in behaviour; sim path uses
