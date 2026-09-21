@@ -27,7 +27,7 @@ sim:
 stream_epoch: 0.0
 
 perception:
-  embed_dim: 512   # must match configs/sim/warehouse.yaml's embed_dim
+  embed_dim: 64   # must match configs/sim/warehouse.yaml's embed_dim
 
 match:
   sim_threshold: 0.60

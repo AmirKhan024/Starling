@@ -41,6 +41,7 @@ observer), and gossiped `ReputationUpdate`s.
 from __future__ import annotations
 
 import argparse
+import bisect
 import signal
 import time
 from collections import deque
@@ -59,7 +60,7 @@ from starling_crdt.claims import ClaimSet
 from starling_geometry.calibration import CameraCalibration, bbox_floor_point
 from starling_geometry.navmesh import NavMesh
 from starling_geometry.reachability import ReachabilityModel
-from starling_net.anti_entropy import AntiEntropy, VersionVector
+from starling_net.anti_entropy import AntiEntropy, VersionVector, chunk_by_bytes
 from starling_net.gossip import GossipNode
 from starling_net.keys import DEFAULT_KEYS_DIR, NodeKeys, load_keys
 from starling_net.logging import get_logger, setup_logging
@@ -88,15 +89,11 @@ _SIM_RECV_TIMEOUT_MS = 500
 # and still count as candidate corroborators of each other in the
 # in-node plausibility pass (_ReputationLoop) below.
 _CORROBORATION_WINDOW_S = 5.0
-# starling_proto.limits.MAX_MESSAGE_BYTES is 8192B; a single IdentityClaim
-# with this project's (un-quantized, raw float32) embedding is ~2.2KB, so
-# a VVDelta carrying more than 3 claims at once already exceeds the wire
-# safety cap and GossipNode.publish would raise. AntiEntropy.on_digest can
-# return up to its own max_delta (200) claims in one list — chunking here,
-# at the one call site that turns that list into wire envelopes, is what
-# actually makes "a long partition heals over several bounded rounds"
-# (AntiEntropy.on_digest's own docstring) true in practice.
-_ANTI_ENTROPY_CHUNK_SIZE = 3
+# Anti-entropy delta replies are chunked by BYTE budget
+# (starling_net.anti_entropy.chunk_by_bytes), not a fixed claim count: the
+# wire cap (starling_proto.limits.MAX_MESSAGE_BYTES, 8192B) applies per
+# envelope, and how many claims fit depends on the embedding dimension
+# (~2.2KB each at 512-d float32, ~0.5KB at the sim's 64-d).
 # _ReputationLoop's minimum gap between corroborated-position baseline
 # refreshes. See _ReputationLoop.run_pass's docstring for why a dt_s this
 # small (e.g. one sim tick apart) makes the REACHABILITY hard-fail
@@ -212,6 +209,12 @@ class _ReputationLoop:
         by a wide margin regardless of how fresh the baseline is.
         """
         claims = ClaimSet(self.store).ordered()
+        # Corroborator lookup by media-time window via bisect, instead of
+        # rescanning every claim for every new claim (that was O(N^2) and
+        # wedged a node's main loop for many seconds when a post-partition
+        # anti-entropy catch-up delivered a large backlog at once).
+        by_time = sorted(range(len(claims)), key=lambda i: claims[i]["t_media"])
+        times = [claims[i]["t_media"] for i in by_time]
         pending_baseline: dict[int, tuple[tuple[float, float], float]] = {}
 
         for claim in claims:
@@ -221,11 +224,12 @@ class _ReputationLoop:
                 continue
             self._evaluated_claim_ids.add(claim_id)
 
+            lo = bisect.bisect_left(times, claim["t_media"] - _CORROBORATION_WINDOW_S)
+            hi = bisect.bisect_right(times, claim["t_media"] + _CORROBORATION_WINDOW_S)
             corroborators = [
-                c
-                for c in claims
-                if c["node_id"] != source_node
-                and abs(c["t_media"] - claim["t_media"]) <= _CORROBORATION_WINDOW_S
+                claims[i]
+                for i in sorted(by_time[lo:hi])  # keep the canonical claim order
+                if claims[i]["node_id"] != source_node
             ]
             baseline_t_media = self._last_t_media.get(source_node)
             # A claim that arrived (via gossip or an anti-entropy catch-up
@@ -536,16 +540,15 @@ def run(
             # (tests/test_anti_entropy.py) but no app ever dispatched to
             # it — this is that wiring. A peer's digest tells us what
             # THEY have; we reply with whatever of ours they're missing.
-            their_vv = VersionVector(dict(envelope.vv_digest.seq_by_node))
+            their_vv = VersionVector.from_proto(envelope.vv_digest)
             missing = anti_entropy.on_digest(their_vv)
             if missing and gossip is not None:
-                for i in range(0, len(missing), _ANTI_ENTROPY_CHUNK_SIZE):
-                    chunk = missing[i : i + _ANTI_ENTROPY_CHUNK_SIZE]
-                    delta_msg = starling_pb2.VVDelta(claims=[record_to_claim_proto(c) for c in chunk])
+                chunks = chunk_by_bytes([record_to_claim_proto(c) for c in missing])
+                for i, chunk in enumerate(chunks):
                     reply = starling_pb2.Envelope(sender_node_id=cfg.node_id)
-                    reply.vv_delta.CopyFrom(delta_msg)
+                    reply.vv_delta.CopyFrom(starling_pb2.VVDelta(claims=chunk))
                     gossip.publish(reply)
-                    if i + _ANTI_ENTROPY_CHUNK_SIZE < len(missing):
+                    if i + 1 < len(chunks):
                         # A tight back-to-back publish burst can outrun a
                         # subscriber's receive buffer (each message also
                         # costs it an ed25519 signature verification,

@@ -24,6 +24,7 @@ it unpadded.
 from __future__ import annotations
 
 import heapq
+from collections import OrderedDict
 import math
 
 import numpy as np
@@ -41,11 +42,20 @@ _NEIGHBOUR_OFFSETS = [
 ]
 
 
+_LRU_MAX_FIELDS = 64  # 64 * (100x160 float64 = 128KB) ~ 8MB per model
+
+
 class ReachabilityModel:
     def __init__(self, navmesh: NavMesh, v_max_m_s: float = DEFAULT_V_MAX_M_S) -> None:
         self.navmesh = navmesh
         self.v_max_m_s = v_max_m_s
         self._cache: dict[tuple[int, int], np.ndarray] = {}
+        # Bounded LRU of fields for origins that were NOT `precompute`d.
+        # Without it every plausibility check re-ran a pure-Python
+        # Dijkstra (~30 ms on a 100x160 grid), which wedged a node's main
+        # loop when a post-partition backlog arrived. The precomputed
+        # `_cache` above is never evicted.
+        self._lru: "OrderedDict[tuple[int, int], np.ndarray]" = OrderedDict()
 
     def distance_field(self, origin_xy: tuple[float, float]) -> np.ndarray:
         """Geodesic distance (metres) from `origin_xy` to every cell,
@@ -55,7 +65,15 @@ class ReachabilityModel:
         origin_cell = self.navmesh.world_to_cell(*origin_xy)
         if origin_cell in self._cache:
             return self._cache[origin_cell]
-        return self._dijkstra_from_cell(origin_cell)
+        cached = self._lru.get(origin_cell)
+        if cached is not None:
+            self._lru.move_to_end(origin_cell)
+            return cached
+        field = self._dijkstra_from_cell(origin_cell)
+        self._lru[origin_cell] = field
+        if len(self._lru) > _LRU_MAX_FIELDS:
+            self._lru.popitem(last=False)
+        return field
 
     def _dijkstra_from_cell(self, origin_cell: tuple[int, int]) -> np.ndarray:
         grid = self.navmesh.grid

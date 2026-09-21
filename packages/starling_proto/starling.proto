@@ -105,9 +105,20 @@ message TopologyObservation {
 // reason every other gossiped message is signed: authenticating "this
 // digest/delta really came from sender_node_id" at the transport level)
 // are this work package's own design, not a frozen contract.
+// Gap-aware anti-entropy: `seq_by_node` stays the per-node MAX(seq) (kept
+// for compatibility / logging); `ranges` is the authoritative "what I
+// have" — per node, the inclusive [lo,hi] runs of seqs held, flattened as
+// bounds = [lo0,hi0,lo1,hi1,...]. The first run starting at 0 is the
+// contiguous prefix; any later runs are out-of-order extras.
+message SeqRanges {
+  uint32 node_id = 1;
+  repeated uint64 bounds = 2;
+}
+
 message VVDigest {
   map<uint32, uint64> seq_by_node = 1;
   bytes signature = 2;
+  repeated SeqRanges ranges = 3;
 }
 
 message VVDelta {

@@ -271,6 +271,11 @@ video-path node configs it already supports.
 **What's half-done**: nothing mid-flight — Steps 1-4 are fully committed
 before this checkpoint.
 
+**Session 2, Part A DONE** (gap-aware anti-entropy; see Decisions). Next:
+Part B (dashboard), Part C (launcher/README/integration test), Part D
+(Playwright review). The Step 5 notes below still describe the dashboard
+plan.
+
 **Exact next action**: Step 5 — the dashboard. Concretely:
 1. `apps/dashboard/config.py`'s `DashboardConfig.peers` already points
    at gossip addresses — point it at the 4 sim node configs'
@@ -334,7 +339,7 @@ Run tests (exact command, exact result as of this session):
 
 ```
 python -m pytest -q -m "not integration"
-# 304 passed, 5 deselected
+# 317 passed, 5 deselected
 ```
 
 Generate keys (once; `configs/keys/` is gitignored):
@@ -504,6 +509,44 @@ curl -X POST http://127.0.0.1:6557/attack -d "{\"attack\": \"fabricate\", \"inte
   `ReputationTable`, `ClaimSet`) — there was no new algorithm to give its
   own module, only a policy for what to feed those functions and when.
 
+- **Gap-aware anti-entropy (session 2, Part A).** `VVDigest` now also
+  carries `ranges` (new `SeqRanges` message): per origin node, the
+  inclusive `[lo,hi]` runs of seqs the sender holds (`LocalStore
+  .claim_ranges()`, gaps-and-islands over `idx_claims_seq`). The first run
+  starting at 0 is the contiguous prefix, later runs are out-of-order
+  extras, and the space between runs is what is missing.
+  `LocalStore.claims_missing_from(ranges, limit)` returns claims NOT
+  covered by a peer's ranges (indexed range queries over the complement),
+  so holes BELOW a peer's max seq get filled. `seq_by_node` (max) is still
+  sent for compatibility; a digest without `ranges` falls back to the old
+  "everything above the max". Runs are capped at 16 per origin per digest
+  (`MAX_RUNS_PER_NODE`); truncation only causes harmless re-sends (grow-only
+  set, idempotent). Delta replies are chunked by BYTE budget
+  (`chunk_by_bytes`, 7000B of the 8192B cap), not a fixed claim count.
+  Sim demo embeddings dropped 512-d -> 64-d (`embed_dim` in the sim
+  configs) so ~13 claims fit per envelope instead of 3.
+- **Three real bugs found while verifying heal live** (each was silently
+  breaking reconvergence): (1) protobuf map fields do not keep their order
+  across a parse round-trip, so any digest naming >=2 origins FAILED
+  signature verification at every receiver and was dropped — sign/verify
+  now use `SerializeToString(deterministic=True)` (gossip, dashboard
+  observer, query CLI); (2) `ReachabilityModel.distance_field` did not
+  cache non-`precompute`d origins, so every plausibility check ran two
+  pure-Python Dijkstras (~30ms each) — added a bounded LRU (64 fields);
+  (3) `_ReputationLoop.run_pass` was O(N^2) in claim count (corroborator
+  scan per claim) — now a bisect over media time. (2)+(3) together wedged
+  node main loops for 10-20s after a heal, freezing their digests.
+  Result live: node anti-entropy ticks hold a steady 1.0s and the 4
+  replicas stay within a few in-flight claims of each other.
+- **"Counts equal" under live production.** The simulator produces ~25
+  claims/s mesh-wide, and digests are up to 1s old, so instantaneous
+  equality of claim counts is a moving target. The dashboard therefore
+  shows per-node counts, their spread (max-min), and per-node HOLES (sum
+  of gap sizes from the node's own digest ranges); "converged" = spread
+  within a small in-flight tolerance AND no holes. Holes==0 is the exact
+  gap-free signal; byte-identical claim sets are asserted in
+  `tests/test_anti_entropy_gaps.py` (deterministic, 8 seeds, 30% loss).
+
 ## 9. Known issues and limitations
 
 - The video/YOLO path (`apps/node.py` with a real `source:` video file) has
@@ -518,23 +561,6 @@ curl -X POST http://127.0.0.1:6557/attack -d "{\"attack\": \"fabricate\", \"inte
   contention costing "over 80 seconds" on this project's dev machine; not
   investigated further, since the video/YOLO path is explicitly
   deprioritized for this work.
-- **`LocalStore.claim_version_vector` is a bare per-node `MAX(seq)`, not
-  gap-aware** (`starling_store/identity_store.py`) — a real, pre-existing
-  limitation of the shared anti-entropy design, surfaced (not introduced)
-  by Step 4 being the first thing to actually stress it under realistic
-  message volume. ZMQ PUB/SUB does not guarantee ordered or loss-free
-  delivery; if a node merges a HIGH seq from a peer before a handful of
-  LOWER ones (plausible under load, e.g. right after many nodes' claims
-  all arrive in a burst following a partition heal), its version vector
-  reports "caught up to N" even though specific claims below N are still
-  missing — and no future digest/delta exchange has any way to notice
-  that hole, since the comparison is a single per-node integer, not a
-  bitmap or explicit gap list. `tests/test_sim_node_integration.py`'s own
-  heal-reconvergence check tolerates this (asserts ≥50% of a frozen
-  pre-heal snapshot propagates, not 100%) with a full explanation inline.
-  A proper fix (a gap-aware version vector, or reliable delivery) is a
-  real chunk of work in shared, well-tested code and out of scope here —
-  worth flagging clearly for anyone extending anti-entropy further.
 - **A healthy, honest node's in-node reputation opinion of another honest
   node isn't perfectly pinned at 1.0** — small residual noise-sensitivity
   remains even after the two false-positive fixes above (observed in

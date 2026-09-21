@@ -11,7 +11,7 @@ bind_endpoint: "tcp://127.0.0.1:5560"
 tick_hz: 5.0           # simulator ticks per media-second
 speed: 1.0              # wall-clock speed multiplier; 1.0 = real time
 
-embed_dim: 512          # must match nodes' perception.embed_dim
+embed_dim: 64          # must match nodes' perception.embed_dim
 pos_noise_sigma_m: 0.15
 embedding_noise_sigma: 0.05
 detection_miss_prob: 0.03

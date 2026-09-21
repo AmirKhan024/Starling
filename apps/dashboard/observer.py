@@ -40,6 +40,7 @@ from nacl.signing import SigningKey
 
 from starling_crdt.claims import ClaimSet
 from starling_consensus.reputation import ReputationTable
+from starling_net.anti_entropy import VersionVector
 from starling_net.keys import NodeKeys, load_peer_pubkeys
 from starling_net.logging import get_logger
 from starling_node.config import ReputationConfig
@@ -95,6 +96,10 @@ class GossipObserver:
         # is a purely additive, read-only tally over what already arrives.
         self._bytes_by_sender: dict[int, int] = {}
         self._dropped = 0
+        # Latest gap-aware version vector each node itself gossiped in its
+        # anti-entropy digest — how the dashboard learns "how many claims
+        # does node N hold" from gossip alone, never from a node's DB.
+        self._digests: dict[int, VersionVector] = {}
         self._last_seen: dict[int, float] = {}
         self._start_time: Optional[float] = None
 
@@ -156,7 +161,7 @@ class GossipObserver:
         unsigned = type(inner)()
         unsigned.CopyFrom(inner)
         unsigned.signature = b""
-        if not self._keys.verify(envelope.sender_node_id, unsigned.SerializeToString(), sig):
+        if not self._keys.verify(envelope.sender_node_id, unsigned.SerializeToString(deterministic=True), sig):
             logger.warning("dashboard_observer_drop_bad_signature", sender=envelope.sender_node_id)
             self._dropped += 1
             return
@@ -178,10 +183,29 @@ class GossipObserver:
                 self.attestations.pop(0)
         elif payload_kind == "reputation":
             self.reputation.ingest_gossiped(envelope.reputation)
-        # vv_digest / vv_delta (anti-entropy) and topology are not
-        # consumed here — WP-13's panels don't need them, and this
-        # observer never participates in anti-entropy itself (it has
-        # nothing of its own to offer a peer; see module docstring).
+        elif payload_kind == "vv_digest":
+            with self._lock:
+                self._digests[envelope.sender_node_id] = VersionVector.from_proto(envelope.vv_digest)
+        # vv_delta and topology are not consumed here; this observer never
+        # participates in anti-entropy itself (it has nothing of its own
+        # to offer a peer; see module docstring) — it only reads digests.
+
+    def node_claim_counts(self) -> dict[int, int]:
+        """`{node_id: claims that node held as of its latest digest}`,
+        summed from the gap-aware ranges the node itself gossiped (capped
+        at `MAX_RUNS_PER_NODE` runs per origin, so a hugely fragmented
+        replica under-reports rather than over-reports).
+        """
+        with self._lock:
+            digests = dict(self._digests)
+        out: dict[int, int] = {}
+        for node_id, vv in digests.items():
+            ranges = vv.ranges
+            if ranges is None:
+                out[node_id] = sum(s + 1 for s in vv.as_dict().values())
+            else:
+                out[node_id] = sum(hi - lo + 1 for runs in ranges.values() for lo, hi in runs)
+        return out
 
     def stats(self) -> dict:
         """Same shape as `starling_net.gossip.GossipNode.stats()` (recv

@@ -166,29 +166,23 @@ def test_reputation_loop_never_evaluates_its_own_nodes_claims():
     assert reputation_table.local_opinion(1) == ReputationConfig().r_initial  # never touched
 
 
-def test_anti_entropy_delta_chunk_size_stays_under_wire_safety_cap():
-    """The exact fix for the crash: apps.node._ANTI_ENTROPY_CHUNK_SIZE
-    claims (each carrying this project's un-quantized float32 embedding)
-    packed into one VVDelta envelope must never exceed
-    starling_proto.limits.MAX_MESSAGE_BYTES.
-    """
+def test_anti_entropy_delta_chunks_stay_under_wire_safety_cap():
+    """The fix for the crash (an oversized vv_delta killed a node's gossip
+    receive thread): chunk_by_bytes must keep EVERY envelope under
+    starling_proto.limits.MAX_MESSAGE_BYTES, at both the sim's 64-d
+    embeddings and the video path's 512-d float32 ones."""
+    from starling_net.anti_entropy import chunk_by_bytes
+
     rng = np.random.default_rng(0)
-    claim_dict = _honest_claim(1, 0.0, (5.0, 5.0), rng)
-    claim_dict["embedding"] = rng.normal(size=512).astype(np.float32).tobytes()
-    claim_dict["signature"] = b"s" * 64
-
-    chunk = [dict(claim_dict, claim_id=str(ULID()), seq=i) for i in range(node_app._ANTI_ENTROPY_CHUNK_SIZE)]
-    delta_msg = starling_pb2.VVDelta(claims=[record_to_claim_proto(c) for c in chunk])
-    envelope = starling_pb2.Envelope(sender_node_id=1)
-    envelope.vv_delta.CopyFrom(delta_msg)
-
-    assert envelope.ByteSize() <= MAX_MESSAGE_BYTES
-
-    # One more claim than the chosen chunk size should demonstrate WHY the
-    # chunk size is what it is — not itself something apps/node.py would
-    # ever send, since it always slices to _ANTI_ENTROPY_CHUNK_SIZE.
-    too_many = chunk + [dict(claim_dict, claim_id=str(ULID()), seq=999)]
-    delta_msg_too_big = starling_pb2.VVDelta(claims=[record_to_claim_proto(c) for c in too_many])
-    envelope_too_big = starling_pb2.Envelope(sender_node_id=1)
-    envelope_too_big.vv_delta.CopyFrom(delta_msg_too_big)
-    assert envelope_too_big.ByteSize() > MAX_MESSAGE_BYTES
+    for dim in (64, 512):
+        claim_dict = _honest_claim(1, 0.0, (5.0, 5.0), rng)
+        claim_dict["embedding"] = rng.normal(size=dim).astype(np.float32).tobytes()
+        claim_dict["signature"] = b"s" * 64
+        protos = [record_to_claim_proto(dict(claim_dict, claim_id=str(ULID()), seq=i)) for i in range(60)]
+        chunks = chunk_by_bytes(protos)
+        assert sum(len(c) for c in chunks) == 60
+        assert len(chunks) > 1
+        for chunk in chunks:
+            envelope = starling_pb2.Envelope(sender_node_id=1, msg_id=b"x" * 16)
+            envelope.vv_delta.CopyFrom(starling_pb2.VVDelta(claims=chunk, signature=b"s" * 64))
+            assert envelope.ByteSize() <= MAX_MESSAGE_BYTES

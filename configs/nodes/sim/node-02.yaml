@@ -14,7 +14,7 @@ sim:
 stream_epoch: 0.0
 
 perception:
-  embed_dim: 512
+  embed_dim: 64
 
 match:
   sim_threshold: 0.60
