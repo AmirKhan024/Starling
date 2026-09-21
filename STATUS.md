@@ -722,6 +722,23 @@ curl -X POST http://127.0.0.1:6557/attack -d "{\"attack\": \"fabricate\", \"inte
   script step (twin B spawned immediately), a leftover twin from a previous run
   produced early forks (scripts now `deactivate` it first).
 
+- **Session 3, Part C: centralised comparison (NOT part of Starling).**
+  `apps/central_server_sim.py` is one process holding ONE shared identity table
+  (`IdentityStore.match_or_create`, exactly the matcher `apps/baseline.py` uses:
+  appearance-only cosine match; `baseline.py` itself is untouched and not imported
+  because it needs torch/OpenCV). It receives every camera's observations over the
+  simulator's per-camera topics. Partition rules match Starling's: the server sits
+  with group {0,1}; the dashboard's partition button also POSTs
+  `/partition {cut_cameras:[2,3]}` to it, so far-side cameras' observations are
+  never delivered. `POST /shutdown` makes the process exit (the "Kill central
+  server" button); the dashboard restarts it (empty state). Panel status: HEALTHY /
+  PARTIAL (cameras cut) / DOWN (process unreachable), with "Central tracks N now,
+  Starling tracks M, actually present K" (K from the labelled ground truth).
+  Measured: under partition central tracks 2 of 4 while Starling tracks 4; server
+  killed -> DOWN/0 while Starling keeps producing claims. `run_demo.py` starts and
+  stops it (a dashboard-restarted copy is stopped via `data/demo/central.pid`).
+  The central map hard-codes the zone rectangles (cosmetic).
+
 ## 9. Known issues and limitations
 
 - The video/YOLO path (`apps/node.py` with a real `source:` video file) has

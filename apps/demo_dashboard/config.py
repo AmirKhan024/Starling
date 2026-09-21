@@ -27,6 +27,9 @@ class DemoDashboardConfig(DashboardConfig):
     # The simulator's HTTP control endpoint (scenario scripts). The dashboard
     # drives the WORLD with it, exactly like the partition/lie buttons drive nodes.
     sim_control_url: str = "http://127.0.0.1:6560"
+    # The centralised comparison server (apps/central_server_sim.py). NOT Starling.
+    central_url: str = "http://127.0.0.1:7000"
+    central_port: int = 7000
     # Pre-issued capability tokens (the launcher signs them; the dashboard
     # never holds a private key). File name = purpose.
     token_dir: str = "data/demo/tokens"

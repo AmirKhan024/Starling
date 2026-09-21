@@ -92,6 +92,22 @@
       <div class="legend">Solid coloured dot = network's believed position (one colour per resolved identity). Faint dashed ring = simulator ground truth, for comparison only. Coloured shading = "could be here" candidate region for an unseen worker; faint grey = what plain reachability would allow without negative evidence. Zone outline: green = camera healthy (attesting), amber = silent.</div>
     </section>
 
+    <section data-testid="central-panel">
+      <h2>Centralized system — for comparison, NOT Starling · status: <span class="pill" data-testid="central-status" id="central-status">–</span></h2>
+      <div style="display:flex; gap:12px; align-items:flex-start; flex-wrap:wrap">
+        <svg id="central-map" data-testid="central-map" viewBox="-0.5 -0.5 41 26" width="330" style="background:var(--floor); border-radius:4px; flex:none"></svg>
+        <div style="flex:1; min-width:220px">
+          <div>One server, one shared identity table (the original system's matcher), cameras send it every observation over the network.</div>
+          <div style="margin-top:6px">Centralized tracks <b data-testid="central-tracked-now" id="central-tracked-now">–</b> workers now · Starling tracks <b data-testid="starling-tracked-now" id="starling-tracked-now">–</b> · actually present <b data-testid="truth-workers" id="truth-workers">–</b></div>
+          <div class="legend" data-testid="central-detail" id="central-detail"></div>
+          <div class="controls" style="margin-top:6px">
+            <button data-testid="btn-central-kill" id="btn-central-kill" class="danger">Kill central server</button>
+            <button data-testid="btn-central-restart" id="btn-central-restart">Restart central server</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <section>
       <h2>Resolved identities</h2>
       <table data-testid="identity-table">
@@ -261,6 +277,21 @@ function render(s) {
       `<polyline points="${line(1)}" fill="none" stroke="${colour(r.colour)}" stroke-width="1.6"/></svg>` +
       `<div class="legend">solid = search area with negative evidence · dashed grey = reachable area without it</div></div>`;
   }).join("");
+  const cs = s.central || { status: "DOWN", tracked: [] };
+  $("central-status").textContent = cs.status;
+  $("central-status").className = "pill " + (cs.status === "HEALTHY" ? "ok" : cs.status === "PARTIAL" ? "warn" : "bad");
+  $("central-tracked-now").textContent = cs.tracked_now;
+  $("starling-tracked-now").textContent = cs.starling_tracked_now;
+  $("truth-workers").textContent = cs.truth_workers == null ? "–" : cs.truth_workers;
+  $("central-detail").textContent = cs.status === "DOWN" ? "The central server process is not running: nothing is tracked." :
+    cs.status === "PARTIAL" ? `Cameras ${cs.cut_cameras.join(", ")} cannot reach the server: their workers are lost (${cs.dropped_observations} observations never delivered).` :
+    `${cs.identities_total} identities in the shared table; ${cs.delivered_observations} observations delivered.`;
+  const camCol = ["#2557d6", "#d9480f", "#2b9348", "#9c36b5"];
+  const zoneTint = (id) => `<rect x="${[0, 14, 14, 26][id]}" y="${[0, 0, 16, 0][id]}" width="${[14, 12, 12, 14][id]}" height="${[25, 9, 9, 25][id]}" fill="${cs.cut_cameras && cs.cut_cameras.includes(id) ? "var(--zone-off)" : "var(--zone)"}" stroke="var(--line)" stroke-width="0.1"/>`;
+  $("central-map").innerHTML = [0, 1, 2, 3].map(zoneTint).join("") + `<rect x="14" y="9" width="12" height="7" fill="var(--bad)" fill-opacity="0.07"/>` +
+    (cs.tracked || []).map((t) => `<g data-testid="central-dot-${esc(t.id)}" data-current="${t.current}"><circle cx="${t.x}" cy="${t.y}" r="0.7" fill="${t.current ? camCol[t.camera] : "none"}" stroke="${camCol[t.camera]}" stroke-width="0.15" ${t.current ? "" : 'stroke-dasharray="0.3 0.2" opacity="0.5"'}/></g>`).join("") +
+    (cs.status === "DOWN" ? `<text x="20" y="13" text-anchor="middle" font-size="3" font-weight="700" fill="var(--bad)">DOWN</text>` : "");
+
   const regionOf = {}; s.regions.forEach((r) => (regionOf[r.id] = r));
   $("identity-rows").innerHTML = s.identities.map((i) => {
     const r = regionOf[i.id];
@@ -360,6 +391,8 @@ async function boot() {
   cellSize = 0.25;
   $("btn-partition").onclick = () => act("Partition", "/api/partition", {});
   $("btn-heal").onclick = () => act("Heal", "/api/heal", {});
+  $("btn-central-kill").onclick = () => act("Kill central server", "/api/central/kill", {});
+  $("btn-central-restart").onclick = () => act("Restart central server", "/api/central/restart", {});
   $("btn-reset").onclick = () => act("Reset", "/api/reset", {});
   $("btn-conflict-resolvable").onclick = () => act("Conflict (resolvable)", "/api/conflict", { variant: "resolvable" });
   $("btn-conflict-ambiguous").onclick = () => act("Conflict (ambiguous)", "/api/conflict", { variant: "ambiguous" });

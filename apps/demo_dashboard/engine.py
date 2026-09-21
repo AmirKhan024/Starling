@@ -99,6 +99,7 @@ class DashboardEngine:
         self._gt_wall = 0.0
         self._gt_history: deque[tuple[float, dict[int, tuple[float, float]]]] = deque(maxlen=600)
         self._control: dict[int, dict[str, Any]] = {}
+        self._central: Optional[dict[str, Any]] = None  # None = unreachable (DOWN)
 
         self._colour_of: dict[str, int] = {}
         self._name_votes: dict[str, dict[int, int]] = {}
@@ -192,6 +193,12 @@ class DashboardEngine:
                     status = {"reachable": False}
                 with self._lock:
                     self._control[n] = status
+            try:
+                central = requests.get(self.cfg.central_url + "/state", timeout=self.cfg.control_timeout_s).json()
+            except Exception:
+                central = None
+            with self._lock:
+                self._central = central
             self._stop.wait(self.cfg.control_poll_interval_s)
 
     def _post(self, node_id: int, path: str, body: dict[str, Any]) -> bool:
@@ -210,6 +217,39 @@ class DashboardEngine:
             return requests.post(self.cfg.sim_control_url + path, json=body, timeout=1.5).ok
         except Exception:
             return False
+
+    def _central_post(self, path: str, body: dict[str, Any]) -> bool:
+        try:
+            return requests.post(self.cfg.central_url + path, json=body, timeout=1.0).ok
+        except Exception:
+            return False
+
+    def kill_central(self) -> dict[str, Any]:
+        """Terminate the centralised server PROCESS (it exits). Starling is untouched."""
+        ok = self._central_post("/shutdown", {})
+        self._log_event("central", f"CENTRAL SERVER killed ({'ok' if ok else 'it was already down'})")
+        return {"ok": True}
+
+    def restart_central(self) -> dict[str, Any]:
+        if self._central is not None:
+            return {"ok": True, "note": "already running"}
+        import subprocess
+        import sys
+
+        repo = Path(__file__).resolve().parents[2]
+        log = open(repo / "data" / "demo" / "logs" / "central.log", "ab", buffering=0)
+        kwargs: dict[str, Any] = {}
+        if sys.platform == "win32":
+            kwargs["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP
+        else:
+            kwargs["start_new_session"] = True
+        env = dict(__import__("os").environ, PYTHONPATH=f"{repo}{__import__('os').pathsep}{repo / 'packages'}", PYTHONUNBUFFERED="1")
+        subprocess.Popen(
+            [sys.executable, str(repo / "apps" / "central_server_sim.py"), "--sim-endpoint", self.cfg.sim_endpoint, "--port", str(self.cfg.central_port)],
+            cwd=repo, stdout=log, stderr=subprocess.STDOUT, env=env, **kwargs,
+        )
+        self._log_event("central", "CENTRAL SERVER restarted (it starts with EMPTY state)")
+        return {"ok": True}
 
     def run_script(self, name: str) -> dict[str, Any]:
         """Start a scripted scenario in the simulator (an actor walks in, a
@@ -255,11 +295,14 @@ class DashboardEngine:
         a, b = self.cfg.partition_groups[0], self.cfg.partition_groups[1]
         ok = {n: self._post(n, "/partition", {"drop_node_ids": b}) for n in a}
         ok.update({n: self._post(n, "/partition", {"drop_node_ids": a}) for n in b})
+        # The centralised server sits with group A: cameras on the far side cannot reach it.
+        self._central_post("/partition", {"cut_cameras": b})
         self._log_event("partition", f"PARTITION {a} | {b} (ok={ok})")
         return {"ok": all(ok.values()), "nodes": ok}
 
     def heal(self) -> dict[str, Any]:
         ok = {n: self._post(n, "/partition", {"drop_node_ids": []}) for n in self.node_ids}
+        self._central_post("/partition", {"cut_cameras": []})
         self._log_event("heal", f"HEAL all links (ok={ok})")
         return {"ok": all(ok.values()), "nodes": ok}
 
@@ -411,6 +454,15 @@ class DashboardEngine:
         self._resolved_count = count
         self._resolved_wall = now
         return self._resolved
+
+    def _central_view(self, identities: list, gt: Optional[dict]) -> dict[str, Any]:
+        with self._lock:
+            c = self._central
+        starling_now = sum(1 for i in identities if i["status"] == "seen")
+        truth = len(gt["workers"]) if gt else None
+        if c is None:
+            return {"status": "DOWN", "tracked_now": 0, "tracked": [], "cut_cameras": [], "starling_tracked_now": starling_now, "truth_workers": truth}
+        return {**c, "starling_tracked_now": starling_now, "truth_workers": truth}
 
     def _snap_to_free(self, xy: tuple[float, float]) -> Optional[tuple[float, float]]:
         i, j = self.navmesh.world_to_cell(*xy)
@@ -721,6 +773,7 @@ class DashboardEngine:
                 "converged": bool(converged),
                 "tolerance": cfg.converge_tolerance_claims,
             },
+            "central": self._central_view(identities, gt),
             "nodes_live": sum(1 for nd in nodes if nd["live"]),
             "mean_error_m": None if not errs else round(float(np.mean(errs)), 2),
             "events": list(self._events)[-25:],

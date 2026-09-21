@@ -92,6 +92,14 @@ def create_app(cfg: DemoDashboardConfig) -> FastAPI:
     def conflict(body: ConflictBody) -> dict:
         return engine.run_conflict(body.variant)
 
+    @app.post("/api/central/kill")
+    def central_kill() -> dict:
+        return engine.kill_central()
+
+    @app.post("/api/central/restart")
+    def central_restart() -> dict:
+        return engine.restart_central()
+
     @app.post("/api/partition")
     def partition() -> dict:
         return engine.partition()
