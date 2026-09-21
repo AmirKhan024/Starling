@@ -180,7 +180,7 @@ def main(argv: Optional[list] = None) -> int:
 
     launcher = DemoLauncher(speed=args.speed, port=args.port)
     launcher.prepare()
-    print("starting simulator, 4 nodes and the dashboard ...")
+    print("starting simulator, 4 nodes and the dashboard ...", flush=True)
     launcher.start()
     try:
         if not launcher.wait_for_dashboard():

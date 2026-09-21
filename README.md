@@ -1,371 +1,164 @@
- # 🎯 Multi-Camera Person Tracking & Re-Identification
+# Starling — a decentralised multi-camera identity network
 
-![Python](https://img.shields.io/badge/Python-3.10-blue?logo=python)
-![PyTorch](https://img.shields.io/badge/PyTorch-2.0%2B-ee4c2c?logo=pytorch)
-![YOLOv8](https://img.shields.io/badge/Detection-YOLOv8-purple)
-![ByteTrack](https://img.shields.io/badge/Tracking-ByteTrack-orange)
-![Streamlit](https://img.shields.io/badge/Dashboard-Streamlit-ff4b4b?logo=streamlit)
-![SQLite](https://img.shields.io/badge/DB-SQLite-003b57?logo=sqlite)
+![Python](https://img.shields.io/badge/Python-3.10%2B-blue?logo=python)
+![Tests](https://img.shields.io/badge/tests-360%2B%20passing-brightgreen)
 ![License](https://img.shields.io/badge/License-MIT-lightgrey)
 
-> A complete multi-camera surveillance system with **persistent cross-camera person identities**, **automatic re-entry detection**, a **Lost Person Registry** that never auto-deletes, and a live **Streamlit operator dashboard**.
+Starling is a network of independent camera nodes that agree on **who is where**
+in a building **without any central server**. Each camera is its own OS process
+with its own database. Nodes never send video: they gossip small, signed
+*identity claims* to their neighbours, and every node independently derives the
+same answer from the claims it has merged. The network keeps working when it is
+cut in two, keeps reasoning about people it cannot currently see, and stays
+robust when one node lies.
 
-This project is a ground-up reimplementation of research originally conducted as part of an **MSc dissertation in Computer Vision** at **Sheffield Hallam University** (supervisor: Dr. Jing Wang). The original dissertation explored Multi-Camera Multi-People Tracking and Re-Identification using YOLOv4, DeepSORT, and torchreid. This repository modernises that work with a fully pip-installable stack — no Cython, no build steps, no torchreid dependency.
+This repository ships a **simulator-driven demo** (no cameras, no GPU, no
+PyTorch) that runs on an ordinary laptop and shows all of this live on a
+dashboard.
 
----
+## What is new here (the research ideas the demo shows)
 
-## 📌 Relation to Original Dissertation Work
+| | Idea | Where you see it |
+|---|---|---|
+| C1 | Identity as a partition-tolerant CRDT: signed observation *claims* are a grow-only set; the identity assignment is a pure function of the merged claims and is **never** replicated. Conflicts stay open as forks. | Moments 1 and 3 |
+| C2 | Byzantine-robust attestation with reputation: implausible claims are rejected and the lying node's reputation, as reported by its peers, falls. | Moment 4 |
+| C3 | Geometry-constrained gap bridging over a 2D navmesh: a person cannot teleport, so an identity can cross a blind gap. | Moments 1 and 2 |
+| C4 | **Negative evidence** — reasoning from *attested* absence. Silence is never evidence of absence; only a confident attestation shrinks the "could be here" region. | Moment 2 |
+| C5 | Calibrated, capability-scoped query that separates confirmed from inferred and names unreachable nodes. | Moment 5 |
 
-The academic foundation and problem framing of this project draws from:
+## Install (demo)
 
-> **Multi-Camera Person Tracking and Re-Identification**  
-> MSc Dissertation, Sheffield Hallam University  
-> Supervisor: Dr. Jing Wang  
-> Reference implementation: [samihormi/Multi-Camera-Person-Tracking-and-Re-Identification](https://github.com/samihormi/Multi-Camera-Person-Tracking-and-Re-Identification)
-
-**What the original dissertation used:**
-
-| Component | Original (Dissertation)   |
-|-----------|---------------------------|
-| Detection | YOLOv4 (Keras / Darknet)  |
-| Tracking  | DeepSORT                  |
-| Re-ID     | torchreid (OSNet / ResNet)|
-| Dataset   | DukeMTMC-ReID, Market-1501|
-| Results   | IDF1 = 50.7%, MOTA = 99.8%|
-
-**What this reimplementation uses — and why it differs:**
-
-| Component | This Repo | Why Changed |
-|-----------|-----------|-------------|
-| Detection | YOLOv8 (ultralytics) | Single pip install, significantly faster, better accuracy |
-| Tracking | ByteTrack (built into ultralytics) | Handles occlusion better than DeepSORT |
-| Re-ID backbone | MobileNetV3 (torchvision) | torchreid requires Cython compilation which fails on Python 3.10+; torchvision ships with PyTorch — zero build step |
-| Identity store | SQLite (stdlib) | Enables persistent cross-session identity, lost person registry, audit trail |
-| Dashboard | Streamlit | Operator-facing UI for lost person management |
-| Dataset | Any MOTChallenge-format video | More general than fixed benchmark datasets |
-
-**None of the code from the samihormi reference repository is used here.** The architectural concepts (detect → track → extract features → match across cameras) are the same as in the dissertation and are standard in the multi-camera ReID literature. The implementation is written entirely from scratch.
-
----
-
-## What This System Does
-
-```
-Person detected on Cam0        →  assigned GID-0001
-Person walks to Cam1           →  recognised as GID-0001  ✅ same ID
-Person returns to Cam0         →  recognised as GID-0001  ✅ same ID
-Person not seen for 2 minutes  →  status = LOST  ⚠️
-Person reappears on any camera →  automatically restored to GID-0001  ✅
-                                   reappearance event logged in DB
-Operator opens Streamlit       →  sees Lost Registry, full event timeline,
-                                   can resolve / add notes / reactivate
-GID-0001 never deleted         →  permanent record until operator closes case
-```
-
----
-
-## Architecture
-
-```
-┌─────────────────────────────────────────────────────────┐
-│                      pipeline.py                        │
-│   Accepts: video files  OR  live RTSP  OR  webcam       │
-└──────────────────────┬──────────────────────────────────┘
-                       │
-              GlobalTracker
-              (one CameraWorker per source,
-               all sharing the same DB)
-                       │
-        ┌──────────────┼──────────────┐
-        │              │              │
-   CameraWorker 0  CameraWorker 1  ...N
-        │
-   ① YOLOv8 detect persons
-   ② ByteTrack assign track_id
-   ③ Crop person from frame
-   ④ MobileNetV3 → 512-d embedding
-        │
-        └──────────────────────► IdentityStore (SQLite)
-                                  ┌───────────────────────────────────┐
-                                  │ match_or_create(embedding)        │
-                                  │                                   │
-                                  │  Search: active + LOST persons    │
-                                  │    (lost persons always included) │
-                                  │                                   │
-                                  │  sim > threshold?                 │
-                                  │    YES → return existing GID      │
-                                  │           if was LOST → log       │
-                                  │           reappearance event      │
-                                  │    NO  → create new GID-XXXX      │
-                                  │                                   │
-                                  │  promote_lost() every 30 frames   │
-                                  │    absent > threshold → LOST      │
-                                  │    NEVER deleted                  │
-                                  └───────────────────────────────────┘
-                                            │
-                                  Streamlit Dashboard
-                                  ┌──────────────────────────────────┐
-                                  │  📊 Overview   live stats        │ 
-                                  │               + reappearance     │
-                                  │                 alerts           │
-                                  │  🟢 Active    currently tracked  │
-                                  │  🔴 Lost      never-delete       │
-                                  │               registry           │
-                                  │  🔍 Search    by ID/time/camera  │
-                                  │  👤 Detail    full event         │
-                                  │               timeline           │
-                                  └──────────────────────────────────┘
-```
-
----
-
-## Re-ID Model: Built From Scratch
-
-Since torchreid cannot be installed on Python 3.10+ without a working C/Cython build environment, the ReID backbone is implemented entirely using `torchvision`, which ships with PyTorch.
-
-```
-Person crop  (H × W × 3 BGR)
-        │
-        ▼  Resize 256×128  +  ImageNet normalise
-        │
-        ▼  MobileNetV3-Small backbone  (torchvision)
-        │    ├── 16 InvertedResidual blocks
-        │    ├── Squeeze-and-Excitation channel attention
-        │    └── AdaptiveAvgPool2d  →  (576,)
-        │
-        ▼  Linear(576 → 512)  +  BatchNorm1d
-        │
-        ▼  L2-normalise
-        │
-   512-d unit vector
-   (cosine similarity = dot product — no FAISS needed)
-```
-
-**Embedding update strategy:** Exponential Moving Average (EMA) per identity — `0.7 × old + 0.3 × new` — so the stored embedding adapts to lighting and pose changes across the session without drifting away from the original appearance.
-
----
-
-## Identity Lifecycle & Event Log
-
-Every person ever detected gets one row in the `persons` table. Status transitions are recorded in a separate `events` table — the full lifecycle is auditable:
-
-```
-🆕 FIRST_SEEN  →  Camera 0, frame 42
-🔴 LOST        →  Not seen for 120s, last seen Camera 0
-🔄 REAPPEARED  →  Camera 1, frame 891 — ID automatically restored
-📝 NOTE        →  "Confirmed ID at Gate 3"
-✅ RESOLVED    →  Operator closed case
-```
-
-**Key guarantee:** Lost persons are **always included in the embedding search**. If `GID-0003` was marked LOST and then reappears on any camera — whether the same video or a different one — the system matches their embedding and restores `GID-0003` automatically. The reappearance is logged as an event and shown as an alert on the dashboard.
-
-**Resolved persons are excluded** from future matching — once an operator closes a case, that identity will not be re-assigned.
-
----
-
-## Installation
+Needs Python 3.10 or newer. The demo needs no GPU and no PyTorch.
 
 ```bash
-# 1. Clone
-git clone https://github.com/YOUR_USERNAME/multicam-reid.git
-cd multicam-reid
-
-# 2. Virtual environment
-python -m venv venv
-source venv/bin/activate        # Linux / Mac
-# venv\Scripts\activate         # Windows
-
-# 3. PyTorch — choose your platform:
-# CPU only (any OS):
-pip install torch torchvision
-# CUDA 11.8:
-pip install torch torchvision --index-url https://download.pytorch.org/whl/cu118
-# CUDA 12.1:
-pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
-
-# 4. Everything else (no build steps, no Cython):
-pip install -r requirements.txt
+git clone https://github.com/AmirKhan024/Starling.git
+cd Starling
+python -m venv .venv
+# Windows:  .venv\Scripts\activate        Linux/macOS:  source .venv/bin/activate
+pip install -r requirements-sim.txt
 ```
 
-YOLOv8 weights (`yolov8n.pt`) download automatically on first run.
+That is all the demo needs: `scripts/run_demo.py` puts the repo's `packages/` on
+the path itself. (To run the test suite as well:
+`pip install -e . --no-deps pytest hypothesis`.) Node keys are generated
+automatically on first run (`configs/keys/`, git-ignored).
 
----
+## Run
 
-## Usage
-
-### Single video (testing)
 ```bash
-python pipeline.py --videos your_video.mp4 --output results/
-
-# Shorter lost threshold for quick testing (30s instead of 2 min)
-python pipeline.py --videos your_video.mp4 --output results/ --lost-threshold 30
+python scripts/run_demo.py            # opens the dashboard in your browser
+python scripts/run_demo.py --headless # print the URL only (no browser)
+python scripts/run_demo.py --speed 2  # simulator at 2x real time
 ```
 
-### Two cameras
+The launcher starts, each as a separate OS process: the simulator, four sim-mode
+camera nodes, and the dashboard (default `http://127.0.0.1:8765`). It waits
+until the dashboard answers, prints the URL, and stops everything cleanly on
+**Ctrl+C**. Per-process logs are written to `data/demo/logs/`.
+
+## Demo script — the five moments
+
+Open the dashboard. The top-left map is the warehouse floor: **solid coloured
+dots** are where the network *believes* each worker is (one colour per resolved
+identity); **faint dashed rings** are the simulator's ground truth, for
+comparison only.
+
+1. **Normal walk.** Just watch. Five workers walk their routes; each keeps the
+   same colour and label (`P-001`…) as they cross camera zones. The header shows
+   the mean position error against ground truth.
+2. **Dead zone.** One worker (worker-2) shuttles through the 3 m *blind aisle*
+   between node 0's and node 1's zones. While it is unseen, a shaded **"could be
+   here: N m²"** region appears around the aisle; the area is shown as a number
+   next to it and in the *Candidate regions* line. Gossiped attestations
+   ("nobody crossed this boundary") trim it; when the worker reappears it is
+   re-associated with the **same identity**.
+3. **Partition and heal.** Press **Partition {2,3} from {0,1}**. The node cards
+   show `partitioned: yes` and the claim counts of the two sides drift apart.
+   Press **Heal**: within a few seconds the counts equalise, *gaps* return to 0
+   and the convergence badge turns **CONVERGED**. Any genuine identity conflict
+   would appear in the **Open identity forks** panel and stays open.
+4. **Lying node.** Pick a node in the dropdown and press **Make node lie**. Its
+   reputation bar (the median of the *other* nodes' opinions) falls and its
+   **rejected** counter climbs. Press **Stop lying** and it recovers. **Reset**
+   heals every link, stops every lie and clears the dashboard's view.
+5. **Query and refusal.** In the query box (purpose `safety`) ask
+   `where is worker 2` → a structured answer with *Confirmed* (last position,
+   which node, how long ago) and *Inferred* (candidate region) parts and the
+   unreachable nodes. Ask `where is worker 9` → a **refusal with its reason**.
+   Switch the purpose to `productivity` → refused: purpose limitation is
+   enforced by the capability token, not by policy.
+
+## How it is built
+
+```
+ simulator ──per-zone topic──▶ node 0..3 ══ signed gossip (neighbours only) ══▶ each other
+     │                          (own process, own SQLite replica)
+     └── ground-truth topic ──▶ dashboard  ◀── passive, read-only gossip observer
+```
+
+* `packages/starling_crdt` — claims as a grow-only CRDT, deterministic resolver, forks
+* `packages/starling_net` — signed ZeroMQ gossip, gap-aware anti-entropy, hybrid clocks
+* `packages/starling_consensus` — plausibility checks, reputation, attack injection
+* `packages/starling_attest` — coverage attestations and negative evidence
+* `packages/starling_geometry` — navmesh and reachability
+* `packages/starling_query` — capability tokens and the query layer
+* `packages/starling_sim` — the simulator (workers, noisy per-zone perception)
+* `apps/node.py` — one node process; `apps/demo_dashboard/` — the dashboard
+
+Architectural rules (see `CLAUDE.md`): a node is an OS process and never shares a
+database; raw video never crosses the wire; gossip goes to a configured
+neighbour set, never a full mesh; identity assignments are never replicated;
+forks are never resolved by picking a higher score; silence is never evidence;
+the dashboard is a read-only observer.
+
+## Tests
+
 ```bash
-python pipeline.py --videos cam0.mp4 cam1.mp4 --output results/
+python -m pytest -q -m "not integration"                # unit + property tests
+python -m pytest -q -m integration tests/test_demo_integration.py   # headless end-to-end (~1 min)
 ```
 
-### Live RTSP streams
-```bash
-python pipeline.py --live \
-  --sources rtsp://192.168.1.10/stream1 rtsp://192.168.1.11/stream2 \
-  --output results/
-```
+## Automated visual review
 
-### Webcam
-```bash
-python pipeline.py --live --sources 0 1 --output results/
-```
+`python scripts/review_demo.py` (needs `pip install -r requirements-review.txt`
+and `playwright install chromium`) runs the real demo headlessly in Chromium,
+drives every moment, and writes `review/review.html` (self-contained, with
+screenshots and measured values), `review/review_summary.md` and
+`review/screenshots/`.
 
-### Open operator dashboard (separate terminal, any time)
-```bash
-streamlit run dashboard/app.py
-# Opens at http://localhost:8501
-```
+## What is simulated
 
----
+Perception is simulated (no cameras); the network partition is an
+application-level receive filter, not packet loss (`deploy/netem` does the real
+thing under Docker). See `STATUS.md` for the full list of limitations.
 
-## All CLI Options
+## Credits and provenance
 
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--videos` | — | Video file paths (offline mode) |
-| `--live` | — | Live mode (use with `--sources`) |
-| `--sources` | — | RTSP URLs or webcam indices |
-| `--output` | `results` | Output directory |
-| `--db` | `database/identities.db` | SQLite DB path |
-| `--yolo-model` | `yolov8n.pt` | YOLOv8 variant: n/s/m/l/x |
-| `--reid-weights` | None | Fine-tuned ReID checkpoint (optional) |
-| `--conf` | `0.35` | Detection confidence threshold |
-| `--sim-threshold` | `0.60` | Identity match cosine threshold |
-| `--lost-threshold` | `120` | Seconds absent before → LOST |
-| `--device` | `auto` | `auto` / `cuda` / `cpu` |
+* **Baseline.** This repository began as **`multicam-reid`**, an open-source
+  centralised multi-camera person re-identification system by **Kunal Gaikwad**
+  (MIT licence), based on his MSc dissertation *Multi-Camera Multi-People
+  Tracking and Re-Identification* (Sheffield Hallam University, supervisor
+  Dr. Jing Wang). It is preserved unchanged as `apps/baseline.py` and is the
+  experimental control condition for the project. The dissertation's reference
+  implementation is
+  [samihormi/Multi-Camera-Person-Tracking-and-Re-Identification](https://github.com/samihormi/Multi-Camera-Person-Tracking-and-Re-Identification);
+  none of its code is used here.
+* **Starling conversion.** The decentralised core — CRDT claims, signed gossip,
+  consensus, attestation/negative evidence, navmesh geometry, topology learning
+  and the query layer — was built by teammate **Bilal Baddi**
+  ([@Bilalbaddi](https://github.com/Bilalbaddi)) over 48 commits.
+* **Simulator, demo dashboard, launcher, gap-aware anti-entropy and the
+  automated review** were added on top by **Amir Khan**
+  ([@AmirKhan024](https://github.com/AmirKhan024)).
 
----
+## Baseline system (unchanged)
 
-## Tuning Guide
-
-### Identity match threshold (`--sim-threshold`)
-
-| Value | Behaviour |
-|-------|-----------|
-| `0.50` | Permissive — more re-IDs, may have false matches |
-| `0.60` | Balanced ← **recommended** |
-| `0.70` | Strict — fewer re-IDs, very reliable |
-
-### Lost threshold (`--lost-threshold`)
-
-| Scenario | Recommended value |
-|----------|------------------|
-| Quick testing | `30` seconds |
-| Indoor retail / office | `120` seconds (2 min) |
-| Large building / campus | `300` seconds (5 min) |
-
-### YOLOv8 model size vs speed (CPU)
-
-| Model | Speed (CPU, 720p) | Use when |
-|-------|-------------------|----------|
-| `yolov8n.pt` | ~8 FPS | Testing, low-power hardware |
-| `yolov8s.pt` | ~5 FPS | Better accuracy needed |
-| `yolov8m.pt` | ~2 FPS | High accuracy, GPU recommended |
-
----
-
-## Project Structure
-
-```
-multicam-reid/
-│
-├── pipeline.py                  ←  main entry point (file or live)
-│
-├── tracker/
-│   └── global_tracker.py        ←  CameraWorker + GlobalTracker orchestrator
-│
-├── reid/
-│   └── feature_extractor.py     ←  MobileNetV3 + 512-d embedding head
-│
-├── database/
-│   └── identity_store.py        ←  SQLite identity store + event log
-│                                    (match_or_create, promote_lost,
-│                                     resolve, reactivate, add_note)
-│
-├── dashboard/
-│   └── app.py                   ←  Streamlit operator dashboard
-│                                    (Overview, Active, Lost Registry,
-│                                     Search, Person Detail + event timeline)
-│
-├── eval/
-│   └── metrics.py               ←  MOTA, IDF1, MOTP (pure numpy)
-│
-├── videos/input/                ←  put your .mp4 files here
-├── requirements.txt
-└── README.md
-```
-
----
-
-## Database Schema
-
-```sql
--- One row per person, ever
-persons (
-    global_id       TEXT  UNIQUE,   -- GID-0001
-    status          TEXT,           -- active | lost | resolved
-    first_seen_at   REAL,
-    last_seen_at    REAL,
-    last_camera_id  INTEGER,
-    embedding       BLOB,           -- float32 (512,) EMA-updated
-    best_crop_path  TEXT,
-    notes           TEXT,
-    resolved_at     REAL
-)
-
--- Every detection frame logged
-sightings (
-    global_id   TEXT,
-    camera_id   INTEGER,
-    frame_idx   INTEGER,
-    seen_at     REAL,
-    bbox        TEXT,    -- JSON [x1,y1,x2,y2]
-    conf        REAL,
-    crop_path   TEXT
-)
-
--- Full lifecycle audit trail
-events (
-    global_id   TEXT,
-    event_type  TEXT,    -- first_seen | lost | reappeared | resolved | note
-    camera_id   INTEGER,
-    occurred_at REAL,
-    detail      TEXT
-)
-```
-
----
-
-## References
-
-- **YOLOv8**: Jocher, G. et al. (2023). *Ultralytics YOLOv8*. https://github.com/ultralytics/ultralytics
-- **ByteTrack**: Zhang, Y. et al. (2022). *ByteTrack: Multi-Object Tracking by Associating Every Detection Box*. ECCV 2022.
-- **MobileNetV3**: Howard, A. et al. (2019). *Searching for MobileNetV3*. ICCV 2019.
-- **DeepSORT** *(original dissertation)*: Wojke, N. et al. (2017). *Simple Online and Realtime Tracking with a Deep Association Metric*. ICIP 2017.
-- **torchreid** *(original dissertation)*: Zhou, K. et al. (2019). *Omni-Scale Feature Learning for Person Re-Identification*. ICCV 2019.
-- **DukeMTMC-ReID** *(original dissertation dataset)*: Zheng, Z. et al. (2017). *Unlabeled Samples Generated by GAN Improve the Person Re-identification Baseline In Vitro*.
-- **Original reference repository**: Hormi, S. (2021). *Multi-Camera Person Tracking and Re-Identification*. https://github.com/samihormi/Multi-Camera-Person-Tracking-and-Re-Identification
-- **Dissertation**: Gaikwad, K. (2022). *Multi-Camera Multi-People Tracking and Re-Identification*. MSc Dissertation, Sheffield Hallam University. Supervisor: Dr. Jing Wang.
-
----
-
-## Academic Use & Attribution
-
-This repository is a **clean reimplementation** of the author's own MSc dissertation research, updated with a modern, fully pip-installable stack. The original dissertation results (IDF1=50.7%, MOTA=99.8%) were obtained using a different codebase (YOLOv4 + DeepSORT + torchreid). No code from the [samihormi reference repository](https://github.com/samihormi/Multi-Camera-Person-Tracking-and-Re-Identification) is included here — the architectural pipeline concept (detect → track → ReID feature extraction → cross-camera matching) is standard methodology in the multi-camera tracking literature, not proprietary to any single implementation.
-
-If you use this work in academic research, please cite the relevant upstream papers listed above.
-
----
+The original centralised pipeline (YOLOv8 + ByteTrack + a MobileNetV3 re-ID
+backbone + SQLite identity store + Streamlit operator dashboard with a Lost
+Person Registry) still lives in `apps/baseline.py` and `apps/dashboard/` and
+needs the full `requirements.txt` (PyTorch). See the git history of this file
+for its original documentation.
 
 ## License
 
-MIT License — see [LICENSE](LICENSE).  
-Copyright © 2025 Kunal Gaikwad
+MIT — Copyright © 2025 Kunal Gaikwad. See `LICENSE`.

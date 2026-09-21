@@ -256,7 +256,18 @@ complete acceptance criteria.
         `data-testid`; key values are readable text (claim counts, reputation,
         region area, partition state)
   - [x] `tests/test_demo_dashboard.py` (isolation, testid contract, region logic)
-- [ ] **Step 6 — One-command launcher and run guide** — not started
+- [x] **Step 6 — One-command launcher and run guide**
+  - [x] `scripts/run_demo.py` (`--headless`, `--speed`, `--port`; Windows+Linux;
+        clean shutdown; importable `DemoLauncher`)
+  - [x] `README.md` rewritten (what it is, install, run, five-moment demo
+        script, credits to Kunal Gaikwad's `multicam-reid` and the teammate's
+        Starling conversion)
+  - [x] `tests/test_demo_integration.py` (headless: claims flow, partition ->
+        heal ends gap-free and equal, a lying node's reputation drops)
+  - [x] verified from a CLEAN virtualenv (`pip install -r requirements-sim.txt`
+        then `python scripts/run_demo.py --headless`): 4 nodes live, claims flow
+        (found and fixed: `requirements-sim.txt` had non-ASCII box-drawing
+        characters that pip on Windows failed to decode as cp1252)
 - [ ] **Step 7 — Polish** — not started (only after 1–6)
 
 ## 6. Current status
@@ -285,8 +296,8 @@ at `apps/demo_dashboard/`, verified live: heal converged 3.0s after a
 partition; a lying node's reputation fell 1.0 -> ~0.51 with ~100 claims
 rejected and recovered to ~1.0 after "stop lying"; queries answer / refuse
 correctly). `scripts/run_demo.py` already exists (built alongside, for
-testing). **Next**: Part C (README rewrite, headless integration test, merge
-to main), then Part D (Playwright review -> `review/review.html`).
+testing). **Part C DONE** (launcher, README, integration test, clean-venv install
+verified). **Next**: Part D (Playwright review -> `review/review.html`).
 
 (Historical Step-5 plan, kept for reference — now implemented differently,
 see Decisions:)
@@ -352,7 +363,8 @@ Run tests (exact command, exact result as of this session):
 
 ```
 python -m pytest -q -m "not integration"
-# 367 passed, 5 deselected
+# 367 passed, 8 deselected
+python -m pytest -q -m integration tests/test_demo_integration.py   # ~20s, needs free ports 5555-5560 and 8765
 ```
 
 Generate keys (once; `configs/keys/` is gitignored):
