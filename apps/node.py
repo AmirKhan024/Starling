@@ -44,7 +44,7 @@ import argparse
 import bisect
 import signal
 import time
-from collections import deque
+from collections import Counter, deque
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Optional
@@ -56,7 +56,7 @@ from starling_consensus.attacks import AttackInjector, ControlServer, PartitionC
 from starling_consensus.plausibility import CorroboratedState, PlausibilityConfig
 from starling_consensus.plausibility import check as plausibility_check
 from starling_consensus.reputation import ReputationTable
-from starling_crdt.claims import ClaimSet
+from starling_crdt.claims import ClaimSet, claim_order_key
 from starling_geometry.calibration import CameraCalibration, bbox_floor_point
 from starling_geometry.navmesh import NavMesh
 from starling_geometry.reachability import ReachabilityModel
@@ -89,6 +89,10 @@ _SIM_RECV_TIMEOUT_MS = 500
 # and still count as candidate corroborators of each other in the
 # in-node plausibility pass (_ReputationLoop) below.
 _CORROBORATION_WINDOW_S = 5.0
+# A track counts as ESTABLISHED (usable as a reference for a new track's
+# first claims) once this many of its claims were accepted.
+_MIN_ESTABLISHED_CLAIMS = 3
+_MAX_TRACKS = 256
 # Anti-entropy delta replies are chunked by BYTE budget
 # (starling_net.anti_entropy.chunk_by_bytes), not a fixed claim count: the
 # wire cap (starling_proto.limits.MAX_MESSAGE_BYTES, 8192B) applies per
@@ -158,13 +162,19 @@ class _ReputationLoop:
     and gossips (`ReputationUpdate`), not only something the dashboard
     happens to notice.
 
-    Simplification, stated plainly: `last_position`/`last_t_media` per
-    source node is this node's own most recently ACCEPTED claim from that
-    node (any local_track_id), not tracked per-identity — good enough for
-    catching an implausible jump, not a full per-track kinematics model.
-    Only updated on a claim that itself passed, so one successful
-    fabrication cannot become the new baseline a later fabrication is
-    graded against.
+    Simplification, stated plainly: the baseline is this node's own most
+    recently ACCEPTED position on the SAME (source node, local_track_id)
+    track — not a per-identity kinematics model. A node watching two people
+    at once interleaves their claims, so a single per-node baseline would
+    "teleport" between them and wrongly fail an honest node. A claim on a
+    track with no baseline yet (a new person, or a fabricated claim, which
+    always carries a fresh track id) is graded against that node's
+    ESTABLISHED tracks instead (>= `_MIN_ESTABLISHED_CLAIMS` accepted
+    claims): reachable from any of them passes, from none of them fails. So
+    a fabricated teleport is still caught, while one fabrication can never
+    become the baseline a later one is graded against (it never gets to
+    be an established track). A baseline only advances on a claim that
+    itself passed.
     """
 
     def __init__(
@@ -175,16 +185,28 @@ class _ReputationLoop:
         cfg: PlausibilityConfig,
         reputation_table: ReputationTable,
         min_baseline_refresh_s: float = _MIN_BASELINE_REFRESH_S,
+        lookback_s: Optional[float] = None,
     ) -> None:
+        # None = grade the whole merged claim set every pass (what a node
+        # does); a number = only claims within that many media seconds of
+        # `now_t_media` (the demo dashboard, which runs for a long time).
+        self.lookback_s = lookback_s
         self.node_id = node_id
         self.store = store
         self.geometry = geometry
         self.cfg = cfg
         self.reputation_table = reputation_table
         self.min_baseline_refresh_s = min_baseline_refresh_s
-        self._last_position: dict[int, tuple[float, float]] = {}
-        self._last_t_media: dict[int, float] = {}
+        # (source node, local_track_id) -> latest accepted position/time,
+        # and how many of that track's claims have been accepted so far.
+        self._last_position: dict[tuple[int, Any], tuple[float, float]] = {}
+        self._last_t_media: dict[tuple[int, Any], float] = {}
+        self._accepted: Counter[tuple[int, Any]] = Counter()
         self._evaluated_claim_ids: set[str] = set()
+        # Per source node: claims graded / claims that failed plausibility
+        # (surfaced by the demo dashboard).
+        self.evaluated_by_node: Counter[int] = Counter()
+        self.rejected_by_node: Counter[int] = Counter()
 
     def run_pass(self, now_t_media: float) -> None:
         """Evaluate every not-yet-evaluated remote claim against the
@@ -208,14 +230,22 @@ class _ReputationLoop:
         that, while a fabricated claim's tens-of-metres jump still fails
         by a wide margin regardless of how fresh the baseline is.
         """
-        claims = ClaimSet(self.store).ordered()
+        if self.lookback_s is None:
+            claims = ClaimSet(self.store).ordered()
+        else:
+            claims = sorted(
+                self.store.local_observations(now_t_media - self.lookback_s, float("inf")),
+                key=claim_order_key,
+            )
         # Corroborator lookup by media-time window via bisect, instead of
         # rescanning every claim for every new claim (that was O(N^2) and
         # wedged a node's main loop for many seconds when a post-partition
         # anti-entropy catch-up delivered a large backlog at once).
         by_time = sorted(range(len(claims)), key=lambda i: claims[i]["t_media"])
         times = [claims[i]["t_media"] for i in by_time]
-        pending_baseline: dict[int, tuple[tuple[float, float], float]] = {}
+        pending_baseline: dict[tuple[int, Any], tuple[tuple[float, float], float]] = {}
+        pending_provisional: dict[tuple[int, Any], tuple[tuple[float, float], float]] = {}
+        newly_accepted: Counter[tuple[int, Any]] = Counter()
 
         for claim in claims:
             claim_id = claim["claim_id"]
@@ -231,42 +261,74 @@ class _ReputationLoop:
                 for i in sorted(by_time[lo:hi])  # keep the canonical claim order
                 if claims[i]["node_id"] != source_node
             ]
-            baseline_t_media = self._last_t_media.get(source_node)
+            track = (source_node, claim.get("local_track_id"))
+
+            # Baseline candidates, all fixed as of the START of this pass.
             # A claim that arrived (via gossip or an anti-entropy catch-up
-            # round) chronologically AT OR BEFORE the current baseline is
-            # not something this baseline can meaningfully be compared
-            # against — the resulting dt_s would be ~0, giving even a
-            # small position difference an enormous implied speed. This
-            # is an out-of-delivery-order artifact (a genuinely late claim
-            # a peer just now caught this node up on), not evidence of a
-            # physically implausible jump, so treat it the same way a
-            # claim with no baseline yet is treated: reachability/
-            # kinematics skipped, corroboration/freshness still apply.
-            usable_baseline = baseline_t_media is None or claim["t_media"] > baseline_t_media
-            state = CorroboratedState(
-                last_position=self._last_position.get(source_node) if usable_baseline else None,
-                last_t_media=baseline_t_media if usable_baseline else None,
-                corroborating_claims=corroborators,
-                now_physical_ms=int(now_t_media * 1000),
-            )
-            result = plausibility_check(claim, state, self.geometry, self.cfg)
+            # round) chronologically AT OR BEFORE a baseline is not
+            # something that baseline can meaningfully grade — the
+            # resulting dt_s would be ~0, giving even a small position
+            # difference an enormous implied speed. That is an
+            # out-of-delivery-order artifact, not evidence of a physically
+            # implausible jump, so such a baseline is simply not used
+            # (reachability/kinematics skipped; corroboration/freshness
+            # still apply).
+            own_t = self._last_t_media.get(track)
+            if own_t is not None:
+                candidates = [(self._last_position[track], own_t)] if claim["t_media"] > own_t else []
+            else:
+                candidates = [
+                    (self._last_position[k], self._last_t_media[k])
+                    for k in self._last_position
+                    if k[0] == source_node
+                    and self._accepted[k] >= _MIN_ESTABLISHED_CLAIMS
+                    and claim["t_media"] > self._last_t_media[k]
+                ]
+
+            result = None
+            for position, t_baseline in candidates or [(None, None)]:
+                state = CorroboratedState(
+                    last_position=position,
+                    last_t_media=t_baseline,
+                    corroborating_claims=corroborators,
+                    now_physical_ms=int(now_t_media * 1000),
+                )
+                attempt = plausibility_check(claim, state, self.geometry, self.cfg)
+                if result is None or attempt.passed:
+                    result = attempt
+                if attempt.passed:
+                    break
+            assert result is not None
             self.reputation_table.observe(source_node, result)
+            self.evaluated_by_node[source_node] += 1
+            if not result.passed:
+                self.rejected_by_node[source_node] += 1
 
-            stale_enough = (
-                claim["t_media"] - self._last_t_media.get(source_node, float("-inf"))
-                >= self.min_baseline_refresh_s
-            )
-            if (
-                result.passed
-                and stale_enough
-                and claim.get("world_x") is not None
-                and claim.get("world_y") is not None
-            ):
-                pending_baseline[source_node] = ((claim["world_x"], claim["world_y"]), claim["t_media"])
+            has_pos = claim.get("world_x") is not None and claim.get("world_y") is not None
+            if result.passed:
+                newly_accepted[track] += 1
+            if has_pos:
+                position_t = ((claim["world_x"], claim["world_y"]), claim["t_media"])
+                if track not in self._last_position:
+                    pending_provisional.setdefault(track, position_t)  # first sighting of this track
+                elif result.passed and claim["t_media"] - own_t >= self.min_baseline_refresh_s:
+                    pending_baseline[track] = position_t
 
-        for source_node, (position, t_media) in pending_baseline.items():
-            self._last_position[source_node] = position
-            self._last_t_media[source_node] = t_media
+        for track, (position, t_media) in {**pending_provisional, **pending_baseline}.items():
+            self._last_position[track] = position
+            self._last_t_media[track] = t_media
+        self._accepted.update(newly_accepted)
+        self._prune_tracks()
+
+    def _prune_tracks(self) -> None:
+        """Bound memory: fabricated claims each open a fresh one-claim track."""
+        if len(self._last_t_media) <= _MAX_TRACKS:
+            return
+        oldest_first = sorted(self._last_t_media, key=self._last_t_media.get)  # type: ignore[arg-type]
+        for track in oldest_first[: len(self._last_t_media) - _MAX_TRACKS]:
+            self._last_position.pop(track, None)
+            self._last_t_media.pop(track, None)
+            self._accepted.pop(track, None)
 
 
 @dataclass
@@ -600,7 +662,8 @@ def run(
     # (like below) so a node with gossip disabled is still testable in
     # isolation.
     injector = AttackInjector(
-        node_id=cfg.node_id, attack=cfg.attack.attack, intensity=cfg.attack.intensity, cfg=cfg.attack
+        node_id=cfg.node_id, attack=cfg.attack.attack, intensity=cfg.attack.intensity, cfg=cfg.attack,
+        embed_dim=cfg.perception.embed_dim,
     )
     control_server: Optional[ControlServer] = None
     if cfg.attack.enable_control_endpoint:

@@ -144,6 +144,13 @@ class ReputationTable:
         values.extend(self._gossiped.get(node_id, {}).values())
         return statistics.median(values)
 
+    def gossiped_opinions(self, node_id: int) -> dict[int, float]:
+        """`{reporting_node: score}` — every OTHER node's gossiped opinion
+        of `node_id` (excludes this table's own local opinion, unlike
+        `aggregate`). What "reputation as seen by peers" is made of.
+        """
+        return dict(self._gossiped.get(node_id, {}))
+
     def ingest_gossiped(self, update: "starling_pb2.ReputationUpdate") -> None:
         """Record another node's opinion about `update.about_node`. A
         gossiped copy of THIS node's own opinion (re-heard via a peer) is

@@ -177,3 +177,23 @@ def test_multi_origin_digest_signature_survives_a_wire_roundtrip(tmp_path):
         unsigned.CopyFrom(rx.vv_digest)
         unsigned.signature = b""
         assert keys.verify(0, unsigned.SerializeToString(deterministic=True), rx.vv_digest.signature)
+
+
+def test_resolver_ignores_a_claim_with_a_mismatched_embedding_dimension():
+    """A Byzantine (or misconfigured) node sending a wrong-dimension
+    embedding must not crash the resolver: it is just incomparable."""
+    from starling_crdt.resolver import _cosine
+
+    assert _cosine(np.ones(64, dtype=np.float32), np.ones(512, dtype=np.float32)) == 0.0
+    assert _cosine(np.ones(8, dtype=np.float32), np.ones(8, dtype=np.float32)) == pytest.approx(1.0)
+
+
+def test_attack_injector_fabricates_embeddings_of_the_deployments_dimension():
+    from starling_consensus.attacks import AttackInjector
+    from starling_geometry.navmesh import NavMesh
+    from pathlib import Path
+
+    nm = NavMesh.from_geojson(Path(__file__).resolve().parent.parent / "data/floorplan/warehouse_demo.geojson")
+    inj = AttackInjector(node_id=2, attack="fabricate", intensity=1.0, seed=1, embed_dim=64)
+    out = inj.apply_to_claims([], 1.0, nm)
+    assert len(out) == 1 and len(np.frombuffer(out[0]["embedding"], dtype=np.float32)) == 64

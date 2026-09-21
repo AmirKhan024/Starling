@@ -47,6 +47,7 @@ import math
 from typing import Any, Optional
 
 import numpy as np
+from scipy.sparse.csgraph import dijkstra as _sp_dijkstra
 
 from starling_geometry.navmesh import NavMesh
 from starling_geometry.reachability import ReachabilityModel
@@ -119,13 +120,29 @@ class CandidateBelief:
         if not support.any():
             return
 
-        dist = self._multi_source_distance(support)
         radius = self.cfg.v_max_m_s * dt_s
+        dist = self._multi_source_distance_fast(support, radius)
         new_support = dist <= radius
 
         new_B = np.zeros_like(self._B)
         new_B[new_support] = 1.0
         self._B = new_B
+
+    def _multi_source_distance_fast(self, support: np.ndarray, limit: float) -> np.ndarray:
+        """Same distances as `_multi_source_distance` (cells farther than
+        `limit` come back `inf`), via one scipy multi-source Dijkstra over
+        the reachability model's prebuilt free-space graph — orders of
+        magnitude faster than the pure-Python heap for a large support.
+        """
+        grid = self.navmesh.grid
+        height, width = grid.shape
+        flat = np.flatnonzero(support & grid)
+        if flat.size == 0:
+            return np.full((height, width), np.inf, dtype=np.float64)
+        dist = _sp_dijkstra(
+            self.reachability._graph(), directed=True, indices=flat, min_only=True, limit=limit
+        )
+        return dist.reshape(height, width)
 
     def _multi_source_distance(self, support: np.ndarray) -> np.ndarray:
         grid = self.navmesh.grid

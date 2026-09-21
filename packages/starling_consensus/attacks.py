@@ -68,8 +68,12 @@ class AttackInjector:
         intensity: float = 0.0,
         cfg: Optional[AttackConfig] = None,
         seed: Optional[int] = None,
+        embed_dim: int = _EMBED_DIM,
     ) -> None:
         self.node_id = node_id
+        # Fabricated claims must look like this deployment's real ones, so
+        # their embedding has the deployment's own dimensionality.
+        self.embed_dim = embed_dim
         self.attack = attack
         self.intensity = intensity
         self.cfg = cfg or AttackConfig()
@@ -128,7 +132,7 @@ class AttackInjector:
         self._synthetic_seq += 1
         i, j = self._random_free_cell(navmesh)
         x, y = navmesh.cell_to_world(i, j)
-        embedding = self._np_rng.normal(size=_EMBED_DIM).astype(np.float32)
+        embedding = self._np_rng.normal(size=self.embed_dim).astype(np.float32)
 
         return {
             "claim_id": str(ULID()),

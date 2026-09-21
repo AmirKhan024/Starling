@@ -35,3 +35,4 @@ configs/keys/
 # Source zip the project was handed over in; contents are extracted and
 # tracked in this repo, the archive itself is not project material.
 *.zip
+data/demo/

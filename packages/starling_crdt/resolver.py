@@ -155,6 +155,12 @@ def _world_pos(claim: dict[str, Any]) -> Optional[tuple[float, float]]:
 
 
 def _cosine(a: np.ndarray, b: np.ndarray) -> float:
+    if a.shape != b.shape:
+        # A claim whose embedding has a different dimensionality is simply
+        # incomparable (score 0) — never an exception: a Byzantine node
+        # must not be able to crash every replica's resolver with one
+        # malformed claim.
+        return 0.0
     na, nb = float(np.linalg.norm(a)), float(np.linalg.norm(b))
     if na < 1e-9 or nb < 1e-9:
         return 0.0

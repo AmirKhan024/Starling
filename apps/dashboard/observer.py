@@ -38,6 +38,7 @@ from typing import Optional
 import zmq
 from nacl.signing import SigningKey
 
+from starling_consensus.attacks import SYNTHETIC_SEQ_BASE
 from starling_crdt.claims import ClaimSet
 from starling_consensus.reputation import ReputationTable
 from starling_net.anti_entropy import VersionVector
@@ -186,9 +187,14 @@ class GossipObserver:
         elif payload_kind == "vv_digest":
             with self._lock:
                 self._digests[envelope.sender_node_id] = VersionVector.from_proto(envelope.vv_digest)
-        # vv_delta and topology are not consumed here; this observer never
-        # participates in anti-entropy itself (it has nothing of its own
-        # to offer a peer; see module docstring) — it only reads digests.
+        elif payload_kind == "vv_delta":
+            # Claims a peer sent another peer to fill a gap: overheard like
+            # any other gossip, and merged into the same grow-only set.
+            for c in envelope.vv_delta.claims:
+                self.claims.add(claim_proto_to_record(c))
+        # topology is not consumed here; this observer never participates
+        # in anti-entropy itself (it has nothing of its own to offer a
+        # peer; see module docstring) — it only reads digests and deltas.
 
     def node_claim_counts(self) -> dict[int, int]:
         """`{node_id: claims that node held as of its latest digest}`,
@@ -206,6 +212,27 @@ class GossipObserver:
             else:
                 out[node_id] = sum(hi - lo + 1 for runs in ranges.values() for lo, hi in runs)
         return out
+
+    def node_holes(self) -> dict[int, int]:
+        """`{node_id: number of claims that node's own latest digest reports
+        as missing BELOW its highest seq per origin}` — the exact "still has
+        gaps" signal (0 = gap-free), as gossiped by the node itself.
+        """
+        with self._lock:
+            digests = dict(self._digests)
+        # Runs at/above SYNTHETIC_SEQ_BASE are attack-injected claims (a
+        # separate seq space, see AttackInjector), so the "gap" between the
+        # honest sequence and that space is not a hole in the honest set.
+        base = SYNTHETIC_SEQ_BASE
+        return {
+            node_id: sum(
+                hi - lo + 1
+                for holes in vv.gaps().values()
+                for lo, hi in holes
+                if hi < base
+            )
+            for node_id, vv in digests.items()
+        }
 
     def stats(self) -> dict:
         """Same shape as `starling_net.gossip.GossipNode.stats()` (recv

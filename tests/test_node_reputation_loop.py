@@ -186,3 +186,57 @@ def test_anti_entropy_delta_chunks_stay_under_wire_safety_cap():
             envelope = starling_pb2.Envelope(sender_node_id=1, msg_id=b"x" * 16)
             envelope.vv_delta.CopyFrom(starling_pb2.VVDelta(claims=chunk, signature=b"s" * 64))
             assert envelope.ByteSize() <= MAX_MESSAGE_BYTES
+
+
+def _two_worker_claims(store: LocalStore, injector: AttackInjector, navmesh, n_ticks: int, t0: float, seq0: int, rng):
+    """One node watching TWO workers ~10 m apart, their claims interleaved
+    tick by tick (what a real zone with two people looks like)."""
+    seq, t = seq0, t0
+    for k in range(n_ticks):
+        for track, base in ((10, (29.0, 5.0)), (11, (29.0, 20.0))):
+            seq += 1
+            claim = _honest_claim(seq, t, (base[0] + 0.2 * k * 0.2, base[1]), rng)
+            claim["local_track_id"] = track
+            claim["claim_id"] = f"real2-{seq}"
+            for outgoing in injector.apply_to_claims([claim], t, navmesh):
+                store.append_remote_claims([outgoing])
+        t += 0.2
+    return seq, t
+
+
+def test_two_interleaved_workers_do_not_fail_an_honest_node():
+    """Regression: with ONE baseline per source node, claims from two
+    simultaneous workers looked like a 10 m teleport every tick and crashed
+    an honest node's reputation. Baselines are per (node, track) now."""
+    navmesh = _navmesh()
+    store = LocalStore(db_path=":memory:", node_id=1)
+    table = ReputationTable(node_id=1, cfg=ReputationConfig())
+    loop = node_app._ReputationLoop(1, store, ReachabilityModel(navmesh, v_max_m_s=1.6), PlausibilityConfig(), table)
+    injector = AttackInjector(node_id=2, attack="none", intensity=0.0, cfg=AttackConfig(), seed=7)
+    rng = np.random.default_rng(3)
+    seq, t = 0, 0.0
+    for _ in range(20):
+        seq, t = _two_worker_claims(store, injector, navmesh, 5, t, seq, rng)
+        loop.run_pass(t)
+    assert table.local_opinion(2) > 0.8
+    assert loop.rejected_by_node[2] <= 0.1 * loop.evaluated_by_node[2]
+
+
+def test_fabrication_is_still_caught_while_two_workers_are_tracked():
+    navmesh = _navmesh()
+    store = LocalStore(db_path=":memory:", node_id=1)
+    table = ReputationTable(node_id=1, cfg=ReputationConfig())
+    loop = node_app._ReputationLoop(1, store, ReachabilityModel(navmesh, v_max_m_s=1.6), PlausibilityConfig(), table)
+    injector = AttackInjector(node_id=2, attack="none", intensity=0.0, cfg=AttackConfig(), seed=7)
+    rng = np.random.default_rng(3)
+    seq, t = 0, 0.0
+    for _ in range(10):
+        seq, t = _two_worker_claims(store, injector, navmesh, 5, t, seq, rng)
+        loop.run_pass(t)
+    before = table.local_opinion(2)
+    injector.set_attack("fabricate", 0.9)
+    for _ in range(15):
+        seq, t = _two_worker_claims(store, injector, navmesh, 5, t, seq, rng)
+        loop.run_pass(t)
+    assert table.local_opinion(2) < before - 0.2
+    assert loop.rejected_by_node[2] > 10

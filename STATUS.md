@@ -246,7 +246,16 @@ complete acceptance criteria.
         processes + the simulator: claims replicate, attestations flow,
         reputation gossips, and a live fabricate attack visibly drops
         the lying node's reputation as seen by an honest peer
-- [ ] **Step 5 — Dashboard for the demo** — not started
+- [x] **Step 5 — Dashboard for the demo** — `apps/demo_dashboard/` (FastAPI +
+      one HTML/SVG page; see Decisions)
+  - [x] `engine.py` (observer + ground-truth SUB + resolver + `CandidateBelief`
+        per unseen identity + control-endpoint actions + `starling_query`),
+        `server.py`, `static/index.html`, `config.py`, `tokens.py`,
+        `configs/demo_dashboard.yaml`
+  - [x] all five moments on one screen; every important element has a
+        `data-testid`; key values are readable text (claim counts, reputation,
+        region area, partition state)
+  - [x] `tests/test_demo_dashboard.py` (isolation, testid contract, region logic)
 - [ ] **Step 6 — One-command launcher and run guide** — not started
 - [ ] **Step 7 — Polish** — not started (only after 1–6)
 
@@ -271,12 +280,16 @@ video-path node configs it already supports.
 **What's half-done**: nothing mid-flight — Steps 1-4 are fully committed
 before this checkpoint.
 
-**Session 2, Part A DONE** (gap-aware anti-entropy; see Decisions). Next:
-Part B (dashboard), Part C (launcher/README/integration test), Part D
-(Playwright review). The Step 5 notes below still describe the dashboard
-plan.
+**Session 2: Part A DONE** (gap-aware anti-entropy), **Part B DONE** (dashboard
+at `apps/demo_dashboard/`, verified live: heal converged 3.0s after a
+partition; a lying node's reputation fell 1.0 -> ~0.51 with ~100 claims
+rejected and recovered to ~1.0 after "stop lying"; queries answer / refuse
+correctly). `scripts/run_demo.py` already exists (built alongside, for
+testing). **Next**: Part C (README rewrite, headless integration test, merge
+to main), then Part D (Playwright review -> `review/review.html`).
 
-**Exact next action**: Step 5 — the dashboard. Concretely:
+(Historical Step-5 plan, kept for reference — now implemented differently,
+see Decisions:)
 1. `apps/dashboard/config.py`'s `DashboardConfig.peers` already points
    at gossip addresses — point it at the 4 sim node configs'
    `net.listen_port`s (`configs/nodes/sim/node-0{0..3}.yaml`, ports
@@ -339,7 +352,7 @@ Run tests (exact command, exact result as of this session):
 
 ```
 python -m pytest -q -m "not integration"
-# 317 passed, 5 deselected
+# 367 passed, 5 deselected
 ```
 
 Generate keys (once; `configs/keys/` is gitignored):
@@ -547,6 +560,59 @@ curl -X POST http://127.0.0.1:6557/attack -d "{\"attack\": \"fabricate\", \"inte
   gap-free signal; byte-identical claim sets are asserted in
   `tests/test_anti_entropy_gaps.py` (deterministic, 8 seeds, 30% loss).
 
+- **Dashboard = FastAPI + a single HTML/SVG page, not Streamlit (session 2,
+  Part B).** A live SVG floor plan, ~1s smooth refresh without full-page
+  reruns, and stable `data-testid` selectors for the automated review are all
+  direct in plain HTML/SVG and clunky in Streamlit. The old Streamlit
+  `apps/dashboard/` is untouched (its `GossipObserver` is reused). The server
+  recomputes one JSON snapshot every 0.5s in a background thread and just
+  serves the latest one.
+- **Dashboard learns only from gossip + the ground-truth topic.** Claim counts
+  per node come from each node's OWN gossiped anti-entropy digest (sum of its
+  ranges); "gaps" = holes in that digest (ignoring the attack-injected
+  synthetic seq space >= `SYNTHETIC_SEQ_BASE`). Reputation bars = median of the
+  OTHER nodes' gossiped opinions (`ReputationTable.gossiped_opinions`).
+  "Rejected claims" = the dashboard's own plausibility pass (`_ReputationLoop`
+  with a lookback window) over what it overheard. Partition/lie state comes from
+  each node's control endpoint (`GET /status`), the same endpoint the buttons
+  POST to. The capability tokens are issued by the launcher (node 0's key as
+  issuing authority); the dashboard only reads them and never holds a key.
+- **Display-only labels.** Resolved identities are shown as stable `P-001..`
+  labels (majority overlap of claims with the previous window) and, purely for
+  display, matched to the nearest simulator worker ("≈ worker-2") using ground
+  truth; "where is worker 2" is translated through that mapping. The network
+  itself never sees worker names. The resolver is run over a sliding
+  `resolve_window_s` (45s) window because a full sweep is O(claims x
+  identities); it stays a pure function of whatever claim set it is given.
+- **Candidate region logic** (`engine._advance_belief`): an identity newer
+  than `unseen_after_s` (1.5 media-s) is "seen"; otherwise a `CandidateBelief`
+  starts at its last confirmed position, dilates by elapsed media time, and
+  applies gossiped attestations gossiped since it was last seen. Once a
+  boundary crossing is attested after the last sighting, later "no crossing"
+  attestations for that boundary stop being applied to that identity (they no
+  longer bound it). Silence (no attestation, e.g. node 1 occluded) does not
+  shrink anything. Identities unseen longer than `hide_unseen_after_s` are
+  not drawn (stale duplicate fragments).
+- **Performance/robustness fixes found by running the whole thing** (each was
+  freezing or corrupting the demo): `ReachabilityModel` now builds a scipy
+  sparse graph once, uses an exact Euclidean fast-reject and a radius-bounded
+  Dijkstra (`is_reachable` 30ms -> 0.1ms, verified identical on 3000 random
+  queries) and `CandidateBelief.step` uses a multi-source scipy Dijkstra;
+  `_ReputationLoop` keeps baselines per (node, track) — a new track (which is
+  what a fabricated claim always is) is graded against the node's ESTABLISHED
+  tracks — because a node watching two people interleaved their claims and got
+  penalised (honest node 1 sat at 0.54 before this); `AttackInjector` fabricated
+  embeddings now use the deployment's `embed_dim` (they were hardcoded 512-d and
+  crashed the resolver's cosine — which now returns 0 for mismatched dimensions
+  rather than raising, so one malformed claim cannot crash every replica).
+- **Sim tuning** (`configs/sim/warehouse.yaml`): `pos_noise_sigma_m` 0.15 ->
+  0.08 (at 0.15 about 1% of consecutive claims failed the resolver's
+  reachability gate from noise alone, spawning a duplicate identity that then
+  tied with the real one forever — the resolver deliberately refuses to break
+  ties on a thin margin), `quality_min` 0.5 -> 0.75 (score = similarity x
+  quality must clear `sim_threshold` 0.60), worker-2 speed 1.3 -> 0.6 m/s so the
+  blind aisle stays dark ~5s.
+
 ## 9. Known issues and limitations
 
 - The video/YOLO path (`apps/node.py` with a real `source:` video file) has
@@ -692,7 +758,8 @@ curl -X POST http://127.0.0.1:6557/attack -d "{\"attack\": \"fabricate\", \"inte
 - `tests/test_sim_node_integration.py` — the one `@pytest.mark.integration`
   end-to-end test: real simulator + 2 real sim-mode node processes,
   claims flow, partition cuts merging, heal resumes it (Step 4).
-- `scripts/run_demo.py` — **does not exist yet** (Step 6).
+- `scripts/run_demo.py` — one-command launcher (`DemoLauncher`, importable): keys, fresh replicas, tokens, simulator + 4 nodes + dashboard, logs in `data/demo/logs/`.
+- `apps/demo_dashboard/` — the Step 5 dashboard (`engine.py`, `server.py`, `static/index.html`, `config.py`, `tokens.py`).
 
 ## Appendix — API reference for Step 3+ (from a session-1 codebase survey)
 
