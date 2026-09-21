@@ -1,0 +1,63 @@
+# Starling node config — node-00 (SIM variant: reads from a running
+# starling_sim simulator process instead of a camera — see
+# configs/sim/warehouse.yaml for the simulator's own config, and
+# configs/nodes/local/node-00.yaml for the video-path equivalent this
+# mirrors the net/topology shape of).
+# Every threshold below has a documented default in
+# packages/starling_node/config.py. Edit here, not in code.
+
+node_id: 0
+name: "node-00"
+
+# The literal string "sim" (STATUS.md Step 4) — apps/node.py reads from
+# starling_sim.node_client.SimNodeSource instead of a video file.
+source: "sim"
+
+is_chokepoint: false
+
+# Per-node SQLite replica. Distinct from the video path's data/nodes/
+# tree so the two demo modes never collide on the same file.
+db_path: "data/nodes/sim/node-00/local.db"
+
+calib_path: null   # sim mode never uses calibration; world_pos comes straight from the simulator
+
+sim:
+  connect_endpoint: "tcp://127.0.0.1:5560"   # must match configs/sim/warehouse.yaml's bind_endpoint
+
+stream_epoch: 0.0
+
+perception:
+  embed_dim: 64   # must match configs/sim/warehouse.yaml's embed_dim
+
+match:
+  sim_threshold: 0.60
+  margin_threshold: 0.10
+  lost_threshold_s: 120.0
+  ema_alpha: 0.10
+
+net:
+  listen_port: 5555
+  neighbours: ["127.0.0.1:5558", "127.0.0.1:5556"]  # ring topology (CLAUDE.md rule 4)
+  gossip_interval_s: 2.0
+
+geometry:
+  navmesh_path: "data/floorplan/warehouse_demo.geojson"
+  cell_size_m: 0.25
+
+coverage:
+  # Node 0 sits on the WEST side of the blind aisle (data/floorplan
+  # /warehouse_demo.geojson's boundary_id 1, "blind_aisle_west_exit") —
+  # it is the node that can attest whether a worker crossed out of its
+  # own zone into the gap.
+  watched_boundary_ids: [1]
+  tau_attest: 0.7
+
+attest:
+  tick_interval_s: 2.0
+  tau_attest: 0.7
+
+attack:
+  attack: "none"
+  intensity: 0.0
+  enable_control_endpoint: true
+  control_bind_host: "127.0.0.1"

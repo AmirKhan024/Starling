@@ -1,0 +1,5 @@
+# Automated visual review (scripts/review_demo.py) - NOT part of the core
+# requirements. After installing, run once:  playwright install chromium
+-r requirements-sim.txt
+playwright>=1.44.0
+pytest

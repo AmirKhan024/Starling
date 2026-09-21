@@ -125,8 +125,16 @@ class TopologyObservation(_message.Message):
     signature: bytes
     def __init__(self, node_a: _Optional[int] = ..., node_b: _Optional[int] = ..., transit_secs: _Optional[float] = ..., handoff_confidence: _Optional[float] = ..., signature: _Optional[bytes] = ...) -> None: ...
 
+class SeqRanges(_message.Message):
+    __slots__ = ("node_id", "bounds")
+    NODE_ID_FIELD_NUMBER: _ClassVar[int]
+    BOUNDS_FIELD_NUMBER: _ClassVar[int]
+    node_id: int
+    bounds: _containers.RepeatedScalarFieldContainer[int]
+    def __init__(self, node_id: _Optional[int] = ..., bounds: _Optional[_Iterable[int]] = ...) -> None: ...
+
 class VVDigest(_message.Message):
-    __slots__ = ("seq_by_node", "signature")
+    __slots__ = ("seq_by_node", "signature", "ranges")
     class SeqByNodeEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -136,9 +144,11 @@ class VVDigest(_message.Message):
         def __init__(self, key: _Optional[int] = ..., value: _Optional[int] = ...) -> None: ...
     SEQ_BY_NODE_FIELD_NUMBER: _ClassVar[int]
     SIGNATURE_FIELD_NUMBER: _ClassVar[int]
+    RANGES_FIELD_NUMBER: _ClassVar[int]
     seq_by_node: _containers.ScalarMap[int, int]
     signature: bytes
-    def __init__(self, seq_by_node: _Optional[_Mapping[int, int]] = ..., signature: _Optional[bytes] = ...) -> None: ...
+    ranges: _containers.RepeatedCompositeFieldContainer[SeqRanges]
+    def __init__(self, seq_by_node: _Optional[_Mapping[int, int]] = ..., signature: _Optional[bytes] = ..., ranges: _Optional[_Iterable[_Union[SeqRanges, _Mapping]]] = ...) -> None: ...
 
 class VVDelta(_message.Message):
     __slots__ = ("claims", "signature")

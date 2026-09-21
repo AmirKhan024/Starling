@@ -1,5 +1,6 @@
 __pycache__/
 *.pyc
+*.egg-info/
 venv/
 .venv/
 *.pt
@@ -30,3 +31,8 @@ wandb/
 # `python -m starling_net.keys --generate N`, never committed — this
 # re-excludes them even though the negation above un-ignores configs/**.
 configs/keys/
+
+# Source zip the project was handed over in; contents are extracted and
+# tracked in this repo, the archive itself is not project material.
+*.zip
+data/demo/

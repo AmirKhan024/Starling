@@ -597,6 +597,67 @@ class LocalStore:
             ).fetchall()
         return {row["node_id"]: row["max_seq"] for row in rows}
 
+    def claim_ranges(self) -> Dict[int, List[Tuple[int, int]]]:
+        """Gap-aware version vector: `{node_id: [(lo, hi), ...]}`, the
+        inclusive runs of contiguous `seq` values this store holds per
+        node, ascending. A run starting at 0 is the contiguous prefix; any
+        later runs are out-of-order extras, and the space between runs is
+        exactly what is still missing. (gaps-and-islands over the
+        `idx_claims_seq` index.)
+        """
+        with self._lock:
+            rows = self._conn.execute(
+                """SELECT node_id, MIN(seq) AS lo, MAX(seq) AS hi FROM (
+                       SELECT node_id, seq,
+                              seq - ROW_NUMBER() OVER (PARTITION BY node_id ORDER BY seq) AS grp
+                       FROM claims)
+                   GROUP BY node_id, grp ORDER BY node_id, lo"""
+            ).fetchall()
+        out: Dict[int, List[Tuple[int, int]]] = {}
+        for r in rows:
+            out.setdefault(r["node_id"], []).append((r["lo"], r["hi"]))
+        return out
+
+    def claims_missing_from(
+        self, ranges: Dict[int, List[Tuple[int, int]]], limit: Optional[int] = None
+    ) -> List[Dict[str, Any]]:
+        """Claims in this store whose (node_id, seq) is NOT covered by a
+        peer's `ranges` (their `claim_ranges()`), ordered by (node_id,
+        seq). Unlike `claims_since` this fills holes below the peer's max
+        seq, not just what lies above it.
+        """
+        with self._lock:
+            node_ids = [
+                r["node_id"]
+                for r in self._conn.execute("SELECT DISTINCT node_id FROM claims").fetchall()
+            ]
+            missing: List[Dict[str, Any]] = []
+            for node_id in sorted(node_ids):
+                # Complement of the peer's runs = the intervals to query.
+                cursor = 0
+                intervals: List[Tuple[int, Optional[int]]] = []
+                for lo, hi in sorted(ranges.get(node_id, [])):
+                    if lo > cursor:
+                        intervals.append((cursor, lo - 1))
+                    cursor = max(cursor, hi + 1)
+                intervals.append((cursor, None))
+                for lo, hi in intervals:
+                    if limit is not None and len(missing) >= limit:
+                        break
+                    if hi is None:
+                        rows = self._conn.execute(
+                            "SELECT * FROM claims WHERE node_id=? AND seq>=? ORDER BY seq",
+                            (node_id, lo),
+                        ).fetchall()
+                    else:
+                        rows = self._conn.execute(
+                            "SELECT * FROM claims WHERE node_id=? AND seq BETWEEN ? AND ? ORDER BY seq",
+                            (node_id, lo, hi),
+                        ).fetchall()
+                    missing.extend(dict(r) for r in rows)
+        missing.sort(key=lambda r: (r["node_id"], r["seq"]))
+        return missing[:limit] if limit is not None else missing
+
     def claims_since(self, vv) -> List[Dict[str, Any]]:
         """Every claim in this store whose (node_id, seq) exceeds `vv`'s
         per-node threshold — i.e. what a peer holding `vv` is missing from

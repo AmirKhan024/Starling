@@ -68,8 +68,12 @@ class AttackInjector:
         intensity: float = 0.0,
         cfg: Optional[AttackConfig] = None,
         seed: Optional[int] = None,
+        embed_dim: int = _EMBED_DIM,
     ) -> None:
         self.node_id = node_id
+        # Fabricated claims must look like this deployment's real ones, so
+        # their embedding has the deployment's own dimensionality.
+        self.embed_dim = embed_dim
         self.attack = attack
         self.intensity = intensity
         self.cfg = cfg or AttackConfig()
@@ -128,7 +132,7 @@ class AttackInjector:
         self._synthetic_seq += 1
         i, j = self._random_free_cell(navmesh)
         x, y = navmesh.cell_to_world(i, j)
-        embedding = self._np_rng.normal(size=_EMBED_DIM).astype(np.float32)
+        embedding = self._np_rng.normal(size=self.embed_dim).astype(np.float32)
 
         return {
             "claim_id": str(ULID()),
@@ -189,9 +193,39 @@ class AttackInjector:
         return out
 
 
+class PartitionControl:
+    """A node's live-switchable, APPLICATION-LEVEL partition state
+    (STATUS.md Step 4). There is no real packet loss or link-layer cut
+    here — `apps/node.py` consults `is_dropped(sender_node_id)` at the
+    top of its gossip dispatch and silently discards anything from a
+    dropped peer, before it reaches the CRDT merge, the partition
+    tracker, or anti-entropy. Calling this on BOTH sides of a split (e.g.
+    node 0 and node 1 both told to drop {2, 3}, AND node 2 and node 3
+    both told to drop {0, 1}) is what makes the cut behave like a real
+    partition — `GossipNode.publish()` still broadcasts to every
+    configured neighbour regardless (there is no per-peer send in this
+    project's PUB/SUB transport), so a one-sided drop only stops this
+    node from being fooled by the other side, not the other way round.
+    The stronger, real version of this is `deploy/netem` (Docker-only, OS
+    level) — see STATUS.md's Known issues.
+    """
+
+    def __init__(self) -> None:
+        self.dropped_node_ids: set[int] = set()
+
+    def set_dropped(self, node_ids: list[int]) -> None:
+        self.dropped_node_ids = {int(n) for n in node_ids}
+
+    def is_dropped(self, node_id: int) -> bool:
+        return node_id in self.dropped_node_ids
+
+    def status(self) -> dict[str, Any]:
+        return {"dropped_node_ids": sorted(self.dropped_node_ids)}
+
+
 # ── control endpoint ──────────────────────────────────────────────────────
 
-def _handler_for(injector: AttackInjector) -> type:
+def _handler_for(injector: AttackInjector, partition: Optional[PartitionControl]) -> type:
     class _Handler(BaseHTTPRequestHandler):
         def log_message(self, fmt: str, *args: Any) -> None:  # noqa: A003
             # Silence http.server's default stderr access log — structured
@@ -206,16 +240,22 @@ def _handler_for(injector: AttackInjector) -> type:
             self.end_headers()
             self.wfile.write(body)
 
+        def _status_payload(self) -> dict[str, Any]:
+            payload = injector.status()
+            # Backward compatible: a ControlServer built without partition
+            # control (the pre-Step-4 default, still what most tests use)
+            # returns exactly injector.status(), unchanged.
+            if partition is not None:
+                payload["partition"] = partition.status()
+            return payload
+
         def do_GET(self) -> None:  # noqa: N802 — http.server's own naming convention
             if self.path != "/status":
                 self._respond_json(404, {"error": "not found"})
                 return
-            self._respond_json(200, injector.status())
+            self._respond_json(200, self._status_payload())
 
         def do_POST(self) -> None:  # noqa: N802
-            if self.path != "/attack":
-                self._respond_json(404, {"error": "not found"})
-                return
             length = int(self.headers.get("Content-Length", 0) or 0)
             raw = self.rfile.read(length) if length else b"{}"
             try:
@@ -223,15 +263,31 @@ def _handler_for(injector: AttackInjector) -> type:
             except json.JSONDecodeError:
                 self._respond_json(400, {"error": "invalid JSON"})
                 return
-            injector.set_attack(str(payload.get("attack", "none")), float(payload.get("intensity", 0.0)))
-            self._respond_json(200, injector.status())
+
+            if self.path == "/attack":
+                injector.set_attack(
+                    str(payload.get("attack", "none")), float(payload.get("intensity", 0.0))
+                )
+                self._respond_json(200, self._status_payload())
+                return
+
+            if self.path == "/partition":
+                if partition is None:
+                    self._respond_json(404, {"error": "partition control not enabled"})
+                    return
+                partition.set_dropped(payload.get("drop_node_ids", []))
+                self._respond_json(200, self._status_payload())
+                return
+
+            self._respond_json(404, {"error": "not found"})
 
     return _Handler
 
 
 class ControlServer:
     """Tiny stdlib `http.server` control endpoint for one node's
-    `AttackInjector`. Demo-only (guarded by `AttackConfig.enable_control_endpoint`,
+    `AttackInjector` (and, since STATUS.md Step 4, its
+    `PartitionControl`). Demo-only (guarded by `AttackConfig.enable_control_endpoint`,
     default `True` in dev configs). `host` defaults to `127.0.0.1` —
     correct when the caller (e.g. `apps/dashboard/app.py`'s "make node N
     lie" button, WP-13) runs as a neighbour process on the SAME host,
@@ -242,13 +298,21 @@ class ControlServer:
     network the dashboard container also sits on, never the public
     internet.
 
-        POST /attack  {"attack": "fabricate", "intensity": 0.5}
+        POST /attack     {"attack": "fabricate", "intensity": 0.5}
+        POST /partition  {"drop_node_ids": [2, 3]}
         GET  /status
     """
 
-    def __init__(self, injector: AttackInjector, port: int, host: str = "127.0.0.1") -> None:
+    def __init__(
+        self,
+        injector: AttackInjector,
+        port: int,
+        host: str = "127.0.0.1",
+        partition: Optional[PartitionControl] = None,
+    ) -> None:
         self.injector = injector
-        self._server = ThreadingHTTPServer((host, port), _handler_for(injector))
+        self.partition = partition
+        self._server = ThreadingHTTPServer((host, port), _handler_for(injector, partition))
         self._thread = threading.Thread(
             target=self._server.serve_forever, daemon=True, name=f"control-{injector.node_id}"
         )

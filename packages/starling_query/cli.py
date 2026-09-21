@@ -125,7 +125,7 @@ class _PassiveCollector:
         unsigned = type(inner)()
         unsigned.CopyFrom(inner)
         unsigned.signature = b""
-        if not self._keys.verify(envelope.sender_node_id, unsigned.SerializeToString(), sig):
+        if not self._keys.verify(envelope.sender_node_id, unsigned.SerializeToString(deterministic=True), sig):
             return
 
         self._last_seen[envelope.sender_node_id] = time.monotonic()

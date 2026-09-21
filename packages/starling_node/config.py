@@ -256,13 +256,36 @@ class AggregateConfig(BaseModel):
     krum_f: int = 1
 
 
+class SimNodeConfig(BaseModel):
+    """Only meaningful when `NodeConfig.source == "sim"` (STATUS.md Step
+    4): where this node's `starling_sim.node_client.SimNodeSource`
+    connects to reach the simulator process's ZMQ PUB socket
+    (`starling_sim.config.SimulatorConfig.bind_endpoint`). Defined here
+    rather than imported from `starling_sim`, matching every other
+    sub-model in this file (`PerceptionConfig`, `MatchConfig`, ...): a
+    node's config schema is defined once, in `starling_node`, regardless
+    of which package actually consumes a given field.
+    """
+
+    connect_endpoint: str = "tcp://127.0.0.1:5560"
+
+
 class NodeConfig(BaseModel):
     node_id: int
     name: str
+    # Video source: file path, RTSP URL, webcam index (as a string) — or
+    # the literal string "sim", meaning this node reads from a running
+    # starling_sim simulator process (see `sim` below) instead of a real
+    # or recorded camera. Kept a free-form string rather than an enum so
+    # existing video-path configs need no schema migration.
     source: str
     is_chokepoint: bool = False
     db_path: str
     calib_path: str | None = None
+    # Only read when source == "sim". Left at its default even for a
+    # video-path config — harmless, since apps/node.py never looks at it
+    # unless source == "sim".
+    sim: SimNodeConfig = Field(default_factory=SimNodeConfig)
     # D-03 (starling_net.timebase.MediaClock): unix seconds marking t=0 of
     # this node's recorded source. ALL nodes replaying the same scenario
     # must share the same stream_epoch, or their media times sit on
@@ -296,7 +319,9 @@ class NodeConfig(BaseModel):
 node_id: {node_id}
 name: "node-{node_id:02d}"
 
-# Video source: file path, RTSP URL, or webcam index (as a string)
+# Video source: file path, RTSP URL, webcam index (as a string), or the
+# literal string "sim" (STATUS.md Step 4: reads from a running
+# starling_sim simulator process instead of a camera — see `sim:` below).
 source: "data/videos/cam{node_id}.mp4"
 
 # Set true only for a node whose FOV covers a chokepoint (WP-12: face
@@ -309,6 +334,10 @@ db_path: "data/nodes/node-{node_id:02d}/local.db"
 # Path to this camera's intrinsics/extrinsics YAML (WP-05). Null until
 # calibration is done.
 calib_path: null
+
+# Only read when source == "sim" (STATUS.md Step 4).
+sim:
+  connect_endpoint: "tcp://127.0.0.1:5560"   # the simulator process's ZMQ PUB socket
 
 # Unix seconds marking t=0 of this node's recorded source. ALL nodes
 # replaying the same scenario must use the SAME stream_epoch, or their

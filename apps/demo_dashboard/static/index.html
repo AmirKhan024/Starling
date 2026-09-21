@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Starling Demo Dashboard</title>
+<style>
+  :root {
+    --bg: #f4f5f7; --panel: #ffffff; --ink: #1c2430; --muted: #667085; --line: #d8dde6;
+    --ok: #1a7f4b; --warn: #b7791f; --bad: #c0392b; --accent: #2557d6;
+    --zone: #e6eefc; --zone-off: #f6dede; --floor: #fbfbfd; --obst: #5b6472;
+    --gap: #eceef2;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #12161c; --panel: #1b212a; --ink: #e7ebf1; --muted: #9aa5b5; --line: #2c3541;
+      --zone: #1f2e4d; --zone-off: #4a2626; --floor: #161b22; --obst: #6b7686; --gap: #232a34;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 13px/1.35 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  header { display: flex; align-items: center; gap: 16px; padding: 8px 16px; background: var(--panel); border-bottom: 1px solid var(--line); }
+  header h1 { font-size: 16px; margin: 0; }
+  header .meta { color: var(--muted); font-variant-numeric: tabular-nums; }
+  .pill { display: inline-block; padding: 1px 8px; border-radius: 10px; font-weight: 600; font-size: 12px; border: 1px solid var(--line); }
+  .pill.ok { color: var(--ok); border-color: var(--ok); }
+  .pill.bad { color: var(--bad); border-color: var(--bad); }
+  .pill.warn { color: var(--warn); border-color: var(--warn); }
+  main { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); gap: 10px; padding: 10px 16px; }
+  section { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; min-width: 0; }
+  section h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin: 0 0 6px; }
+  #map { width: 100%; height: auto; display: block; background: var(--floor); border-radius: 4px; }
+  .legend { color: var(--muted); font-size: 12px; margin-top: 4px; }
+  .nodes { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .card { border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; }
+  .card.off { border-color: var(--bad); background: color-mix(in srgb, var(--bad) 8%, transparent); }
+  .card.lying { border-color: var(--warn); }
+  .card h3 { margin: 0 0 4px; font-size: 13px; display: flex; justify-content: space-between; align-items: center; }
+  .kv { display: grid; grid-template-columns: auto 1fr; gap: 1px 8px; font-variant-numeric: tabular-nums; }
+  .kv span:nth-child(odd) { color: var(--muted); }
+  .bar { height: 8px; background: var(--line); border-radius: 4px; overflow: hidden; margin-top: 2px; }
+  .bar .fill { height: 100%; background: var(--ok); }
+  .bar .fill.low { background: var(--bad); }
+  .bar .fill.mid { background: var(--warn); }
+  .controls { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  button, select, input[type=text] { font: inherit; color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 5px 10px; }
+  button { cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+  button.danger { color: var(--bad); border-color: var(--bad); }
+  input[type=text] { flex: 1; min-width: 160px; }
+  table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  th, td { text-align: left; padding: 2px 6px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  th { color: var(--muted); font-weight: 600; font-size: 11px; }
+  .sw { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 4px; vertical-align: middle; }
+  pre { margin: 4px 0 0; white-space: pre-wrap; font: 12px/1.4 ui-monospace, Consolas, monospace; }
+  #query-result { margin-top: 6px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; min-height: 60px; }
+  #query-result[data-status="refused"] { border-color: var(--bad); }
+  #query-result[data-status="answered"] { border-color: var(--ok); }
+  .events { max-height: 130px; overflow: auto; font-size: 12px; }
+  .events div { padding: 1px 0; border-bottom: 1px dotted var(--line); }
+  .muted { color: var(--muted); }
+  .col { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+  @media (max-width: 1000px) { main { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>Starling — decentralised identity network</h1>
+  <span data-testid="dash-status" class="pill warn" id="dash-status">connecting…</span>
+  <span class="meta">nodes live: <b data-testid="nodes-live" id="nodes-live">–</b>/4</span>
+  <span class="meta">sim t = <span data-testid="sim-time" id="sim-time">–</span> s</span>
+  <span class="meta">claims heard: <span data-testid="claims-total" id="claims-total">–</span></span>
+  <span class="meta">mean position error: <span data-testid="mean-error" id="mean-error">–</span> m</span>
+  <span class="meta">tick <span data-testid="refresh-tick" id="refresh-tick">0</span></span>
+</header>
+
+<main>
+  <div class="col">
+    <section>
+      <h2>Warehouse floor — believed positions (solid) vs simulator ground truth (faint, dashed)</h2>
+      <svg id="map" data-testid="map" viewBox="-1.5 -1.5 45 28.5" xmlns="http://www.w3.org/2000/svg">
+        <g id="layer-static"></g>
+        <g id="layer-regions" data-testid="layer-regions"></g>
+        <g id="layer-trails"></g>
+        <g id="layer-gt" data-testid="layer-gt"></g>
+        <g id="layer-believed" data-testid="layer-believed"></g>
+      </svg>
+      <div data-testid="region-summary" id="region-summary" class="legend" style="color:var(--ink)">Candidate regions: <span class="muted">none — every tracked worker is currently seen</span></div>
+      <div class="legend">Solid coloured dot = network's believed position (one colour per resolved identity). Faint dashed ring = simulator ground truth, for comparison only. Shaded area = "could be here" candidate region for an unseen worker.</div>
+    </section>
+
+    <section>
+      <h2>Resolved identities</h2>
+      <table data-testid="identity-table">
+        <thead><tr><th>identity</th><th>≈ ground-truth</th><th>status</th><th>position (m)</th><th>age (s)</th><th>via node</th><th>claims</th><th>error (m)</th><th>candidate region (m²)</th></tr></thead>
+        <tbody id="identity-rows"></tbody>
+      </table>
+      <div class="legend">"≈ ground-truth" is a display-only label: each identity is matched to the nearest simulator worker. The network itself never sees it.</div>
+    </section>
+
+    <section>
+      <h2>Open identity forks <span class="pill" data-testid="forks-count" id="forks-count">0</span></h2>
+      <div id="forks-list" data-testid="forks-panel"><span class="muted">none — no identity is bound to two incompatible trajectories</span></div>
+    </section>
+  </div>
+
+  <div class="col">
+    <section>
+      <h2>Controls</h2>
+      <div class="controls" style="margin-bottom:6px">
+        <button data-testid="btn-partition" id="btn-partition" class="danger">Partition {2,3} from {0,1}</button>
+        <button data-testid="btn-heal" id="btn-heal">Heal</button>
+        <button data-testid="btn-reset" id="btn-reset">Reset</button>
+      </div>
+      <div class="controls">
+        <select data-testid="select-lie-node" id="select-lie-node">
+          <option value="0">node 0</option><option value="1">node 1</option>
+          <option value="2">node 2</option><option value="3">node 3</option>
+        </select>
+        <button data-testid="btn-lie" id="btn-lie" class="danger">Make node lie</button>
+        <button data-testid="btn-stop-lie" id="btn-stop-lie">Stop lying</button>
+      </div>
+      <div class="legend" data-testid="action-status" id="action-status">ready</div>
+    </section>
+
+    <section>
+      <h2>Nodes (separate OS processes) · convergence: <span class="pill" data-testid="convergence-status" id="convergence-status">–</span></h2>
+      <div class="legend" style="margin:0 0 6px">claim-count spread <b data-testid="claim-spread" id="claim-spread">–</b> · gaps <b data-testid="claim-holes" id="claim-holes">–</b> · partition <b data-testid="partition-state" id="partition-state">–</b></div>
+      <div class="nodes" id="node-cards"></div>
+      <div class="legend">Reputation bar = median of the other nodes' gossiped opinions of that node. Rejected = its claims that failed the dashboard's own plausibility check.</div>
+    </section>
+
+    <section>
+      <h2>Query (capability-scoped)</h2>
+      <div class="controls">
+        <input type="text" data-testid="query-input" id="query-input" value="where is worker 2" aria-label="query text">
+        <select data-testid="query-purpose" id="query-purpose">
+          <option value="safety">purpose: safety</option>
+          <option value="productivity">purpose: productivity</option>
+        </select>
+        <button data-testid="query-submit" id="query-submit" class="primary">Ask</button>
+      </div>
+      <div id="query-result" data-testid="query-result" data-status="none"><span class="muted">no query yet</span></div>
+    </section>
+
+    <section>
+      <h2>Event log</h2>
+      <div class="events" data-testid="event-log" id="event-log"></div>
+    </section>
+  </div>
+</main>
+
+<script>
+"use strict";
+const PALETTE = ["#2557d6", "#d9480f", "#2b9348", "#9c36b5", "#c99700", "#0b8a9e", "#c2255c", "#5c6b7a", "#8a5a00", "#3b5bdb"];
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const colour = (i) => PALETTE[i % PALETTE.length];
+let CFG = null, lastGood = 0, cellSize = 0.25;
+
+async function api(path, body) {
+  const opt = body === undefined ? {} : { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) };
+  const r = await fetch(path, opt);
+  return r.json();
+}
+
+function drawStatic(fp, nodeState) {
+  const g = $("layer-static");
+  let h = "";
+  const polys = fp.features.filter((f) => f.geometry.type === "Polygon");
+  const pts = (ring) => ring.map((p) => p[0] + "," + p[1]).join(" ");
+  for (const f of polys.filter((f) => f.properties.role === "floor"))
+    h += `<polygon points="${pts(f.geometry.coordinates[0])}" fill="var(--gap)" stroke="var(--line)" stroke-width="0.1"/>`;
+  for (const f of polys.filter((f) => f.properties.role === "camera_zone")) {
+    const id = f.properties.node_id, off = nodeState && nodeState[id] && !nodeState[id].live;
+    const xs = f.geometry.coordinates[0].map((p) => p[0]), ys = f.geometry.coordinates[0].map((p) => p[1]);
+    h += `<polygon data-testid="zone-${id}" points="${pts(f.geometry.coordinates[0])}" fill="${off ? "var(--zone-off)" : "var(--zone)"}" stroke="var(--accent)" stroke-width="0.08" stroke-dasharray="0.4 0.3"/>`;
+    h += `<text x="${(Math.min(...xs) + Math.max(...xs)) / 2}" y="-0.35" text-anchor="middle" font-size="0.75" fill="var(--muted)">node ${id}${off ? " (OFFLINE)" : ""}</text>`;
+  }
+  for (const f of polys.filter((f) => f.properties.role === "obstacle"))
+    h += `<polygon points="${pts(f.geometry.coordinates[0])}" fill="var(--obst)"/>`;
+  for (const f of fp.features.filter((f) => f.geometry.type === "LineString")) {
+    const [a, b] = f.geometry.coordinates;
+    h += `<line x1="${a[0]}" y1="${a[1]}" x2="${b[0]}" y2="${b[1]}" stroke="var(--bad)" stroke-width="0.1" stroke-dasharray="0.3 0.25"/>`;
+  }
+  h += `<rect data-testid="blind-aisle" x="8" y="0" width="3" height="25" fill="var(--bad)" fill-opacity="0.07"/>`;
+  h += `<text x="9.5" y="26.2" text-anchor="middle" font-size="0.8" fill="var(--bad)">blind aisle (no camera)</text>`;
+  g.innerHTML = h;
+}
+
+function regionSvg(r) {
+  const c = colour(r.colour);
+  const cs = cellSize;
+  let rects = "", sx = 0, sy = 0, n = 0;
+  for (const [j, i0, i1] of r.runs) {
+    rects += `<rect x="${(i0 * cs).toFixed(2)}" y="${(j * cs).toFixed(2)}" width="${((i1 - i0 + 1) * cs).toFixed(2)}" height="${cs}" />`;
+    sx += ((i0 + i1 + 1) / 2) * cs * (i1 - i0 + 1); sy += (j + 0.5) * cs * (i1 - i0 + 1); n += i1 - i0 + 1;
+  }
+  const cx = n ? sx / n : r.origin[0], cy = n ? sy / n : r.origin[1];
+  return `<g data-testid="candidate-region-${esc(r.id.slice(-6))}" fill="${c}" fill-opacity="0.30" stroke="none">${rects}</g>` +
+    `<text data-testid="region-area-label-${esc(r.id.slice(-6))}" x="${cx.toFixed(2)}" y="${cy.toFixed(2)}" text-anchor="middle" font-size="0.85" font-weight="700" fill="${c}" stroke="var(--floor)" stroke-width="0.12" paint-order="stroke">could be here: ${r.area_m2.toFixed(1)} m²</text>`;
+}
+
+function render(s) {
+  $("dash-status").textContent = s.error ? "degraded" : "live";
+  $("dash-status").className = "pill " + (s.error ? "bad" : "ok");
+  $("refresh-tick").textContent = s.tick;
+  $("nodes-live").textContent = s.nodes_live;
+  $("sim-time").textContent = s.now_t_media.toFixed(1);
+  $("claims-total").textContent = s.claims_total;
+  $("mean-error").textContent = s.mean_error_m == null ? "–" : s.mean_error_m.toFixed(2);
+
+  const ns = {}; s.nodes.forEach((n) => (ns[n.id] = n));
+  drawStatic(CFG.floorplan, ns);
+
+  $("layer-regions").innerHTML = s.regions.map(regionSvg).join("");
+  $("layer-trails").innerHTML = s.identities.map((i) =>
+    i.trail.length > 1 ? `<polyline points="${i.trail.map((p) => p.join(",")).join(" ")}" fill="none" stroke="${colour(i.colour)}" stroke-width="0.12" stroke-opacity="0.5"/>` : "").join("");
+  $("layer-gt").innerHTML = s.gt ? s.gt.workers.map((w) =>
+    `<g data-testid="gt-marker-${w.id}" data-x="${w.x}" data-y="${w.y}" opacity="0.55"><circle cx="${w.x}" cy="${w.y}" r="0.75" fill="none" stroke="var(--muted)" stroke-width="0.12" stroke-dasharray="0.25 0.2"/><text x="${w.x + 0.9}" y="${w.y + 1.4}" font-size="0.7" fill="var(--muted)">truth: ${esc(w.name)}</text></g>`).join("") : "";
+  $("layer-believed").innerHTML = s.identities.map((i) => {
+    const c = colour(i.colour), unseen = i.status === "unseen";
+    return `<g data-testid="marker-${esc(i.short)}" data-x="${i.x}" data-y="${i.y}" data-status="${i.status}" opacity="${unseen ? 0.45 : 1}">` +
+      `<circle cx="${i.x}" cy="${i.y}" r="0.55" fill="${c}" stroke="#fff" stroke-width="0.12" ${unseen ? 'stroke-dasharray="0.2 0.15"' : ""}/>` +
+      `<text x="${i.x + 0.7}" y="${i.y - 0.6}" font-size="0.8" font-weight="700" fill="${c}" stroke="var(--floor)" stroke-width="0.12" paint-order="stroke">${esc(i.name ? "≈" + i.name : i.short)}${unseen ? " (unseen)" : ""}</text></g>`;
+  }).join("");
+
+  $("region-summary").innerHTML = "Candidate regions: " + (s.regions.length
+    ? s.regions.map((r) => `<span data-testid="region-${esc(r.id)}" data-area="${r.area_m2}" style="margin-right:12px"><span class="sw" style="background:${colour(r.colour)}"></span>${esc(r.id)}: <b data-testid="region-area-${esc(r.id)}">${r.area_m2.toFixed(1)}</b> m² <span class="muted">(unseen ${r.unseen_for_s}s)</span></span>`).join("")
+    : `<span class="muted">none — every tracked worker is currently seen</span>`);
+  const regionOf = {}; s.regions.forEach((r) => (regionOf[r.id] = r));
+  $("identity-rows").innerHTML = s.identities.map((i) => {
+    const r = regionOf[i.id];
+    return `<tr data-testid="identity-row-${esc(i.short)}" data-status="${i.status}"><td><span class="sw" style="background:${colour(i.colour)}"></span>${esc(i.short)}</td>` +
+      `<td>${esc(i.name || "–")}</td><td>${i.status}</td><td>${i.x.toFixed(1)}, ${i.y.toFixed(1)}</td><td>${i.age_s.toFixed(1)}</td><td>${i.node}</td><td>${i.n_claims}</td>` +
+      `<td data-testid="error-${esc(i.short)}">${i.error_m == null ? "–" : i.error_m.toFixed(2)}</td>` +
+      `<td data-testid="candidate-area-${esc(i.short)}">${r ? r.area_m2.toFixed(1) : "–"}</td></tr>`;
+  }).join("") || `<tr><td colspan="9" class="muted">waiting for claims…</td></tr>`;
+
+  $("forks-count").textContent = s.forks.length;
+  $("forks-list").innerHTML = s.forks.length
+    ? s.forks.map((f) => `<div data-testid="fork-${esc(f.short)}">fork <b>${esc(f.short)}</b> on identity ${esc(f.identity.slice(-6))} — ${f.branches} branches, OPEN</div>`).join("")
+    : `<span class="muted">none — no identity is bound to two incompatible trajectories</span>`;
+
+  const cv = s.convergence;
+  const cvEl = $("convergence-status");
+  cvEl.textContent = cv.any_partitioned ? "PARTITIONED" : cv.converged ? "CONVERGED" : "CONVERGING";
+  cvEl.className = "pill " + (cv.any_partitioned ? "bad" : cv.converged ? "ok" : "warn");
+  $("claim-spread").textContent = cv.spread == null ? "–" : cv.spread;
+  $("claim-holes").textContent = cv.holes_total;
+  $("partition-state").textContent = cv.any_partitioned ? "CUT" : "none";
+
+  $("node-cards").innerHTML = s.nodes.map((n) => {
+    const rep = n.reputation, pct = rep == null ? 100 : Math.round(rep * 100);
+    const cls = rep == null ? "" : rep < 0.4 ? "low" : rep < 0.75 ? "mid" : "";
+    return `<div class="card ${n.live ? "" : "off"} ${n.lying ? "lying" : ""}" data-testid="node-card-${n.id}">` +
+      `<h3>node ${n.id} <span class="pill ${n.live ? "ok" : "bad"}" data-testid="node-${n.id}-live">${n.live ? "LIVE" : "OFFLINE"}</span></h3>` +
+      `<div class="kv">` +
+      `<span>partitioned</span><b data-testid="node-${n.id}-partitioned">${n.partitioned ? "yes (drops " + n.dropped.join(",") + ")" : "no"}</b>` +
+      `<span>claims held</span><b data-testid="node-${n.id}-claims">${n.claims == null ? "–" : n.claims}</b>` +
+      `<span>gaps</span><b data-testid="node-${n.id}-holes">${n.holes == null ? "–" : n.holes}</b>` +
+      `<span>behaviour</span><b data-testid="node-${n.id}-lying">${n.lying ? "LYING (" + esc(n.attack) + " " + n.intensity + ")" : "honest"}</b>` +
+      `<span>rejected</span><b data-testid="node-${n.id}-rejected">${n.rejected} of ${n.evaluated}</b>` +
+      `<span>reputation</span><b data-testid="rep-value-${n.id}">${rep == null ? "–" : rep.toFixed(2)}</b></div>` +
+      `<div class="bar" data-testid="rep-bar-${n.id}" data-value="${rep == null ? "" : rep}"><div class="fill ${cls}" style="width:${pct}%"></div></div></div>`;
+  }).join("");
+
+  $("event-log").innerHTML = s.events.slice().reverse().map((e) => `<div><span class="muted">${e.wall_s}s</span> ${esc(e.text)}</div>`).join("");
+}
+
+async function refresh() {
+  try {
+    const s = await api("/api/state");
+    if (s.ready) { render(s); lastGood = Date.now(); }
+    else if (s.error) { $("dash-status").textContent = "error: " + s.error; $("dash-status").className = "pill bad"; }
+  } catch (e) {
+    $("dash-status").textContent = "reconnecting…"; $("dash-status").className = "pill warn";
+  }
+}
+
+async function act(label, path, body) {
+  $("action-status").textContent = label + "…";
+  try {
+    const r = await api(path, body || {});
+    $("action-status").textContent = label + (r.ok === false ? " — some nodes unreachable" : " — done");
+  } catch (e) { $("action-status").textContent = label + " failed: " + e; }
+  refresh();
+}
+
+function renderQuery(r) {
+  const el = $("query-result");
+  el.dataset.status = r.status;
+  let h = `<div><b data-testid="query-verdict">${r.status === "answered" ? "ANSWER" : "REFUSED"}</b> — <span class="muted">${esc(r.query)} [${esc(r.purpose)}]</span></div>`;
+  if (r.display_note) h += `<div class="muted">${esc(r.display_note)}</div>`;
+  if (r.status === "refused") {
+    h += `<div data-testid="query-reason">Reason: ${esc(r.reason)}</div>`;
+  } else {
+    const c = r.confirmed, i = r.inferred;
+    h += `<div data-testid="query-confirmed"><b>Confirmed:</b> last seen at (${c.x == null ? "?" : c.x.toFixed(1)}, ${c.y == null ? "?" : c.y.toFixed(1)}) m by node ${c.node}, ${c.age_s}s ago, confidence ${c.confidence == null ? "?" : c.confidence.toFixed(2)}</div>`;
+    h += `<div data-testid="query-inferred"><b>Inferred:</b> ${i.currently_unseen ? "currently unseen — could be anywhere in a " + i.candidate_region_m2.toFixed(1) + " m² candidate region" : "currently seen — no inference needed"}${i.note ? " · " + esc(i.note) : ""}</div>`;
+    h += `<div data-testid="query-unreachable"><b>Unreachable nodes:</b> ${r.unreachable_nodes.length ? r.unreachable_nodes.join(", ") : "none"} · ${r.nodes_responded} of ${r.nodes_total} nodes responded</div>`;
+  }
+  h += `<pre data-testid="query-result-text">${esc(r.text || r.reason || "")}</pre>`;
+  el.innerHTML = h;
+}
+
+async function boot() {
+  CFG = await api("/api/config");
+  cellSize = 0.25;
+  $("btn-partition").onclick = () => act("Partition", "/api/partition", {});
+  $("btn-heal").onclick = () => act("Heal", "/api/heal", {});
+  $("btn-reset").onclick = () => act("Reset", "/api/reset", {});
+  $("btn-lie").onclick = () => act("Node " + $("select-lie-node").value + " lies", "/api/lie", { node_id: +$("select-lie-node").value });
+  $("btn-stop-lie").onclick = () => act("Stop lying", "/api/stop_lie", {});
+  const ask = async () => {
+    $("query-result").dataset.status = "pending";
+    renderQuery(await api("/api/query", { text: $("query-input").value, purpose: $("query-purpose").value }));
+  };
+  $("query-submit").onclick = ask;
+  $("query-input").addEventListener("keydown", (e) => { if (e.key === "Enter") ask(); });
+  refresh();
+  setInterval(refresh, CFG.refresh_ms);
+}
+boot();
+</script>
+</body>
+</html>

@@ -1,0 +1,20 @@
+# Config for the simulator demo dashboard (apps/demo_dashboard). Every
+# field has a documented default in apps/demo_dashboard/config.py.
+peers:
+  0: "127.0.0.1:5555"
+  1: "127.0.0.1:5556"
+  2: "127.0.0.1:5557"
+  3: "127.0.0.1:5558"
+
+keys_dir: "configs/keys"
+navmesh_path: "data/floorplan/warehouse_demo.geojson"
+geometry:
+  cell_size_m: 0.25
+
+sim_endpoint: "tcp://127.0.0.1:5560"
+token_dir: "data/demo/tokens"
+http_host: "127.0.0.1"
+http_port: 8765
+
+stale_after_s: 4.0
+control_port_offset: 1000

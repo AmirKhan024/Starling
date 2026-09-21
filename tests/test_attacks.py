@@ -11,7 +11,7 @@ from typing import Any
 import numpy as np
 import pytest
 
-from starling_consensus.attacks import AttackInjector, ControlServer
+from starling_consensus.attacks import AttackInjector, ControlServer, PartitionControl
 from starling_consensus.plausibility import CorroboratedState, check
 from starling_geometry.navmesh import NavMesh
 from starling_geometry.reachability import ReachabilityModel
@@ -236,5 +236,66 @@ def test_control_server_binds_to_localhost_only():
     # returns once serve_forever is actually running — must start first.
     try:
         assert server._server.server_address[0] == "127.0.0.1"
+    finally:
+        server.stop()
+
+
+# ── partition control (STATUS.md Step 4) ───────────────────────────────────
+
+def test_partition_control_defaults_to_nothing_dropped():
+    partition = PartitionControl()
+    assert partition.status() == {"dropped_node_ids": []}
+    assert partition.is_dropped(2) is False
+
+
+def test_partition_control_set_dropped_then_cleared():
+    partition = PartitionControl()
+    partition.set_dropped([2, 3])
+    assert partition.is_dropped(2) is True
+    assert partition.is_dropped(3) is True
+    assert partition.is_dropped(0) is False
+    assert partition.status() == {"dropped_node_ids": [2, 3]}
+
+    partition.set_dropped([])
+    assert partition.is_dropped(2) is False
+
+
+def test_control_server_without_partition_control_status_is_unchanged():
+    """A ControlServer built the pre-Step-4 way (no `partition=`) must keep
+    returning exactly injector.status() — backward compatibility for every
+    caller that predates PartitionControl.
+    """
+    injector = AttackInjector(node_id=0, attack="none", intensity=0.0)
+    server = ControlServer(injector, port=_free_port())
+    server.start()
+    try:
+        url = f"http://127.0.0.1:{server.port}"
+        with urllib.request.urlopen(f"{url}/status", timeout=5) as resp:
+            status = json.loads(resp.read())
+        assert status == {"node_id": 0, "attack": "none", "intensity": 0.0}
+    finally:
+        server.stop()
+
+
+def test_control_server_partition_endpoint_updates_live_and_status_reflects_it():
+    injector = AttackInjector(node_id=0)
+    partition = PartitionControl()
+    server = ControlServer(injector, port=_free_port(), partition=partition)
+    server.start()
+    try:
+        url = f"http://127.0.0.1:{server.port}"
+
+        body = json.dumps({"drop_node_ids": [2, 3]}).encode("utf-8")
+        req = urllib.request.Request(
+            f"{url}/partition", data=body, headers={"Content-Type": "application/json"}, method="POST"
+        )
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            posted = json.loads(resp.read())
+        assert posted["partition"] == {"dropped_node_ids": [2, 3]}
+        assert partition.is_dropped(2) is True
+
+        with urllib.request.urlopen(f"{url}/status", timeout=5) as resp:
+            status = json.loads(resp.read())
+        assert status["partition"] == {"dropped_node_ids": [2, 3]}
     finally:
         server.stop()

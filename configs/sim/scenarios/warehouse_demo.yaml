@@ -1,0 +1,65 @@
+# Default demo scenario for data/floorplan/warehouse_demo.geojson.
+# Routes are hand-placed waypoint loops, not auto-pathfound — each one is
+# checked by hand to stay clear of that zone's racking obstacles (see the
+# floor plan's own obstacle coordinates). Designed to produce all five demo
+# moments (STATUS.md section 3) within about 3 minutes at speed 1.0:
+#   - worker-0, worker-1, worker-3, worker-4: normal walks, one per node's
+#     own zone, consistent identity as they loop.
+#   - worker-2: shuttles straight through the blind aisle (x=8..11) between
+#     node 0's and node 1's zones — the dead-zone demo moment.
+#   - the node-1 occlusion event (starting at 20s) is timed to overlap
+#     worker-2's crossings, so the "could be here" region and node 1's
+#     degraded attestation confidence are visible together.
+name: warehouse_demo
+
+workers:
+  - worker_id: 0
+    name: "worker-0"
+    route: [[1, 2], [7, 2], [7, 24], [1, 24]]
+    speed_m_s: 1.2
+    pause_prob_per_tick: 0.02
+    pause_duration_s: [1.0, 2.5]
+    loop: true
+
+  - worker_id: 1
+    name: "worker-1"
+    route: [[12, 2], [18, 2], [18, 24], [12, 24]]
+    speed_m_s: 1.1
+    pause_prob_per_tick: 0.02
+    pause_duration_s: [1.0, 2.5]
+    loop: true
+
+  - worker_id: 2
+    name: "worker-2"
+    route: [[4, 12], [15, 12]]
+    speed_m_s: 0.6   # slow enough that the 3m blind aisle stays dark for ~5s (long enough to watch the region)
+    pause_prob_per_tick: 0.0
+    loop: true
+
+  - worker_id: 3
+    name: "worker-3"
+    route: [[25, 2], [31, 2], [31, 24], [25, 24]]
+    speed_m_s: 1.0
+    pause_prob_per_tick: 0.03
+    pause_duration_s: [1.0, 3.0]
+    loop: true
+
+  - worker_id: 4
+    name: "worker-4"
+    route: [[36, 3], [39, 3], [39, 6], [36, 6]]
+    speed_m_s: 1.0
+    pause_prob_per_tick: 0.02
+    pause_duration_s: [1.0, 2.0]
+    loop: true
+
+occlusions:
+  - node_id: 1
+    start_s: 20.0
+    duration_s: 25.0
+    occlusion_ratio: 0.9
+    detector_health: 0.3
+  - node_id: 1
+    start_s: 80.0
+    duration_s: 25.0
+    occlusion_ratio: 0.9
+    detector_health: 0.3

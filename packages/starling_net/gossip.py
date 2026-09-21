@@ -124,7 +124,7 @@ class GossipNode:
 
         inner = getattr(envelope, payload_kind)
         inner.signature = b""
-        inner.signature = self.keys.sign(inner.SerializeToString())
+        inner.signature = self.keys.sign(inner.SerializeToString(deterministic=True))
 
         assert_wire_safe(envelope)
         raw = envelope.SerializeToString()
@@ -179,7 +179,7 @@ class GossipNode:
         unsigned = type(inner)()
         unsigned.CopyFrom(inner)
         unsigned.signature = b""
-        if not self.keys.verify(envelope.sender_node_id, unsigned.SerializeToString(), sig):
+        if not self.keys.verify(envelope.sender_node_id, unsigned.SerializeToString(deterministic=True), sig):
             logger.warning(
                 "gossip_drop_bad_signature",
                 node_id=self.node_id,

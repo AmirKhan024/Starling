@@ -1,0 +1,24 @@
+# Starling simulator config — the default demo run.
+# Every threshold below has a documented default in
+# packages/starling_sim/config.py. Edit here, not in code.
+
+floorplan_path: "data/floorplan/warehouse_demo.geojson"
+scenario_path: "configs/sim/scenarios/warehouse_demo.yaml"
+
+# ZMQ PUB socket sim-mode nodes and the dashboard connect to.
+bind_endpoint: "tcp://127.0.0.1:5560"
+
+tick_hz: 5.0           # simulator ticks per media-second
+speed: 1.0              # wall-clock speed multiplier; 1.0 = real time
+
+embed_dim: 64          # must match nodes' perception.embed_dim
+pos_noise_sigma_m: 0.08   # 1% of claims failed the resolver's reachability gate at 0.15 and spawned duplicate identities
+embedding_noise_sigma: 0.05
+detection_miss_prob: 0.03
+conf_min: 0.75
+conf_max: 0.98
+quality_min: 0.75   # score = similarity x quality must clear match.sim_threshold (0.60)
+quality_max: 0.95
+
+seed: 1234
+uniform_similarity: 0.0   # 0 = distinct appearances, 1 = "same uniform" stress test

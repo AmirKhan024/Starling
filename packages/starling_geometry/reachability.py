@@ -24,9 +24,13 @@ it unpadded.
 from __future__ import annotations
 
 import heapq
+from typing import Optional
+from collections import OrderedDict
 import math
 
 import numpy as np
+from scipy.sparse import csr_matrix
+from scipy.sparse.csgraph import dijkstra as _sp_dijkstra
 
 from starling_geometry.navmesh import NavMesh
 
@@ -41,11 +45,22 @@ _NEIGHBOUR_OFFSETS = [
 ]
 
 
+_BOUNDED_SEARCH_MAX_RADIUS_M = 8.0
+_LRU_MAX_FIELDS = 64  # 64 * (100x160 float64 = 128KB) ~ 8MB per model
+
+
 class ReachabilityModel:
     def __init__(self, navmesh: NavMesh, v_max_m_s: float = DEFAULT_V_MAX_M_S) -> None:
         self.navmesh = navmesh
         self.v_max_m_s = v_max_m_s
         self._cache: dict[tuple[int, int], np.ndarray] = {}
+        self._csr: Optional[csr_matrix] = None
+        # Bounded LRU of fields for origins that were NOT `precompute`d.
+        # Without it every plausibility check re-ran a pure-Python
+        # Dijkstra (~30 ms on a 100x160 grid), which wedged a node's main
+        # loop when a post-partition backlog arrived. The precomputed
+        # `_cache` above is never evicted.
+        self._lru: "OrderedDict[tuple[int, int], np.ndarray]" = OrderedDict()
 
     def distance_field(self, origin_xy: tuple[float, float]) -> np.ndarray:
         """Geodesic distance (metres) from `origin_xy` to every cell,
@@ -55,9 +70,59 @@ class ReachabilityModel:
         origin_cell = self.navmesh.world_to_cell(*origin_xy)
         if origin_cell in self._cache:
             return self._cache[origin_cell]
-        return self._dijkstra_from_cell(origin_cell)
+        cached = self._lru.get(origin_cell)
+        if cached is not None:
+            self._lru.move_to_end(origin_cell)
+            return cached
+        field = self._dijkstra_from_cell(origin_cell)
+        self._lru[origin_cell] = field
+        if len(self._lru) > _LRU_MAX_FIELDS:
+            self._lru.popitem(last=False)
+        return field
 
-    def _dijkstra_from_cell(self, origin_cell: tuple[int, int]) -> np.ndarray:
+    def _graph(self) -> csr_matrix:
+        """The 8-connected free-space graph (diagonal cost sqrt(2)*cell,
+        obstacles impassable) as a CSR matrix, built once per model —
+        the same edges `_dijkstra_reference` walks.
+        """
+        if self._csr is None:
+            grid = self.navmesh.grid
+            height, width = grid.shape
+            cs = self.navmesh.cell_size
+            idx = np.arange(height * width).reshape(height, width)
+            rows, cols, wts = [], [], []
+            for di, dj, step_cells in _NEIGHBOUR_OFFSETS:
+                j0, j1 = max(0, -dj), min(height, height - dj)
+                i0, i1 = max(0, -di), min(width, width - di)
+                src = grid[j0:j1, i0:i1]
+                dst = grid[j0 + dj : j1 + dj, i0 + di : i1 + di]
+                ok = src & dst
+                rows.append(idx[j0:j1, i0:i1][ok])
+                cols.append(idx[j0 + dj : j1 + dj, i0 + di : i1 + di][ok])
+                wts.append(np.full(int(ok.sum()), step_cells * cs))
+            self._csr = csr_matrix(
+                (np.concatenate(wts), (np.concatenate(rows), np.concatenate(cols))),
+                shape=(height * width, height * width),
+            )
+        return self._csr
+
+    def _dijkstra_from_cell(self, origin_cell: tuple[int, int], limit: float = np.inf) -> np.ndarray:
+        """Geodesic distance from `origin_cell` (scipy sparse Dijkstra over
+        the prebuilt graph); cells farther than `limit` come back `inf`.
+        Same distances as `_dijkstra_reference`, ~10x faster, and a finite
+        `limit` aborts the search early.
+        """
+        grid = self.navmesh.grid
+        height, width = grid.shape
+        oi, oj = origin_cell
+        if not (0 <= oi < width and 0 <= oj < height) or not grid[oj, oi]:
+            return np.full((height, width), np.inf, dtype=np.float64)
+        dist = _sp_dijkstra(self._graph(), directed=True, indices=oj * width + oi, limit=limit)
+        return dist.reshape(height, width)
+
+    def _dijkstra_reference(self, origin_cell: tuple[int, int]) -> np.ndarray:
+        """The original pure-Python Dijkstra, kept as the reference the
+        scipy version is tested against."""
         grid = self.navmesh.grid
         height, width = grid.shape
         cell_size = self.navmesh.cell_size
@@ -102,13 +167,29 @@ class ReachabilityModel:
     ) -> bool:
         """Permissive by design: slack = 2*pos_sigma + one grid cell."""
         slack = 2.0 * pos_sigma + self.navmesh.cell_size
-        mask = self.reachable_set(origin_xy, dt_s, extra_slack_m=slack)
+        radius = self.v_max_m_s * dt_s + slack
 
         ti, tj = self.navmesh.world_to_cell(*target_xy)
-        height, width = mask.shape
+        height, width = self.navmesh.grid.shape
         if not (0 <= ti < width and 0 <= tj < height):
             return False
-        return bool(mask[tj, ti])
+
+        oi, oj = self.navmesh.world_to_cell(*origin_xy)
+        # Exact fast rejection: a grid path is never shorter than the
+        # straight line between the two cell centres.
+        if math.hypot(ti - oi, tj - oj) * self.navmesh.cell_size > radius:
+            return False
+
+        if (oi, oj) in self._cache or (oi, oj) in self._lru or radius > _BOUNDED_SEARCH_MAX_RADIUS_M:
+            # Cached already, or the radius is big enough that the search
+            # covers much of the floor anyway: compute the full field once
+            # and keep it (a stale origin is queried again and again).
+            dist = self.distance_field(origin_xy)
+        else:
+            # Bounded search: only cells within `radius` matter here, so
+            # abort there instead of flooding the whole floor plan.
+            dist = self._dijkstra_from_cell((oi, oj), limit=radius)
+        return bool(dist[tj, ti] <= radius)
 
     def precompute(self, origin_points: list[tuple[float, float]]) -> None:
         """Cache a distance field for each FOV exit point (keyed by its

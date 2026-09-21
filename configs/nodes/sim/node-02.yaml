@@ -1,0 +1,49 @@
+# Starling node config — node-02 (SIM variant). See node-00.yaml for the
+# field-by-field commentary; this file only calls out what differs.
+
+node_id: 2
+name: "node-02"
+source: "sim"
+is_chokepoint: false
+db_path: "data/nodes/sim/node-02/local.db"
+calib_path: null
+
+sim:
+  connect_endpoint: "tcp://127.0.0.1:5560"
+
+stream_epoch: 0.0
+
+perception:
+  embed_dim: 64
+
+match:
+  sim_threshold: 0.60
+  margin_threshold: 0.10
+  lost_threshold_s: 120.0
+  ema_alpha: 0.10
+
+net:
+  listen_port: 5557
+  neighbours: ["127.0.0.1:5556", "127.0.0.1:5558"]  # ring topology (CLAUDE.md rule 4)
+  gossip_interval_s: 2.0
+
+geometry:
+  navmesh_path: "data/floorplan/warehouse_demo.geojson"
+  cell_size_m: 0.25
+
+coverage:
+  # Node 2's zone doesn't border the blind aisle — no boundaries to
+  # watch, so it never attests (a documented, expected "node_attestation
+  # _disabled" warning at startup — see apps/node.py's own comment).
+  watched_boundary_ids: []
+  tau_attest: 0.7
+
+attest:
+  tick_interval_s: 2.0
+  tau_attest: 0.7
+
+attack:
+  attack: "none"
+  intensity: 0.0
+  enable_control_endpoint: true
+  control_bind_host: "127.0.0.1"
