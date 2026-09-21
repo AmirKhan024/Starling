@@ -269,7 +269,7 @@ function render(s) {
     const h = r.history, W = 200, H = 34;
     const tmax = Math.max(1, ...h.map((p) => p[0])), amax = Math.max(1, ...h.map((p) => Math.max(p[1], p[2])));
     const line = (k) => h.map((p) => `${(p[0] / tmax * W).toFixed(1)},${(H - p[k] / amax * H).toFixed(1)}`).join(" ");
-    return `<div class="card" style="margin-top:6px" data-testid="region-card-${esc(r.id)}">` +
+    return `<div class="card" style="margin-top:6px" data-testid="region-card-${esc(r.id)}" data-zone-overlap='${esc(JSON.stringify(r.zone_overlap_m2))}' data-healthy="${r.healthy_nodes.join(",")}" data-silent="${r.silent_nodes.join(",")}" data-occluded="${r.occluded_nodes.join(",")}">` +
       `<div><b>${esc(r.id)}</b> hidden <b data-testid="region-hidden-${esc(r.id)}">${r.unseen_for_s}</b> s · search area <b data-testid="region-area-${esc(r.id)}-m2">${r.area_m2.toFixed(1)}</b> m² ` +
       `vs <span data-testid="region-reach-${esc(r.id)}">${r.reachable_area_m2.toFixed(1)}</span> m² reachable without negative evidence ` +
       `(<span data-testid="region-ratio-${esc(r.id)}">${r.ratio == null ? "–" : Math.round(r.ratio * 100)}%</span>) · ` +

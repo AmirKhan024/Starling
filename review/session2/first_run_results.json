@@ -1,0 +1,498 @@
+{
+ "moments": {
+  "0": {
+   "title": "Startup",
+   "verdict": "PASS",
+   "reason": "all 4 nodes live 5.3s after launch (page loaded, claims flowing)",
+   "measures": {
+    "seconds_launch_to_all_nodes_live": 5.3
+   },
+   "what": "The dashboard loads and all four node processes are live.",
+   "action": "Launched `scripts/run_demo.py --headless` (simulator + 4 nodes + dashboard), opened the dashboard in headless Chromium."
+  },
+  "1": {
+   "title": "Normal walk",
+   "verdict": "PASS",
+   "reason": "5 identities tracked, worker-2 kept P-004 across nodes [0, 1], mean error 0.18 m vs ground truth",
+   "measures": {
+    "identities_named_at_start": 5,
+    "max_identity_displacement_in_6s_m": 3.94,
+    "mean_position_error_m_samples": [
+     0.67,
+     0.67,
+     0.07,
+     0.07,
+     0.1,
+     0.1,
+     0.2,
+     0.49,
+     0.49,
+     0.66
+    ],
+    "mean_position_error_m_avg": 0.18,
+    "worker2_label_before_after_zone_change": [
+     "P-004",
+     "P-004"
+    ],
+    "worker2_nodes_seen_by": [
+     0,
+     1
+    ],
+    "final_per_identity_error_m": [
+     0.44,
+     2.06,
+     0.15,
+     0.32,
+     0.32
+    ]
+   },
+   "what": "Believed worker positions (one colour per resolved identity) move across the floor plan and keep their identity across camera zones; faint ground-truth markers give the comparison.",
+   "action": "Observed only (no controls): sampled the DOM for ~30 s and followed worker-2, which walks from node 0's zone through the blind aisle into node 1's zone."
+  },
+  "2": {
+   "title": "Dead zone",
+   "verdict": "PARTIAL",
+   "reason": "the region never shrank (it only grew/plateaued before the worker re-emerged). Areas over time: [(0.1, 41.75), (0.8, 41.75), (1.5, 67.75), (2.2, 106.06), (3.0, 149), (3.8, 149), (4.5, 195.5), (5.2, 249.88), (5.9, 249.88), (6.6, 311.25), (7.3, 383.12), (8.1, 461.75), (8.8, 461.75), (9.5, 542.56)]",
+   "measures": {
+    "identity_before": "P-004",
+    "identity_after_reemerging": "P-004",
+    "same_identity_after": true,
+    "area_samples_seconds_since_region_appeared_m2": [
+     [
+      0.1,
+      41.75
+     ],
+     [
+      0.8,
+      41.75
+     ],
+     [
+      1.5,
+      67.75
+     ],
+     [
+      2.2,
+      106.06
+     ],
+     [
+      3.0,
+      149
+     ],
+     [
+      3.8,
+      149
+     ],
+     [
+      4.5,
+      195.5
+     ],
+     [
+      5.2,
+      249.88
+     ],
+     [
+      5.9,
+      249.88
+     ],
+     [
+      6.6,
+      311.25
+     ],
+     [
+      7.3,
+      383.12
+     ],
+     [
+      8.1,
+      461.75
+     ],
+     [
+      8.8,
+      461.75
+     ],
+     [
+      9.5,
+      542.56
+     ]
+    ],
+    "n_samples": 14,
+    "peak_area_m2": 542.56,
+    "final_area_m2": 542.56,
+    "area_ever_decreased": false
+   },
+   "what": "A worker walks into the blind aisle; instead of the track vanishing, a shaded 'could be here' region appears and (with attested absence) shrinks; on re-emergence the same identity is restored.",
+   "action": "Observed only: waited for worker-2 to enter the 3 m blind aisle, sampled the candidate-region area from the DOM each ~1 s, and checked its identity after it reappeared."
+  },
+  "3": {
+   "title": "Partition and heal",
+   "verdict": "PASS",
+   "reason": "partition shown on all nodes, spread grew to 30.0, converged 2.1s after heal with gaps=0; open forks: 0",
+   "measures": {
+    "before": {
+     "claims": [
+      914.0,
+      913.0,
+      908.0,
+      913.0
+     ],
+     "spread": 6.0,
+     "convergence": "CONVERGED"
+    },
+    "partition_state_shown_on_all_4_nodes": true,
+    "spread_and_claims_during_partition": [
+     [
+      0.0,
+      7.0,
+      [
+       963.0,
+       961.0,
+       956.0,
+       961.0
+      ]
+     ],
+     [
+      1.5,
+      19.0,
+      [
+       975.0,
+       975.0,
+       956.0,
+       972.0
+      ]
+     ],
+     [
+      3.0,
+      3.0,
+      [
+       995.0,
+       995.0,
+       992.0,
+       993.0
+      ]
+     ],
+     [
+      4.5,
+      12.0,
+      [
+       1005.0,
+       1005.0,
+       1002.0,
+       993.0
+      ]
+     ],
+     [
+      6.1,
+      8.0,
+      [
+       1029.0,
+       1030.0,
+       1022.0,
+       1022.0
+      ]
+     ],
+     [
+      7.6,
+      13.0,
+      [
+       1044.0,
+       1045.0,
+       1033.0,
+       1032.0
+      ]
+     ],
+     [
+      9.1,
+      25.0,
+      [
+       1073.0,
+       1075.0,
+       1050.0,
+       1051.0
+      ]
+     ],
+     [
+      10.6,
+      30.0,
+      [
+       1088.0,
+       1090.0,
+       1060.0,
+       1061.0
+      ]
+     ]
+    ],
+    "max_spread_during_partition": 30.0,
+    "seconds_from_heal_to_converged": 2.1,
+    "after_heal_claims": [
+     1304.0,
+     1306.0,
+     1305.0,
+     1301.0
+    ],
+    "after_heal_gaps": 0.0,
+    "open_forks_during": 0.0,
+    "open_forks_after": 0,
+    "claims_on_sides_pre_heal": [
+     1117.0,
+     1119.0,
+     1080.0,
+     1079.0
+    ]
+   },
+   "what": "Cut nodes {2,3} from {0,1}; both sides keep working; on heal the replicas reconverge (equal claim counts, no gaps); any genuine conflict shows as an open fork.",
+   "action": "Pressed 'Partition {2,3} from {0,1}', waited, pressed 'Heal', and timed how long until the convergence badge read CONVERGED."
+  },
+  "4": {
+   "title": "Lying node",
+   "verdict": "PASS",
+   "reason": "liar's reputation < 0.7 after 3.6s (51.0 claims rejected), honest nodes stayed >= 1.0, recovered > 0.9 8.1s after stopping",
+   "measures": {
+    "liar_node": 2,
+    "reputation_before": [
+     1.0,
+     1.0,
+     1.0,
+     1.0
+    ],
+    "reputation_and_rejected_samples_while_lying": [
+     {
+      "t": 0.0,
+      "reputation": [
+       1.0,
+       1.0,
+       1.0,
+       1.0
+      ],
+      "rejected": [
+       0.0,
+       1.0,
+       0.0,
+       0.0
+      ]
+     },
+     {
+      "t": 1.8,
+      "reputation": [
+       1.0,
+       1.0,
+       0.87,
+       1.0
+      ],
+      "rejected": [
+       0.0,
+       1.0,
+       4.0,
+       0.0
+      ]
+     },
+     {
+      "t": 3.6,
+      "reputation": [
+       1.0,
+       1.0,
+       0.65,
+       1.0
+      ],
+      "rejected": [
+       0.0,
+       1.0,
+       15.0,
+       0.0
+      ]
+     },
+     {
+      "t": 5.5,
+      "reputation": [
+       1.0,
+       1.0,
+       0.58,
+       1.0
+      ],
+      "rejected": [
+       0.0,
+       1.0,
+       24.0,
+       0.0
+      ]
+     },
+     {
+      "t": 7.4,
+      "reputation": [
+       1.0,
+       1.0,
+       0.51,
+       1.0
+      ],
+      "rejected": [
+       0.0,
+       1.0,
+       32.0,
+       0.0
+      ]
+     },
+     {
+      "t": 9.2,
+      "reputation": [
+       1.0,
+       1.0,
+       0.52,
+       1.0
+      ],
+      "rejected": [
+       0.0,
+       1.0,
+       38.0,
+       0.0
+      ]
+     },
+     {
+      "t": 11.0,
+      "reputation": [
+       1.0,
+       1.0,
+       0.52,
+       1.0
+      ],
+      "rejected": [
+       0.0,
+       1.0,
+       47.0,
+       0.0
+      ]
+     },
+     {
+      "t": 12.9,
+      "reputation": [
+       1.0,
+       1.0,
+       0.57,
+       1.0
+      ],
+      "rejected": [
+       0.0,
+       1.0,
+       51.0,
+       0.0
+      ]
+     }
+    ],
+    "seconds_until_liar_reputation_below_0.7": 3.6,
+    "liar_rejected_claims_at_end": 51.0,
+    "lowest_honest_node_reputation_while_lying": 1.0,
+    "recovery_samples_after_stop": [
+     {
+      "t": 0.0,
+      "reputation": [
+       1.0,
+       1.0,
+       0.54,
+       1.0
+      ]
+     },
+     {
+      "t": 2.0,
+      "reputation": [
+       1.0,
+       1.0,
+       0.71,
+       1.0
+      ]
+     },
+     {
+      "t": 4.0,
+      "reputation": [
+       1.0,
+       1.0,
+       0.79,
+       1.0
+      ]
+     },
+     {
+      "t": 6.0,
+      "reputation": [
+       1.0,
+       1.0,
+       0.86,
+       1.0
+      ]
+     },
+     {
+      "t": 8.1,
+      "reputation": [
+       1.0,
+       1.0,
+       0.92,
+       1.0
+      ]
+     }
+    ],
+    "seconds_until_liar_reputation_above_0.9_after_stop": 8.1
+   },
+   "what": "A node fabricates sightings; peers reject implausible claims and its reputation, as seen by peers, drops; it recovers when it stops.",
+   "action": "Selected node 2, pressed 'Make node lie', sampled reputation and rejected-claim counters every ~2 s for up to 40 s, then pressed 'Stop lying' and sampled recovery for up to 60 s."
+  },
+  "5": {
+   "title": "Query and refusal",
+   "verdict": "PASS",
+   "reason": "valid query answered with confirmed/inferred/unreachable; unknown worker and productivity purpose refused with reasons; partition edge case gave: refused — Reason: 'P-002' was only observed by node 2, which is/are unreachable for the entire requested window — a partitioned wing, not an absence",
+   "measures": {
+    "valid_query": {
+     "status": "answered",
+     "verdict": "ANSWER",
+     "reason": null,
+     "confirmed": "Confirmed: last seen at (7.9, 11.9) m by node 0, 0.4s ago, confidence 0.75",
+     "inferred": "Inferred: currently seen — no inference needed · last position is appearance-matched, not anchored — treat as a hypothesis",
+     "unreachable": "Unreachable nodes: none · 4 of 4 nodes responded",
+     "text": "Subject:          P-004\nLast confirmed:   (7.9, 11.9) m, t=79.8, confidence 0.75, node 0\nAnchor:           none recorded\nInferred:         last position is appearance-matched, not anchored — treat as a hypothesis\nCompleteness:     4 of 4 nodes responded",
+     "note": "ANSWER — where is worker 2 [safety]'worker 2' → resolved identity P-004 (display mapping from the simulator's ground truth)Confirmed: last seen at (7.9, 11.9) m by node 0, 0.4s ago, confidence 0.75Inferred: currently seen — no inference needed · last position is appearance-matched, not anchored — treat as a hypothesisUnreachable nodes: none · 4 of 4 nodes respondedSubject:          P-004\nLast confirmed:   (7.9, 11.9) m, t=79.8, confidence 0.75, node 0\nAnchor:           none recorded\nInferred:         last position is appearance-matched, not anchored — treat as a hypothesis\nCompleteness:     4 "
+    },
+    "unknown_worker": {
+     "status": "refused",
+     "verdict": "REFUSED",
+     "reason": "Reason: subject 'worker 9' was never enrolled — no claims found for this identity",
+     "confirmed": null,
+     "inferred": null,
+     "unreachable": null,
+     "text": "subject 'worker 9' was never enrolled — no claims found for this identity",
+     "note": "REFUSED — where is worker 9 [safety]Reason: subject 'worker 9' was never enrolled — no claims found for this identitysubject 'worker 9' was never enrolled — no claims found for this identity"
+    },
+    "during_partition": {
+     "status": "refused",
+     "verdict": "REFUSED",
+     "reason": "Reason: 'P-002' was only observed by node 2, which is/are unreachable for the entire requested window — a partitioned wing, not an absence",
+     "confirmed": null,
+     "inferred": null,
+     "unreachable": null,
+     "text": "'P-002' was only observed by node 2, which is/are unreachable for the entire requested window — a partitioned wing, not an absence",
+     "note": "REFUSED — where is worker 3 [safety]'worker 3' → resolved identity P-002 (display mapping from the simulator's ground truth)Reason: 'P-002' was only observed by node 2, which is/are unreachable for the entire requested window — a partitioned wing, not an absence'P-002' was only observed by node 2, which is/are unreachable for the entire requested window — a partitioned wing, not an absence"
+    },
+    "productivity_token": {
+     "status": "refused",
+     "verdict": "REFUSED",
+     "reason": "Reason: purpose 'productivity' is not authorised for querying (allowed: ['audit', 'incident', 'safety'])",
+     "confirmed": null,
+     "inferred": null,
+     "unreachable": null,
+     "text": "purpose 'productivity' is not authorised for querying (allowed: ['audit', 'incident', 'safety'])",
+     "note": "REFUSED — where is worker 2 [productivity]'worker 2' → resolved identity P-004 (display mapping from the simulator's ground truth)Reason: purpose 'productivity' is not authorised for querying (allowed: ['audit', 'incident', 'safety'])purpose 'productivity' is not authorised for querying (allowed: ['audit', 'incident', 'safety'])"
+    }
+   },
+   "what": "A text query (with a `safety` capability token) returns a structured answer that separates confirmed from inferred and names unreachable nodes; unanswerable queries are refused with a reason.",
+   "action": "Typed queries into the query box and read the rendered result from the DOM: a valid one, an unknown worker, a query during a partition, and one under a `productivity` token."
+  },
+  "6": {
+   "title": "Robustness",
+   "verdict": "PASS",
+   "reason": "reload recovered in 0.1s; killed node OFFLINE after 5.0s; LIVE again 2.1s after restart; converged 5.0s after restart",
+   "measures": {
+    "seconds_to_recover_after_reload": 0.1,
+    "seconds_until_killed_node_shown_offline": 5.0,
+    "other_nodes_stayed_live_while_node1_down": true,
+    "seconds_until_restarted_node_live": 2.1,
+    "seconds_from_restart_to_converged": 5.0
+   },
+   "what": "The dashboard survives a page reload; a node process that actually dies is shown as OFFLINE, and shown live again when restarted.",
+   "action": "Reloaded the browser page; then hard-killed node 1's OS process (not via any dashboard control), watched the card, restarted the process, and watched it return."
+  }
+ }
+}

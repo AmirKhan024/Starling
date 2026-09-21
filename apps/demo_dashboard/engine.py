@@ -117,6 +117,7 @@ class DashboardEngine:
         self._seen_ids: set[str] = set()
         self._fork_memory: dict[str, dict[str, Any]] = {}
         self._conflict: dict[str, Any] = {}
+        self._conflict_started: dict[str, float] = {}
         self._conflict_thread: Optional[threading.Thread] = None
         self._max_t = 0.0
         self._claim_label: dict[str, str] = {}
@@ -271,6 +272,12 @@ class DashboardEngine:
             return {"ok": False, "error": "unknown variant"}
         if self._conflict_thread is not None and self._conflict_thread.is_alive():
             return {"ok": False, "error": "a conflict scenario is already running"}
+        since = time.monotonic() - self._conflict_started.get(variant, -1e9)
+        if since < self.cfg.conflict_cooldown_s:
+            # The twins of the previous run are still walking and their identities are
+            # still in the resolver window: a second run now would compete with them.
+            return {"ok": False, "error": f"'{variant}' ran {since:.0f}s ago; wait {self.cfg.conflict_cooldown_s - since:.0f}s (its actors are still walking)"}
+        self._conflict_started[variant] = time.monotonic()
 
         def run() -> None:
             t0 = time.monotonic()

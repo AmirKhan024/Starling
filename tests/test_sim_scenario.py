@@ -13,12 +13,12 @@ DEFAULT_SCENARIO = (
 )
 
 
-def test_default_scenario_loads_seven_workers_two_actors_and_scripts():
+def test_default_scenario_loads_nine_workers_actors_and_scripts():
     scenario = load_scenario(DEFAULT_SCENARIO)
 
     assert scenario.name == "warehouse_demo"
-    assert {w.worker_id for w in scenario.workers} == {0, 1, 2, 3, 4, 5, 6}
-    assert {w.worker_id for w in scenario.workers if not w.active} == {2, 5, 6}
+    assert {w.worker_id for w in scenario.workers} == {0, 1, 2, 3, 4, 5, 6, 7, 8}
+    assert {w.worker_id for w in scenario.workers if not w.active} == {2, 5, 6, 7, 8}
     assert {"dead_zone_healthy", "dead_zone_occluded", "conflict_ambiguous", "conflict_resolvable"} <= set(scenario.scripts)
     assert scenario.auto and len(scenario.anchors) == 2
 

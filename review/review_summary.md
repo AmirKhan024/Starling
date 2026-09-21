@@ -1,30 +1,34 @@
-# Starling demo — automated review summary
+# Starling demo — automated review summary (session 3)
 
-Generated 2026-09-21 22:04:25 by `scripts/review_demo.py` (commit `c8c7850`). Same content as `review.html`, without images (file names refer to `review/screenshots/`).
+Generated 2026-09-21 23:27:18 by `scripts/review_demo.py` (commit `4036a2b`). Same content as `review.html`, without images (file names refer to `review/screenshots/`). The centralized system is a comparison, not part of Starling.
 
 ## Summary
 
 | # | Moment | Verdict | Key measured numbers | Reason |
 |---|---|---|---|---|
-| 0 | Startup | **PASS** | all 4 nodes live after 4.1 s | all 4 nodes live 4.1s after launch (page loaded, claims flowing) |
-| 1 | Normal walk | **PASS** | mean error 0.32 m; worker-2 label ['P-003', 'P-003'] | 5 identities tracked, worker-2 kept P-003 across nodes [0, 1], mean error 0.32 m vs ground truth |
-| 2 | Dead zone | **PARTIAL** | ep1: peak 84.56 m², final 84.56 m², shrank=True, same id=True; ep2: peak 116.5 m², final 116.5 m², shrank=False, same id=True; ep3: peak 86.56 m², final 86.56 m², shrank=False, same id=True | the region shrank in only 1 of 3 dark episodes (a majority is required for PASS; in the others it only grew until the worker re-emerged). ep1 (sim t=45.2 s): 9 samples, peak 84.56 m², final 84.56 m², shrank, same identity after; ep2 (sim t=63.2 s): 9 samples, peak 116.5 m², final 116.5 m², no shrink, same identity after; ep3 (sim t=81.4 s): 11 samples, peak 86.56 m², final 86.56 m², no shrink, same identity after |
-| 3 | Partition and heal | **PASS** | max spread 51.0, heal→converged 2.4 s, gaps 0.0 | partition shown on all nodes, spread grew to 51.0, converged 2.4s after heal with gaps=0; open forks: 0 |
-| 4 | Lying node | **PASS** | liar <0.7 after 3.6 s, rejected 48.0, recovered >0.9 after 8.1 s | liar's reputation < 0.7 after 3.6s (48.0 claims rejected), honest nodes stayed >= 1.0, recovered > 0.9 8.1s after stopping |
-| 5 | Query and refusal | **PASS** | answer + 3 refusal/edge cases (see section) | valid query answered with confirmed/inferred/unreachable; unknown worker and productivity purpose refused with reasons; partition edge case gave: refused — Reason: 'P-002' was only observed by node 2, which is/are unreachable for the entire requested window — a partitioned wing, not an absence |
-| 6 | Robustness | **PASS** | reload 0.0 s; offline 5.3 s; back 2.5 s | reload recovered in 0.0s; killed node OFFLINE after 5.3s; LIVE again 2.5s after restart; converged 3.8s after restart |
+| 0 | Startup | **PASS** | all live after 5.3 s | all 4 nodes live and central server healthy 5.3s after launch; all camera zones healthy; demo-script panel lists 9 steps |
+| 1 | Normal walk | **PASS** | 4 identities, mean error 0.35 m | 4 identities tracked, labels unchanged for 25 s, max displacement 21.3 m, mean error 0.35 m vs ground truth |
+| 2a | Dead zone, healthy exits | **PASS** | region 69 m² vs 932.5 m² reachable (ratio 0.074); max in healthy zones 0 m²; lasted 24.9 s | region confined to the block for 24.9 s (0 m² in healthy zones, at most 0.5 m² outside the block), final 69 m² vs 932.5 m² reachable (ratio 0.074), same identity P-005 on re-emergence |
+| 2b | Dead zone, occluded exit | **PASS** | leak into occluded zone 1: 105 m²; into other zones: 0.0 m² | region leaked into camera 1's zone (up to 105 m²) and into no other zone; page said 'camera 1 is silent (occluded...): its silence is not counted as evidence' in 30 of 30 samples; same identity on re-emergence |
+| 3 | Partition and heal | **PASS** | heal→converged 1.1 s, max spread 51.0 | partition shown on all nodes, spread grew to 51.0, converged 1.1s after heal with gaps=0 |
+| 4 | Lying node | **PASS** | liar <0.7 after 12.8 s; recovered >0.9 after 8.1 s | liar's reputation < 0.7 after 12.8s (72.0 claims rejected), honest nodes stayed >= 1.0 (their rejected counters grew by [7.0, 0, 0.0] during the test), recovered > 0.9 8.1s after stopping |
+| 5 | Query and refusal | **PASS** | 5 queries (answer, unknown, partitioned, productivity, blind-block) | valid query answered (confirmed/inferred/unreachable); unknown worker and productivity purpose refused with reasons; partition edge case: refused; blind-block query reported: Inferred: currently unseen — could be anywhere in a 69.0 m² candidate region · last position is appearance-matched, not anchored — treat as a hypothes |
+| 6 | Robustness | **PASS** | reload 0.1 s; offline 4.9 s; back 4.1 s | reload recovered in 0.1s; killed node OFFLINE after 4.9s (its camera zone: silent); LIVE again 4.1s after restart; converged 5.8s after restart |
+| 7a | Conflict, resolvable | **PASS** | fork RESOLVED_REACHABILITY after heal | no fork while partitioned (389 far-side claims held back); after healing the fork appeared and was resolved by reachability: Resolved by reachability: branch 0 kept. Rejected: branch 1 requires 6.7 m/s over 4.2 s, exceeds v_max 1.6 m/s. |
+| 7b | Conflict, ambiguous | **FAIL** | fork None; still None 8 s later | no fork appeared after healing; no fork line in the event log |
+| 8 | Centralized comparison | **PARTIAL** | partition / kill / restart of the centralized system vs Starling | under partition centralized tracked 3 vs Starling 5 of 5 present |
 
 ## Moment 0 — Startup: PASS
 
-**What it should demonstrate:** The dashboard loads and all four node processes are live.
+**What it should demonstrate:** The dashboard loads and all four node processes, the simulator and the centralized comparison server are up.
 
-**Action taken:** Launched `scripts/run_demo.py --headless` (simulator + 4 nodes + dashboard), opened the dashboard in headless Chromium.
+**Action taken:** Launched the demo in presenter mode (`scripts/run_demo.py --presenter`, launched here via `DemoLauncher`) and opened the dashboard in headless Chromium.
 
-**Verdict reason:** all 4 nodes live 4.1s after launch (page loaded, claims flowing)
+**Verdict reason:** all 4 nodes live and central server healthy 5.3s after launch; all camera zones healthy; demo-script panel lists 9 steps
 
-### 0a_startup_loaded.jpg  (t = 5.0 s since launch)
+### 0a_startup_loaded.jpg  (t = 6.3 s since launch)
 
-Dashboard fully loaded with all four nodes live.
+Dashboard loaded: 4 nodes live, all four camera zones outlined green (healthy), Demo script panel present.
 
 DOM values read at capture:
 
@@ -33,16 +37,16 @@ DOM values read at capture:
  "nodes_live": "4",
  "sim_time_s": "4.0",
  "convergence": "CONVERGED",
- "spread": "11",
+ "spread": "1",
  "gaps": "0",
  "partition": "none",
- "open_forks": "0",
- "mean_error_m": "0.07",
+ "forks_open": "0",
+ "mean_error_m": "0.50",
  "claims_per_node": [
-  "67",
-  "64",
-  "59",
-  "70"
+  "52",
+  "51",
+  "52",
+  "52"
  ],
  "live": [
   "LIVE",
@@ -50,17 +54,17 @@ DOM values read at capture:
   "LIVE",
   "LIVE"
  ],
+ "camera_zone_coverage": [
+  "healthy",
+  "healthy",
+  "healthy",
+  "healthy"
+ ],
  "partitioned": [
   "no",
   "no",
   "no",
   "no"
- ],
- "behaviour": [
-  "hones",
-  "hones",
-  "hones",
-  "hones"
  ],
  "reputation": [
   "1.00",
@@ -69,19 +73,27 @@ DOM values read at capture:
   "1.00"
  ],
  "rejected": [
-  "0 of 27",
-  "0 of 14",
-  "0 of 13",
-  "0 of 13"
+  "0 of 16",
+  "0 of 15",
+  "0 of 16",
+  "0 of 16"
  ],
- "candidate_regions_m2": {},
+ "regions": {},
  "identities": [
-  "P-004 worker-0 seen @(3.9, 2.0) via node 0 err 0.01",
-  "P-001 worker-1 seen @(16.2, 2.0) via node 1 err 0.06",
-  "P-002 worker-3 seen @(28.4, 1.9) via node 2 err 0.10",
-  "P-003 worker-2 seen @(6.3, 11.9) via node 0 err 0.11",
-  "P-005 worker-4 seen @(38.9, 4.0) via node 3 err 0.07"
+  "P-001 worker-0 seen @(5.8, 1.5) via node 0 err 0.71",
+  "P-002 worker-1 seen @(17.4, 1.5) via node 1 err 0.65",
+  "P-003 worker-4 seen @(19.1, 17.4) via node 2 err 0.53",
+  "P-004 worker-3 seen @(31.2, 1.6) via node 3 err 0.12"
  ],
+ "forks": [],
+ "centralized": {
+  "status": "HEALTHY",
+  "tracked_now": "4",
+  "starling_now": "4",
+  "truth": "4",
+  "detail": "4 identities in the shared table; 76 observations delivered."
+ },
+ "conflict": "no conflict running",
  "query": {
   "status": "none"
  }
@@ -92,21 +104,28 @@ Measured values:
 
 ```json
 {
-  "seconds_launch_to_all_nodes_live": 4.1
+  "seconds_launch_to_all_nodes_live": 5.3,
+  "demo_script_steps_listed": 9,
+  "zones_coverage": [
+    "healthy",
+    "healthy",
+    "healthy",
+    "healthy"
+  ]
 }
 ```
 
 ## Moment 1 — Normal walk: PASS
 
-**What it should demonstrate:** Believed worker positions (one colour per resolved identity) move across the floor plan and keep their identity across camera zones; faint ground-truth markers give the comparison.
+**What it should demonstrate:** Believed worker positions (one colour per resolved identity) move across the floor plan; identities stay consistent; faint ground-truth markers give the comparison.
 
-**Action taken:** Observed only (no controls): sampled the DOM for ~30 s and followed worker-2, which walks from node 0's zone through the blind aisle into node 1's zone.
+**Action taken:** Observed only for ~25 s. The four patrol workers stay inside their own camera zones (the stage actor worker-2 only appears in the dead-zone episodes), so 'identity across zones' is exercised in moment 2a.
 
-**Verdict reason:** 5 identities tracked, worker-2 kept P-003 across nodes [0, 1], mean error 0.32 m vs ground truth
+**Verdict reason:** 4 identities tracked, labels unchanged for 25 s, max displacement 21.3 m, mean error 0.35 m vs ground truth
 
-### 1a_walk_start.jpg  (t = 5.1 s since launch)
+### 1a_walk_start.jpg  (t = 6.4 s since launch)
 
-Five workers, five identities; solid dots = believed, dashed rings = ground truth.
+Four workers, four identities (P-00x) with ground-truth rings.
 
 DOM values read at capture:
 
@@ -115,16 +134,16 @@ DOM values read at capture:
  "nodes_live": "4",
  "sim_time_s": "4.0",
  "convergence": "CONVERGED",
- "spread": "11",
+ "spread": "1",
  "gaps": "0",
  "partition": "none",
- "open_forks": "0",
- "mean_error_m": "0.07",
+ "forks_open": "0",
+ "mean_error_m": "0.50",
  "claims_per_node": [
-  "67",
-  "64",
-  "59",
-  "70"
+  "52",
+  "51",
+  "52",
+  "52"
  ],
  "live": [
   "LIVE",
@@ -132,17 +151,17 @@ DOM values read at capture:
   "LIVE",
   "LIVE"
  ],
+ "camera_zone_coverage": [
+  "healthy",
+  "healthy",
+  "healthy",
+  "healthy"
+ ],
  "partitioned": [
   "no",
   "no",
   "no",
   "no"
- ],
- "behaviour": [
-  "hones",
-  "hones",
-  "hones",
-  "hones"
  ],
  "reputation": [
   "1.00",
@@ -151,114 +170,54 @@ DOM values read at capture:
   "1.00"
  ],
  "rejected": [
-  "0 of 27",
-  "0 of 14",
-  "0 of 13",
-  "0 of 13"
+  "0 of 16",
+  "0 of 15",
+  "0 of 16",
+  "0 of 16"
  ],
- "candidate_regions_m2": {},
+ "regions": {},
  "identities": [
-  "P-004 worker-0 seen @(3.9, 2.0) via node 0 err 0.01",
-  "P-001 worker-1 seen @(16.2, 2.0) via node 1 err 0.06",
-  "P-002 worker-3 seen @(28.4, 1.9) via node 2 err 0.10",
-  "P-003 worker-2 seen @(6.3, 11.9) via node 0 err 0.11",
-  "P-005 worker-4 seen @(38.9, 4.0) via node 3 err 0.07"
+  "P-001 worker-0 seen @(5.8, 1.5) via node 0 err 0.71",
+  "P-002 worker-1 seen @(17.4, 1.5) via node 1 err 0.65",
+  "P-003 worker-4 seen @(19.1, 17.4) via node 2 err 0.53",
+  "P-004 worker-3 seen @(31.2, 1.6) via node 3 err 0.12"
  ],
- "query": {
-  "status": "none"
- }
-}
-```
-
-### 1b_walk_6s_later.jpg  (t = 11.2 s since launch)
-
-Six seconds later: the same identities at new positions.
-
-DOM values read at capture:
-
-```json
-{
- "nodes_live": "4",
- "sim_time_s": "10.0",
- "convergence": "CONVERGED",
- "spread": "5",
- "gaps": "0",
- "partition": "none",
- "open_forks": "0",
- "mean_error_m": "0.18",
- "claims_per_node": [
-  "196",
-  "197",
-  "196",
-  "201"
- ],
- "live": [
-  "LIVE",
-  "LIVE",
-  "LIVE",
-  "LIVE"
- ],
- "partitioned": [
-  "no",
-  "no",
-  "no",
-  "no"
- ],
- "behaviour": [
-  "hones",
-  "hones",
-  "hones",
-  "hones"
- ],
- "reputation": [
-  "1.00",
-  "1.00",
-  "1.00",
-  "1.00"
- ],
- "rejected": [
-  "0 of 74",
-  "0 of 47",
-  "0 of 46",
-  "0 of 44"
- ],
- "candidate_regions_m2": {
-  "P-003": 82.94
+ "forks": [],
+ "centralized": {
+  "status": "HEALTHY",
+  "tracked_now": "4",
+  "starling_now": "4",
+  "truth": "4",
+  "detail": "4 identities in the shared table; 76 observations delivered."
  },
- "identities": [
-  "P-004 worker-0 seen @(6.9, 3.8) via node 0 err 0.16",
-  "P-001 worker-1 seen @(18.0, 5.0) via node 1 err 0.26",
-  "P-002 worker-3 seen @(31.1, 3.6) via node 2 err 0.09",
-  "P-003 worker-2 unseen @(7.9, 12.1) via node 0 err –",
-  "P-005 worker-4 seen @(35.9, 4.8) via node 3 err 0.22"
- ],
+ "conflict": "no conflict running",
  "query": {
   "status": "none"
  }
 }
 ```
 
-### 1c_zone_boundary_crossed.jpg  (t = 33.4 s since launch)
+### 1b_walk_later.jpg  (t = 14.5 s since launch)
 
-worker-2 is now seen by a different node's camera and still carries identity P-003 (was P-003).
+Same identities at new positions a few seconds later.
 
 DOM values read at capture:
 
 ```json
 {
  "nodes_live": "4",
- "sim_time_s": "31.0",
+ "sim_time_s": "12.0",
  "convergence": "CONVERGED",
- "spread": "22",
+ "spread": "1",
  "gaps": "0",
  "partition": "none",
- "open_forks": "0",
- "mean_error_m": "0.57",
+ "forks_open": "0",
+ "mean_error_m": "0.56",
  "claims_per_node": [
-  "697",
-  "695",
-  "690",
-  "675"
+  "207",
+  "207",
+  "207",
+  "208"
  ],
  "live": [
   "LIVE",
@@ -266,17 +225,17 @@ DOM values read at capture:
   "LIVE",
   "LIVE"
  ],
+ "camera_zone_coverage": [
+  "healthy",
+  "healthy",
+  "healthy",
+  "healthy"
+ ],
  "partitioned": [
   "no",
   "no",
   "no",
   "no"
- ],
- "behaviour": [
-  "hones",
-  "hones",
-  "hones",
-  "hones"
  ],
  "reputation": [
   "1.00",
@@ -285,19 +244,101 @@ DOM values read at capture:
   "1.00"
  ],
  "rejected": [
-  "0 of 178",
-  "2 of 211",
-  "0 of 145",
-  "0 of 144"
+  "0 of 54",
+  "0 of 56",
+  "0 of 56",
+  "0 of 56"
  ],
- "candidate_regions_m2": {},
+ "regions": {},
  "identities": [
-  "P-004 worker-0 seen @(6.6, 23.9) via node 0 err 0.68",
-  "P-001 worker-1 seen @(17.9, 21.5) via node 1 err 0.70",
-  "P-002 worker-3 seen @(31.0, 19.2) via node 2 err 0.59",
-  "P-003 worker-2 seen @(7.4, 12.0) via node 0 err 0.38",
-  "P-005 worker-4 seen @(35.9, 3.4) via node 3 err 0.50"
+  "P-001 worker-0 seen @(12.0, 3.0) via node 0 err 0.75",
+  "P-002 worker-1 seen @(21.3, 1.5) via node 1 err 0.67",
+  "P-003 worker-4 seen @(24.9, 18.8) via node 2 err 0.16",
+  "P-004 worker-3 seen @(33.4, 1.4) via node 3 err 0.67"
  ],
+ "forks": [],
+ "centralized": {
+  "status": "HEALTHY",
+  "tracked_now": "4",
+  "starling_now": "4",
+  "truth": "4",
+  "detail": "4 identities in the shared table; 220 observations delivered."
+ },
+ "conflict": "no conflict running",
+ "query": {
+  "status": "none"
+ }
+}
+```
+
+### 1c_walk_25s.jpg  (t = 31.8 s since launch)
+
+25 s in: identities unchanged.
+
+DOM values read at capture:
+
+```json
+{
+ "nodes_live": "4",
+ "sim_time_s": "29.2",
+ "convergence": "CONVERGED",
+ "spread": "0",
+ "gaps": "0",
+ "partition": "none",
+ "forks_open": "0",
+ "mean_error_m": "0.21",
+ "claims_per_node": [
+  "540",
+  "540",
+  "540",
+  "540"
+ ],
+ "live": [
+  "LIVE",
+  "LIVE",
+  "LIVE",
+  "LIVE"
+ ],
+ "camera_zone_coverage": [
+  "healthy",
+  "healthy",
+  "healthy",
+  "healthy"
+ ],
+ "partitioned": [
+  "no",
+  "no",
+  "no",
+  "no"
+ ],
+ "reputation": [
+  "1.00",
+  "1.00",
+  "1.00",
+  "1.00"
+ ],
+ "rejected": [
+  "0 of 134",
+  "0 of 136",
+  "0 of 138",
+  "0 of 138"
+ ],
+ "regions": {},
+ "identities": [
+  "P-001 worker-0 seen @(12.0, 21.9) via node 0 err 0.27",
+  "P-002 worker-1 seen @(21.0, 7.4) via node 1 err 0.26",
+  "P-003 worker-4 seen @(15.7, 23.5) via node 2 err 0.14",
+  "P-004 worker-3 seen @(38.9, 10.5) via node 3 err 0.16"
+ ],
+ "forks": [],
+ "centralized": {
+  "status": "HEALTHY",
+  "tracked_now": "4",
+  "starling_now": "4",
+  "truth": "4",
+  "detail": "4 identities in the shared table; 553 observations delivered."
+ },
+ "conflict": "no conflict running",
  "query": {
   "status": "none"
  }
@@ -308,83 +349,64 @@ Measured values:
 
 ```json
 {
-  "identities_named_at_start": 5,
-  "max_identity_displacement_in_6s_m": 3.5,
-  "mean_position_error_m_samples": [
-    0.57,
-    0.48,
-    0.48,
-    0.63,
-    0.63,
-    0.49,
-    0.49,
-    0.58,
-    0.58,
-    0.57
-  ],
-  "mean_position_error_m_avg": 0.32,
-  "worker2_label_before_after_zone_change": [
-    "P-003",
-    "P-003"
-  ],
-  "worker2_nodes_seen_by": [
-    0,
-    1
-  ],
-  "final_per_identity_error_m": [
-    0.68,
-    0.7,
-    0.59,
-    0.38,
-    0.5
-  ],
-  "named_workers_at_end": [
+  "named_workers": [
     "worker-0",
     "worker-1",
-    "worker-2",
     "worker-3",
     "worker-4"
   ],
-  "identities_listed_at_end": 5,
-  "identity_statuses_at_end": {
-    "P-004": "seen",
-    "P-001": "seen",
-    "P-002": "seen",
-    "P-003": "seen",
-    "P-005": "seen"
-  }
+  "identities_listed": 4,
+  "labels_unchanged_over_25s": true,
+  "max_displacement_m": 21.32,
+  "mean_position_error_m_avg": 0.35,
+  "mean_position_error_m_samples": [
+    0.64,
+    0.1,
+    0.07,
+    0.09,
+    0.14,
+    0.12,
+    0.06,
+    0.08
+  ],
+  "per_identity_error_m": [
+    0.27,
+    0.26,
+    0.14,
+    0.16
+  ]
 }
 ```
 
-## Moment 2 — Dead zone: PARTIAL
+## Moment 2a — Dead zone, healthy exits: PASS
 
-**What it should demonstrate:** A worker walks into the blind aisle; instead of the track vanishing, a shaded 'could be here' region appears and (with attested absence) shrinks; on re-emergence the same identity is restored.
+**What it should demonstrate:** A worker disappears into the 12x7 m uncovered block for ~27 s. Every exit is watched by a healthy camera that saw nobody leave, so the candidate region must stay inside the block, never include a healthy camera's zone, and be much smaller than plain reachability allows; the same identity is restored on re-emergence.
 
-**Action taken:** Observed only: followed worker-2 through up to 3 dark episodes in the 3 m blind aisle, sampled its OWN candidate-region area from the DOM every ~0.5 s, and checked which identity it had when it reappeared. Node 1 has scripted occlusion windows (sim 20-45 s and 80-105 s) in which it sends no attestation, so episodes inside a window are expected NOT to shrink (silence is not evidence).
+**Action taken:** Pressed 'Dead zone - healthy exits' (the simulator moves worker-2 from the west door through the block and out through the east zone), then sampled the page (region area, reachable-without-negative-evidence area, healthy-zone overlap, area outside the block) about every second.
 
-**Verdict reason:** the region shrank in only 1 of 3 dark episodes (a majority is required for PASS; in the others it only grew until the worker re-emerged). ep1 (sim t=45.2 s): 9 samples, peak 84.56 m², final 84.56 m², shrank, same identity after; ep2 (sim t=63.2 s): 9 samples, peak 116.5 m², final 116.5 m², no shrink, same identity after; ep3 (sim t=81.4 s): 11 samples, peak 86.56 m², final 86.56 m², no shrink, same identity after
+**Verdict reason:** region confined to the block for 24.9 s (0 m² in healthy zones, at most 0.5 m² outside the block), final 69 m² vs 932.5 m² reachable (ratio 0.074), same identity P-005 on re-emergence
 
-### 2a_approaching_aisle.jpg  (t = 33.4 s since launch)
+### 2a1_before.jpg  (t = 31.9 s since launch)
 
-worker-2 (P-003) approaches the blind aisle and is still seen.
+Before the episode: cameras all healthy (green); worker-2 is not in the building yet.
 
 DOM values read at capture:
 
 ```json
 {
  "nodes_live": "4",
- "sim_time_s": "31.0",
+ "sim_time_s": "29.2",
  "convergence": "CONVERGED",
- "spread": "22",
+ "spread": "0",
  "gaps": "0",
  "partition": "none",
- "open_forks": "0",
- "mean_error_m": "0.57",
+ "forks_open": "0",
+ "mean_error_m": "0.21",
  "claims_per_node": [
-  "697",
-  "695",
-  "690",
-  "675"
+  "540",
+  "540",
+  "540",
+  "540"
  ],
  "live": [
   "LIVE",
@@ -392,17 +414,17 @@ DOM values read at capture:
   "LIVE",
   "LIVE"
  ],
+ "camera_zone_coverage": [
+  "healthy",
+  "healthy",
+  "healthy",
+  "healthy"
+ ],
  "partitioned": [
   "no",
   "no",
   "no",
   "no"
- ],
- "behaviour": [
-  "hones",
-  "hones",
-  "hones",
-  "hones"
  ],
  "reputation": [
   "1.00",
@@ -411,46 +433,226 @@ DOM values read at capture:
   "1.00"
  ],
  "rejected": [
-  "0 of 178",
-  "2 of 211",
-  "0 of 145",
-  "0 of 144"
+  "0 of 134",
+  "0 of 136",
+  "0 of 138",
+  "0 of 138"
  ],
- "candidate_regions_m2": {},
+ "regions": {},
  "identities": [
-  "P-004 worker-0 seen @(6.6, 23.9) via node 0 err 0.68",
-  "P-001 worker-1 seen @(17.9, 21.5) via node 1 err 0.70",
-  "P-002 worker-3 seen @(31.0, 19.2) via node 2 err 0.59",
-  "P-003 worker-2 seen @(7.4, 12.0) via node 0 err 0.38",
-  "P-005 worker-4 seen @(35.9, 3.4) via node 3 err 0.50"
+  "P-001 worker-0 seen @(12.0, 21.9) via node 0 err 0.27",
+  "P-002 worker-1 seen @(21.0, 7.4) via node 1 err 0.26",
+  "P-003 worker-4 seen @(15.7, 23.5) via node 2 err 0.14",
+  "P-004 worker-3 seen @(38.9, 10.5) via node 3 err 0.16"
  ],
+ "forks": [],
+ "centralized": {
+  "status": "HEALTHY",
+  "tracked_now": "4",
+  "starling_now": "4",
+  "truth": "4",
+  "detail": "4 identities in the shared table; 553 observations delivered."
+ },
+ "conflict": "no conflict running",
  "query": {
   "status": "none"
  }
 }
 ```
 
-### 2b_region_appears.jpg  (t = 47.0 s since launch)
+### 2a2_hidden_0s.jpg  (t = 49.3 s since launch)
 
-worker-2 (P-003) is unseen: its candidate region appears with its area in m².
+P-005 hidden 2.4 s: search area 18.3 m² vs 40.9 m² reachable without negative evidence (45%); overlap with healthy cameras' zones 0 m²; zone overlap {}.
 
 DOM values read at capture:
 
 ```json
 {
  "nodes_live": "4",
- "sim_time_s": "45.2",
+ "sim_time_s": "47.4",
  "convergence": "CONVERGED",
- "spread": "17",
+ "spread": "1",
  "gaps": "0",
  "partition": "none",
- "open_forks": "0",
+ "forks_open": "0",
+ "mean_error_m": "0.08",
+ "claims_per_node": [
+  "955",
+  "955",
+  "955",
+  "956"
+ ],
+ "live": [
+  "LIVE",
+  "LIVE",
+  "LIVE",
+  "LIVE"
+ ],
+ "camera_zone_coverage": [
+  "healthy",
+  "healthy",
+  "healthy",
+  "healthy"
+ ],
+ "partitioned": [
+  "no",
+  "no",
+  "no",
+  "no"
+ ],
+ "reputation": [
+  "1.00",
+  "1.00",
+  "1.00",
+  "1.00"
+ ],
+ "rejected": [
+  "1 of 289",
+  "0 of 227",
+  "0 of 231",
+  "0 of 227"
+ ],
+ "regions": {
+  "P-005": {
+   "area_m2": 18.3,
+   "reachable_m2": 40.9,
+   "ratio": "45%",
+   "in_blind_block_m2": 18.2,
+   "in_healthy_zones_m2": 0,
+   "zone_overlap_m2": {},
+   "silent": "",
+   "occluded": ""
+  }
+ },
+ "identities": [
+  "P-001 worker-0 seen @(1.0, 16.8) via node 0 err 0.07",
+  "P-002 worker-1 seen @(21.3, 1.5) via node 1 err 0.07",
+  "P-003 worker-4 seen @(24.9, 17.6) via node 2 err 0.15",
+  "P-004 worker-3 seen @(38.7, 23.5) via node 3 err 0.04",
+  "P-005 worker-2 unseen @(13.9, 14.5) via node 0 err –"
+ ],
+ "forks": [],
+ "centralized": {
+  "status": "HEALTHY",
+  "tracked_now": "5",
+  "starling_now": "4",
+  "truth": "5",
+  "detail": "5 identities in the shared table; 968 observations delivered."
+ },
+ "conflict": "no conflict running",
+ "query": {
+  "status": "none"
+ }
+}
+```
+
+### 2a3_hidden_5s.jpg  (t = 54.9 s since launch)
+
+P-005 hidden 6.4 s: search area 52 m² vs 256.7 m² reachable without negative evidence (20%); overlap with healthy cameras' zones 0 m²; zone overlap {}.
+
+DOM values read at capture:
+
+```json
+{
+ "nodes_live": "4",
+ "sim_time_s": "51.4",
+ "convergence": "CONVERGED",
+ "spread": "0",
+ "gaps": "0",
+ "partition": "none",
+ "forks_open": "0",
+ "mean_error_m": "0.55",
+ "claims_per_node": [
+  "1054",
+  "1054",
+  "1054",
+  "1054"
+ ],
+ "live": [
+  "LIVE",
+  "LIVE",
+  "LIVE",
+  "LIVE"
+ ],
+ "camera_zone_coverage": [
+  "healthy",
+  "healthy",
+  "healthy",
+  "healthy"
+ ],
+ "partitioned": [
+  "no",
+  "no",
+  "no",
+  "no"
+ ],
+ "reputation": [
+  "1.00",
+  "1.00",
+  "1.00",
+  "1.00"
+ ],
+ "rejected": [
+  "1 of 309",
+  "0 of 248",
+  "0 of 252",
+  "0 of 248"
+ ],
+ "regions": {
+  "P-005": {
+   "area_m2": 52,
+   "reachable_m2": 256.7,
+   "ratio": "20%",
+   "in_blind_block_m2": 52,
+   "in_healthy_zones_m2": 0,
+   "zone_overlap_m2": {},
+   "silent": "",
+   "occluded": ""
+  }
+ },
+ "identities": [
+  "P-001 worker-0 seen @(1.0, 12.0) via node 0 err 0.70",
+  "P-002 worker-1 seen @(25.1, 1.5) via node 1 err 0.77",
+  "P-003 worker-4 seen @(24.9, 20.7) via node 2 err 0.10",
+  "P-004 worker-3 seen @(34.3, 23.4) via node 3 err 0.64",
+  "P-005 worker-2 unseen @(13.9, 14.5) via node 0 err –"
+ ],
+ "forks": [],
+ "centralized": {
+  "status": "HEALTHY",
+  "tracked_now": "4",
+  "starling_now": "4",
+  "truth": "5",
+  "detail": "5 identities in the shared table; 1071 observations delivered."
+ },
+ "conflict": "no conflict running",
+ "query": {
+  "status": "none"
+ }
+}
+```
+
+### 2a4_hidden_10s.jpg  (t = 59.2 s since launch)
+
+P-005 hidden 11.6 s: search area 69 m² vs 652.3 m² reachable without negative evidence (11%); overlap with healthy cameras' zones 0 m²; zone overlap {}.
+
+DOM values read at capture:
+
+```json
+{
+ "nodes_live": "4",
+ "sim_time_s": "56.6",
+ "convergence": "CONVERGED",
+ "spread": "2",
+ "gaps": "0",
+ "partition": "none",
+ "forks_open": "0",
  "mean_error_m": "0.42",
  "claims_per_node": [
-  "1024",
-  "1024",
-  "1025",
-  "1008"
+  "1150",
+  "1151",
+  "1152",
+  "1152"
  ],
  "live": [
   "LIVE",
@@ -458,17 +660,17 @@ DOM values read at capture:
   "LIVE",
   "LIVE"
  ],
+ "camera_zone_coverage": [
+  "healthy",
+  "healthy",
+  "healthy",
+  "healthy"
+ ],
  "partitioned": [
   "no",
   "no",
   "no",
   "no"
- ],
- "behaviour": [
-  "hones",
-  "hones",
-  "hones",
-  "hones"
  ],
  "reputation": [
   "1.00",
@@ -477,48 +679,67 @@ DOM values read at capture:
   "1.00"
  ],
  "rejected": [
-  "0 of 312",
-  "2 of 281",
-  "0 of 213",
-  "0 of 217"
+  "1 of 332",
+  "0 of 272",
+  "0 of 277",
+  "0 of 273"
  ],
- "candidate_regions_m2": {
-  "P-003": 28.81
+ "regions": {
+  "P-005": {
+   "area_m2": 69,
+   "reachable_m2": 652.3,
+   "ratio": "11%",
+   "in_blind_block_m2": 69,
+   "in_healthy_zones_m2": 0,
+   "zone_overlap_m2": {},
+   "silent": "",
+   "occluded": ""
+  }
  },
  "identities": [
-  "P-004 worker-0 seen @(0.9, 15.4) via node 0 err 0.62",
-  "P-001 worker-1 seen @(11.8, 16.8) via node 1 err 0.39",
-  "P-002 worker-3 seen @(25.9, 24.1) via node 2 err 0.33",
-  "P-003 worker-2 unseen @(7.9, 12.0) via node 0 err –",
-  "P-005 worker-4 seen @(36.5, 2.9) via node 3 err 0.32"
+  "P-001 worker-0 seen @(1.0, 6.1) via node 0 err 0.79",
+  "P-002 worker-1 seen @(25.0, 4.6) via node 1 err 0.07",
+  "P-003 worker-4 seen @(23.6, 23.5) via node 2 err 0.35",
+  "P-004 worker-3 seen @(28.6, 23.5) via node 3 err 0.46",
+  "P-005 worker-2 unseen @(13.9, 14.5) via node 0 err –"
  ],
+ "forks": [],
+ "centralized": {
+  "status": "HEALTHY",
+  "tracked_now": "4",
+  "starling_now": "4",
+  "truth": "5",
+  "detail": "5 identities in the shared table; 1154 observations delivered."
+ },
+ "conflict": "no conflict running",
  "query": {
-  "status": "none"
+  "status": "answered",
+  "verdict": "ANSWER"
  }
 }
 ```
 
-### 2c_region_mid.jpg  (t = 49.4 s since launch)
+### 2a5_hidden_16s.jpg  (t = 65.6 s since launch)
 
-Region P-003 after 2.4 s unseen: 35.94 m².
+P-005 hidden 17.6 s: search area 69 m² vs 867.1 m² reachable without negative evidence (8%); overlap with healthy cameras' zones 0 m²; zone overlap {}.
 
 DOM values read at capture:
 
 ```json
 {
  "nodes_live": "4",
- "sim_time_s": "47.2",
+ "sim_time_s": "62.6",
  "convergence": "CONVERGED",
- "spread": "15",
+ "spread": "0",
  "gaps": "0",
  "partition": "none",
- "open_forks": "0",
- "mean_error_m": "0.38",
+ "forks_open": "0",
+ "mean_error_m": "0.39",
  "claims_per_node": [
-  "1064",
-  "1064",
-  "1064",
-  "1049"
+  "1269",
+  "1269",
+  "1269",
+  "1269"
  ],
  "live": [
   "LIVE",
@@ -526,17 +747,17 @@ DOM values read at capture:
   "LIVE",
   "LIVE"
  ],
+ "camera_zone_coverage": [
+  "healthy",
+  "healthy",
+  "healthy",
+  "healthy"
+ ],
  "partitioned": [
   "no",
   "no",
   "no",
   "no"
- ],
- "behaviour": [
-  "hones",
-  "hones",
-  "hones",
-  "hones"
  ],
  "reputation": [
   "1.00",
@@ -545,48 +766,67 @@ DOM values read at capture:
   "1.00"
  ],
  "rejected": [
-  "0 of 322",
-  "2 of 291",
-  "0 of 223",
-  "0 of 227"
+  "1 of 361",
+  "0 of 302",
+  "0 of 307",
+  "0 of 302"
  ],
- "candidate_regions_m2": {
-  "P-003": 35.94
+ "regions": {
+  "P-005": {
+   "area_m2": 69,
+   "reachable_m2": 867.1,
+   "ratio": "8%",
+   "in_blind_block_m2": 69,
+   "in_healthy_zones_m2": 0,
+   "zone_overlap_m2": {},
+   "silent": "",
+   "occluded": ""
+  }
  },
  "identities": [
-  "P-004 worker-0 seen @(1.0, 12.9) via node 0 err 0.52",
-  "P-001 worker-1 seen @(12.1, 14.7) via node 1 err 0.47",
-  "P-002 worker-3 seen @(25.0, 23.2) via node 2 err 0.18",
-  "P-003 worker-2 unseen @(7.9, 12.0) via node 0 err –",
-  "P-005 worker-4 seen @(38.5, 3.0) via node 3 err 0.33"
+  "P-001 worker-0 seen @(0.8, 1.9) via node 0 err 0.26",
+  "P-002 worker-1 seen @(22.4, 7.4) via node 1 err 0.62",
+  "P-003 worker-4 seen @(19.3, 23.4) via node 2 err 0.54",
+  "P-004 worker-3 seen @(27.1, 19.9) via node 3 err 0.13",
+  "P-005 worker-2 unseen @(13.9, 14.5) via node 0 err –"
  ],
+ "forks": [],
+ "centralized": {
+  "status": "HEALTHY",
+  "tracked_now": "4",
+  "starling_now": "4",
+  "truth": "5",
+  "detail": "5 identities in the shared table; 1278 observations delivered."
+ },
+ "conflict": "no conflict running",
  "query": {
-  "status": "none"
+  "status": "answered",
+  "verdict": "ANSWER"
  }
 }
 ```
 
-### 2e_region_shrinks.jpg  (t = 49.5 s since launch)
+### 2a6_hidden_22s.jpg  (t = 71.2 s since launch)
 
-Region P-003 SHRANK from 63.31 to 35.94 m² after 2.4 s unseen (sim t = 47.2 s).
+P-005 hidden 23.6 s: search area 69 m² vs 932.5 m² reachable without negative evidence (7%); overlap with healthy cameras' zones 0 m²; zone overlap {}.
 
 DOM values read at capture:
 
 ```json
 {
  "nodes_live": "4",
- "sim_time_s": "47.2",
+ "sim_time_s": "68.6",
  "convergence": "CONVERGED",
- "spread": "15",
+ "spread": "2",
  "gaps": "0",
  "partition": "none",
- "open_forks": "0",
- "mean_error_m": "0.38",
+ "forks_open": "0",
+ "mean_error_m": "0.52",
  "claims_per_node": [
-  "1064",
-  "1064",
-  "1064",
-  "1049"
+  "1386",
+  "1384",
+  "1385",
+  "1384"
  ],
  "live": [
   "LIVE",
@@ -594,17 +834,17 @@ DOM values read at capture:
   "LIVE",
   "LIVE"
  ],
+ "camera_zone_coverage": [
+  "healthy",
+  "healthy",
+  "healthy",
+  "healthy"
+ ],
  "partitioned": [
   "no",
   "no",
   "no",
   "no"
- ],
- "behaviour": [
-  "hones",
-  "hones",
-  "hones",
-  "hones"
  ],
  "reputation": [
   "1.00",
@@ -613,48 +853,714 @@ DOM values read at capture:
   "1.00"
  ],
  "rejected": [
-  "0 of 322",
-  "2 of 291",
-  "0 of 223",
-  "0 of 227"
+  "1 of 390",
+  "0 of 331",
+  "0 of 337",
+  "0 of 333"
  ],
- "candidate_regions_m2": {
-  "P-003": 35.94
+ "regions": {
+  "P-005": {
+   "area_m2": 69,
+   "reachable_m2": 932.5,
+   "ratio": "7%",
+   "in_blind_block_m2": 69,
+   "in_healthy_zones_m2": 0,
+   "zone_overlap_m2": {},
+   "silent": "",
+   "occluded": ""
+  }
  },
  "identities": [
-  "P-004 worker-0 seen @(1.0, 12.9) via node 0 err 0.52",
-  "P-001 worker-1 seen @(12.1, 14.7) via node 1 err 0.47",
-  "P-002 worker-3 seen @(25.0, 23.2) via node 2 err 0.18",
-  "P-003 worker-2 unseen @(7.9, 12.0) via node 0 err –",
-  "P-005 worker-4 seen @(38.5, 3.0) via node 3 err 0.33"
+  "P-001 worker-0 seen @(5.8, 1.4) via node 0 err 0.09",
+  "P-002 worker-1 seen @(16.3, 7.5) via node 1 err 0.54",
+  "P-003 worker-4 seen @(15.0, 22.0) via node 2 err 0.70",
+  "P-004 worker-3 seen @(27.0, 17.0) via node 3 err 0.74",
+  "P-005 worker-2 unseen @(13.9, 14.5) via node 0 err –"
  ],
+ "forks": [],
+ "centralized": {
+  "status": "HEALTHY",
+  "tracked_now": "4",
+  "starling_now": "4",
+  "truth": "5",
+  "detail": "5 identities in the shared table; 1401 observations delivered."
+ },
+ "conflict": "no conflict running",
  "query": {
-  "status": "none"
+  "status": "answered",
+  "verdict": "ANSWER"
  }
 }
 ```
 
-### 2d_reemerged.jpg  (t = 51.4 s since launch)
+### 2a7_reemerged.jpg  (t = 74.9 s since launch)
 
-worker-2 re-emerges; identity now P-003 (before: P-003).
+worker-2 re-emerges from the block; identity now P-005 (before: P-005).
 
 DOM values read at capture:
 
 ```json
 {
  "nodes_live": "4",
- "sim_time_s": "49.2",
+ "sim_time_s": "71.8",
+ "convergence": "CONVERGED",
+ "spread": "2",
+ "gaps": "0",
+ "partition": "none",
+ "forks_open": "0",
+ "mean_error_m": "0.36",
+ "claims_per_node": [
+  "1444",
+  "1442",
+  "1444",
+  "1443"
+ ],
+ "live": [
+  "LIVE",
+  "LIVE",
+  "LIVE",
+  "LIVE"
+ ],
+ "camera_zone_coverage": [
+  "healthy",
+  "healthy",
+  "healthy",
+  "healthy"
+ ],
+ "partitioned": [
+  "no",
+  "no",
+  "no",
+  "no"
+ ],
+ "reputation": [
+  "1.00",
+  "1.00",
+  "1.00",
+  "1.00"
+ ],
+ "rejected": [
+  "1 of 403",
+  "0 of 346",
+  "0 of 352",
+  "1 of 349"
+ ],
+ "regions": {},
+ "identities": [
+  "P-001 worker-0 seen @(8.9, 1.5) via node 0 err 0.49",
+  "P-002 worker-1 seen @(15.1, 5.7) via node 1 err 0.37",
+  "P-003 worker-4 seen @(14.9, 18.6) via node 2 err 0.34",
+  "P-004 worker-3 seen @(27.0, 13.3) via node 3 err 0.31",
+  "P-005 worker-2 seen @(26.2, 12.1) via node 3 err 0.31"
+ ],
+ "forks": [],
+ "centralized": {
+  "status": "HEALTHY",
+  "tracked_now": "5",
+  "starling_now": "5",
+  "truth": "5",
+  "detail": "5 identities in the shared table; 1460 observations delivered."
+ },
+ "conflict": "no conflict running",
+ "query": {
+  "status": "answered",
+  "verdict": "ANSWER"
+ }
+}
+```
+
+Measured values:
+
+```json
+{
+  "seconds_click_to_region_on_page": 16.7,
+  "identity_measured": "P-005",
+  "identity_after_reemerging": "P-005",
+  "same_identity_after": true,
+  "n_samples": 27,
+  "region_lifetime_s": 24.9,
+  "first_area_m2": 18.3,
+  "max_area_m2": 69,
+  "final_area_m2": 69,
+  "reach_at_end_m2": 932.5,
+  "final_ratio_area_over_reach": 0.074,
+  "max_healthy_zone_overlap_m2": 0,
+  "max_area_outside_blind_block_m2": 0.10000000000000142,
+  "samples": [
+    {
+      "t": 0.0,
+      "area": 18.3,
+      "reach": 40.9,
+      "ratio_pct": "45%",
+      "blind": 18.2,
+      "healthy_overlap": 0,
+      "zone_overlap": {},
+      "healthy": "0,1,2,3",
+      "silent": "",
+      "occluded": "",
+      "hidden_s": 2.4,
+      "explanation": "worker-2 unseen 2 s. Cameras 0, 1, 2, 3 are healthy and saw nobody, so their zones are ruled out. Search area 18 m² instead of 41 m² reachable."
+    },
+    {
+      "t": 1.1,
+      "area": 18.3,
+      "reach": 40.9,
+      "ratio_pct": "45%",
+      "blind": 18.2,
+      "healthy_overlap": 0,
+      "zone_overlap": {},
+      "healthy": "0,1,2,3",
+      "silent": "",
+      "occluded": "",
+      "hidden_s": 2.4,
+      "explanation": "worker-2 unseen 2 s. Cameras 0, 1, 2, 3 are healthy and saw nobody, so their zones are ruled out. Search area 18 m² instead of 41 m² reachable."
+    },
+    {
+      "t": 2.0,
+      "area": 27.7,
+      "reach": 77.2,
+      "ratio_pct": "36%",
+      "blind": 27.7,
+      "healthy_overlap": 0,
+      "zone_overlap": {},
+      "healthy": "0,1,2,3",
+      "silent": "",
+      "occluded": "",
+      "hidden_s": 3.4,
+      "explanation": "worker-2 unseen 3 s. Cameras 0, 1, 2, 3 are healthy and saw nobody, so their zones are ruled out. Search area 28 m² instead of 77 m² reachable."
+    },
+    {
+      "t": 3.0,
+      "area": 27.7,
+      "reach": 77.2,
+      "ratio_pct": "36%",
+      "blind": 27.7,
+      "healthy_overlap": 0,
+      "zone_overlap": {},
+      "healthy": "0,1,2,3",
+      "silent": "",
+      "occluded": "",
+      "hidden_s": 3.4,
+      "explanation": "worker-2 unseen 3 s. Cameras 0, 1, 2, 3 are healthy and saw nobody, so their zones are ruled out. Search area 28 m² instead of 77 m² reachable."
+    },
+    {
+      "t": 3.9,
+      "area": 33.8,
+      "reach": 125.6,
+      "ratio_pct": "27%",
+      "blind": 33.8,
+      "healthy_overlap": 0,
+      "zone_overlap": {},
+      "healthy": "0,1,2,3",
+      "silent": "",
+      "occluded": "",
+      "hidden_s": 4.4,
+      "explanation": "worker-2 unseen 4 s. Cameras 0, 1, 2, 3 are healthy and saw nobody, so their zones are ruled out. Search area 34 m² instead of 126 m² reachable."
+    },
+    {
+      "t": 4.8,
+      "area": 40.8,
+      "reach": 183.1,
+      "ratio_pct": "22%",
+      "blind": 40.8,
+      "healthy_overlap": 0,
+      "zone_overlap": {},
+      "healthy": "0,1,2,3",
+      "silent": "",
+      "occluded": "",
+      "hidden_s": 5.4,
+      "explanation": "worker-2 unseen 5 s. Cameras 0, 1, 2, 3 are healthy and saw nobody, so their zones are ruled out. Search area 41 m² instead of 183 m² reachable."
+    },
+    {
+      "t": 5.7,
+      "area": 52,
+      "reach": 256.7,
+      "ratio_pct": "20%",
+      "blind": 52,
+      "healthy_overlap": 0,
+      "zone_overlap": {},
+      "healthy": "0,1,2,3",
+      "silent": "",
+      "occluded": "",
+      "hidden_s": 6.4,
+      "explanation": "worker-2 unseen 6 s. Cameras 0, 1, 2, 3 are healthy and saw nobody, so their zones are ruled out. Search area 52 m² instead of 257 m² reachable."
+    },
+    {
+      "t": 6.7,
+      "area": 58.9,
+      "reach": 344.6,
+      "ratio_pct": "17%",
+      "blind": 58.9,
+      "healthy_overlap": 0,
+      "zone_overlap": {},
+      "healthy": "0,1,2,3",
+      "silent": "",
+      "occluded": "",
+      "hidden_s": 7.4,
+      "explanation": "worker-2 unseen 7 s. Cameras 0, 1, 2, 3 are healthy and saw nobody, so their zones are ruled out. Search area 59 m² instead of 345 m² reachable."
+    },
+    {
+      "t": 7.6,
+      "area": 64.9,
+      "reach": 421.9,
+      "ratio_pct": "15%",
+      "blind": 64.9,
+      "healthy_overlap": 0,
+      "zone_overlap": {},
+      "healthy": "0,1,2,3",
+      "silent": "",
+      "occluded": "",
+      "hidden_s": 8.4,
+      "explanation": "worker-2 unseen 8 s. Cameras 0, 1, 2, 3 are healthy and saw nobody, so their zones are ruled out. Search area 65 m² instead of 422 m² reachable."
+    },
+    {
+      "t": 8.5,
+      "area": 69,
+      "reach": 502.9,
+      "ratio_pct": "14%",
+      "blind": 69,
+      "healthy_overlap": 0,
+      "zone_overlap": {},
+      "healthy": "0,1,2,3",
+      "silent": "",
+      "occluded": "",
+      "hidden_s": 9.4,
+      "explanation": "worker-2 unseen 9 s. Cameras 0, 1, 2, 3 are healthy and saw nobody, so their zones are ruled out. Search area 69 m² instead of 503 m² reachable."
+    },
+    {
+      "t": 10.0,
+      "area": 69,
+      "reach": 652.3,
+      "ratio_pct": "11%",
+      "blind": 69,
+      "healthy_overlap": 0,
+      "zone_overlap": {},
+      "healthy": "0,1,2,3",
+      "silent": "",
+      "occluded": "",
+      "hidden_s": 11.6,
+      "explanation": "worker-2 unseen 12 s. Cameras 0, 1, 2, 3 are healthy and saw nobody, so their zones are ruled out. Search area 69 m² instead of 652 m² reachable."
+    },
+    {
+      "t": 11.0,
+      "area": 69,
+      "reach": 694.9,
+      "ratio_pct": "10%",
+      "blind": 69,
+      "healthy_overlap": 0,
+      "zone_overlap": {},
+      "healthy": "0,1,2,3",
+      "silent": "",
+      "occluded": "",
+      "hidden_s": 12.6,
+      "explanation": "worker-2 unseen 13 s. Cameras 0, 1, 2, 3 are healthy and saw nobody, so their zones are ruled out. Search area 69 m² instead of 695 m² reachable."
+    },
+    {
+      "t": 11.9,
+      "area": 69,
+      "reach": 694.9,
+      "ratio_pct": "10%",
+      "blind": 69,
+      "healthy_overlap": 0,
+      "zone_overlap": {},
+      "healthy": "0,1,2,3",
+      "silent": "",
+      "occluded": "",
+      "hidden_s": 12.6,
+      "explanation": "worker-2 unseen 13 s. Cameras 0, 1, 2, 3 are healthy and saw nobody, so their zones are ruled out. Search area 69 m² instead of 695 m² reachable."
+    },
+    {
+      "t": 12.8,
+      "area": 69,
+      "reach": 732.9,
+      "ratio_pct": "9%",
+      "blind": 69,
+      "healthy_overlap": 0,
+      "zone_overlap": {},
+      "healthy": "0,1,2,3",
+      "silent": "",
+      "occluded": "",
+      "hidden_s": 13.6,
+      "explanation": "worker-2 unseen 14 s. Cameras 0, 1, 2, 3 are healthy and saw nobody, so their zones are ruled out. Search area 69 m² instead of 733 m² reachable."
+    },
+    {
+      "t": 13.8,
+      "area": 69,
+      "reach": 768.7,
+      "ratio_pct": "9%",
+      "blind": 69,
+      "healthy_overlap": 0,
+      "zone_overlap": {},
+      "healthy": "0,1,2,3",
+      "silent": "",
+      "occluded": "",
+      "hidden_s": 14.6,
+      "explanation": "worker-2 unseen 15 s. Cameras 0, 1, 2, 3 are healthy and saw nobody, so their zones are ruled out. Search area 69 m² instead of 769 m² reachable."
+    },
+    {
+      "t": 14.7,
+      "area": 69,
+      "reach": 808.6,
+      "ratio_pct": "9%",
+      "blind": 69,
+      "healthy_overlap": 0,
+      "zone_overlap": {},
+      "healthy": "0,1,2,3",
+      "silent": "",
+      "occluded": "",
+      "hidden_s": 15.6,
+      "explanation": "worker-2 unseen 16 s. Cameras 0, 1, 2, 3 are healthy and saw nobody, so their zones are ruled out. Search area 69 m² instead of 809 m² reachable."
+    },
+    {
+      "t": 15.6,
+      "area": 69,
+      "reach": 840.2,
+      "ratio_pct": "8%",
+      "blind": 69,
+      "healthy_overlap": 0,
+      "zone_overlap": {},
+      "healthy": "0,1,2,3",
+      "silent": "",
+      "occluded": "",
+      "hidden_s": 16.6,
+      "explanation": "worker-2 unseen 17 s. Cameras 0, 1, 2, 3 are healthy and saw nobody, so their zones are ruled out. Search area 69 m² instead of 840 m² reachable."
+    },
+    {
+      "t": 16.5,
+      "area": 69,
+      "reach": 867.1,
+      "ratio_pct": "8%",
+      "blind": 69,
+      "healthy_overlap": 0,
+      "zone_overlap": {},
+      "healthy": "0,1,2,3",
+      "silent": "",
+      "occluded": "",
+      "hidden_s": 17.6,
+      "explanation": "worker-2 unseen 18 s. Cameras 0, 1, 2, 3 are healthy and saw nobody, so their zones are ruled out. Search area 69 m² instead of 867 m² reachable."
+    },
+    {
+      "t": 17.5,
+      "area": 69,
+      "reach": 894.3,
+      "ratio_pct": "8%",
+      "blind": 69,
+      "healthy_overlap": 0,
+      "zone_overlap": {},
+      "healthy": "0,1,2,3",
+      "silent": "",
+      "occluded": "",
+      "hidden_s": 18.6,
+      "explanation": "worker-2 unseen 19 s. Cameras 0, 1, 2, 3 are healthy and saw nobody, so their zones are ruled out. Search area 69 m² instead of 894 m² reachable."
+    },
+    {
+      "t": 18.4,
+      "area": 69,
+      "reach": 916.7,
+      "ratio_pct": "8%",
+      "blind": 69,
+      "healthy_overlap": 0,
+      "zone_overlap": {},
+      "healthy": "0,1,2,3",
+      "silent": "",
+      "occluded": "",
+      "hidden_s": 19.6,
+      "explanation": "worker-2 unseen 20 s. Cameras 0, 1, 2, 3 are healthy and saw nobody, so their zones are ruled out. Search area 69 m² instead of 917 m² reachable."
+    },
+    {
+      "t": 19.3,
+      "area": 69,
+      "reach": 929.6,
+      "ratio_pct": "7%",
+      "blind": 69,
+      "healthy_overlap": 0,
+      "zone_overlap": {},
+      "healthy": "0,1,2,3",
+      "silent": "",
+      "occluded": "",
+      "hidden_s": 20.6,
+      "explanation": "worker-2 unseen 21 s. Cameras 0, 1, 2, 3 are healthy and saw nobody, so their zones are ruled out. Search area 69 m² instead of 930 m² reachable."
+    },
+    {
+      "t": 20.2,
+      "area": 69,
+      "reach": 932.5,
+      "ratio_pct": "7%",
+      "blind": 69,
+      "healthy_overlap": 0,
+      "zone_overlap": {},
+      "healthy": "0,1,2,3",
+      "silent": "",
+      "occluded": "",
+      "hidden_s": 21.6,
+      "explanation": "worker-2 unseen 22 s. Cameras 0, 1, 2, 3 are healthy and saw nobody, so their zones are ruled out. Search area 69 m² instead of 932 m² reachable."
+    },
+    {
+      "t": 21.1,
+      "area": 69,
+      "reach": 932.5,
+      "ratio_pct": "7%",
+      "blind": 69,
+      "healthy_overlap": 0,
+      "zone_overlap": {},
+      "healthy": "0,1,2,3",
+      "silent": "",
+      "occluded": "",
+      "hidden_s": 22.6,
+      "explanation": "worker-2 unseen 23 s. Cameras 0, 1, 2, 3 are healthy and saw nobody, so their zones are ruled out. Search area 69 m² instead of 932 m² reachable."
+    },
+    {
+      "t": 22.0,
+      "area": 69,
+      "reach": 932.5,
+      "ratio_pct": "7%",
+      "blind": 69,
+      "healthy_overlap": 0,
+      "zone_overlap": {},
+      "healthy": "0,1,2,3",
+      "silent": "",
+      "occluded": "",
+      "hidden_s": 23.6,
+      "explanation": "worker-2 unseen 24 s. Cameras 0, 1, 2, 3 are healthy and saw nobody, so their zones are ruled out. Search area 69 m² instead of 932 m² reachable."
+    },
+    {
+      "t": 23.0,
+      "area": 69,
+      "reach": 932.5,
+      "ratio_pct": "7%",
+      "blind": 69,
+      "healthy_overlap": 0,
+      "zone_overlap": {},
+      "healthy": "0,1,2,3",
+      "silent": "",
+      "occluded": "",
+      "hidden_s": 24.8,
+      "explanation": "worker-2 unseen 25 s. Cameras 0, 1, 2, 3 are healthy and saw nobody, so their zones are ruled out. Search area 69 m² instead of 932 m² reachable."
+    },
+    {
+      "t": 24.0,
+      "area": 69,
+      "reach": 932.5,
+      "ratio_pct": "7%",
+      "blind": 69,
+      "healthy_overlap": 0,
+      "zone_overlap": {},
+      "healthy": "0,1,2,3",
+      "silent": "",
+      "occluded": "",
+      "hidden_s": 24.8,
+      "explanation": "worker-2 unseen 25 s. Cameras 0, 1, 2, 3 are healthy and saw nobody, so their zones are ruled out. Search area 69 m² instead of 932 m² reachable."
+    },
+    {
+      "t": 24.9,
+      "area": 69,
+      "reach": 932.5,
+      "ratio_pct": "7%",
+      "blind": 69,
+      "healthy_overlap": 0,
+      "zone_overlap": {},
+      "healthy": "0,1,2,3",
+      "silent": "",
+      "occluded": "",
+      "hidden_s": 25.8,
+      "explanation": "worker-2 unseen 26 s. Cameras 0, 1, 2, 3 are healthy and saw nobody, so their zones are ruled out. Search area 69 m² instead of 932 m² reachable."
+    }
+  ]
+}
+```
+
+## Moment 2b — Dead zone, occluded exit: PASS
+
+**What it should demonstrate:** Same walk, but the north exit camera (node 1) is occluded for the whole episode, so it sends no healthy attestation. Its silence must NOT be counted as evidence: the region should leak into that camera's zone, and only that one, and the dashboard should say why.
+
+**Action taken:** Waited for worker-2 to be back at the door, then pressed 'Dead zone - occluded camera 1' (the simulator occludes camera 1 and repeats the walk); sampled the page about every second.
+
+**Verdict reason:** region leaked into camera 1's zone (up to 105 m²) and into no other zone; page said 'camera 1 is silent (occluded...): its silence is not counted as evidence' in 30 of 30 samples; same identity on re-emergence
+
+### 2b1_before.jpg  (t = 168.6 s since launch)
+
+Before the episode: cameras all healthy (green); worker-2 waits at the door.
+
+DOM values read at capture:
+
+```json
+{
+ "nodes_live": "4",
+ "sim_time_s": "164.8",
+ "convergence": "CONVERGED",
+ "spread": "8",
+ "gaps": "0",
+ "partition": "none",
+ "forks_open": "0",
+ "mean_error_m": "0.18",
+ "claims_per_node": [
+  "3678",
+  "3675",
+  "3670",
+  "3676"
+ ],
+ "live": [
+  "LIVE",
+  "LIVE",
+  "LIVE",
+  "LIVE"
+ ],
+ "camera_zone_coverage": [
+  "healthy",
+  "healthy",
+  "healthy",
+  "healthy"
+ ],
+ "partitioned": [
+  "no",
+  "no",
+  "no",
+  "no"
+ ],
+ "reputation": [
+  "1.00",
+  "1.00",
+  "1.00",
+  "1.00"
+ ],
+ "rejected": [
+  "17 of 1128",
+  "0 of 797",
+  "1 of 864",
+  "1 of 904"
+ ],
+ "regions": {},
+ "identities": [
+  "P-001 worker-0 seen @(7.5, 23.4) via node 0 err 0.14",
+  "P-002 worker-1 seen @(19.9, 1.6) via node 1 err 0.20",
+  "P-003 worker-4 seen @(24.9, 23.5) via node 2 err 0.34",
+  "P-004 worker-3 seen @(27.1, 12.8) via node 3 err 0.08",
+  "P-014 worker-2 seen @(0.9, 14.4) via node 0 err 0.15"
+ ],
+ "forks": [],
+ "centralized": {
+  "status": "HEALTHY",
+  "tracked_now": "5",
+  "starling_now": "5",
+  "truth": "5",
+  "detail": "5 identities in the shared table; 3693 observations delivered."
+ },
+ "conflict": "no conflict running",
+ "query": {
+  "status": "answered",
+  "verdict": "ANSWER"
+ }
+}
+```
+
+### 2b2_hidden_0s.jpg  (t = 185.3 s since launch)
+
+P-014 hidden 1.6 s: search area 11.1 m² vs 18.3 m² reachable without negative evidence (60%); overlap with healthy cameras' zones 0 m²; zone overlap {}.
+
+DOM values read at capture:
+
+```json
+{
+ "nodes_live": "4",
+ "sim_time_s": "182.0",
+ "convergence": "CONVERGED",
+ "spread": "1",
+ "gaps": "0",
+ "partition": "none",
+ "forks_open": "0",
+ "mean_error_m": "0.10",
+ "claims_per_node": [
+  "4087",
+  "4088",
+  "4087",
+  "4087"
+ ],
+ "live": [
+  "LIVE",
+  "LIVE",
+  "LIVE",
+  "LIVE"
+ ],
+ "camera_zone_coverage": [
+  "healthy",
+  "silent",
+  "healthy",
+  "healthy"
+ ],
+ "partitioned": [
+  "no",
+  "no",
+  "no",
+  "no"
+ ],
+ "reputation": [
+  "1.00",
+  "1.00",
+  "1.00",
+  "1.00"
+ ],
+ "rejected": [
+  "17 of 1283",
+  "0 of 877",
+  "1 of 944",
+  "1 of 982"
+ ],
+ "regions": {
+  "P-014": {
+   "area_m2": 11.1,
+   "reachable_m2": 18.3,
+   "ratio": "60%",
+   "in_blind_block_m2": 11.1,
+   "in_healthy_zones_m2": 0,
+   "zone_overlap_m2": {},
+   "silent": "1",
+   "occluded": "1"
+  }
+ },
+ "identities": [
+  "P-001 worker-0 seen @(0.9, 15.3) via node 0 err 0.16",
+  "P-002 worker-1 seen @(25.0, 6.9) via node 1 err 0.03",
+  "P-003 worker-4 seen @(14.8, 19.9) via node 2 err 0.16",
+  "P-004 worker-3 seen @(30.7, 1.5) via node 3 err 0.04",
+  "P-014 worker-2 unseen @(13.8, 14.5) via node 0 err –"
+ ],
+ "forks": [],
+ "centralized": {
+  "status": "HEALTHY",
+  "tracked_now": "5",
+  "starling_now": "4",
+  "truth": "5",
+  "detail": "5 identities in the shared table; 4100 observations delivered."
+ },
+ "conflict": "no conflict running",
+ "query": {
+  "status": "answered",
+  "verdict": "ANSWER"
+ }
+}
+```
+
+### 2b3_hidden_5s.jpg  (t = 190.8 s since launch)
+
+P-014 hidden 6.6 s: search area 79.3 m² vs 269.4 m² reachable without negative evidence (29%); overlap with healthy cameras' zones 0 m²; zone overlap {'1': 25.3}.
+
+DOM values read at capture:
+
+```json
+{
+ "nodes_live": "4",
+ "sim_time_s": "187.0",
  "convergence": "CONVERGED",
  "spread": "3",
  "gaps": "0",
  "partition": "none",
- "open_forks": "0",
- "mean_error_m": "0.61",
+ "forks_open": "0",
+ "mean_error_m": "0.18",
  "claims_per_node": [
-  "1110",
-  "1112",
-  "1111",
-  "1109"
+  "4187",
+  "4184",
+  "4185",
+  "4184"
  ],
  "live": [
   "LIVE",
@@ -662,17 +1568,17 @@ DOM values read at capture:
   "LIVE",
   "LIVE"
  ],
+ "camera_zone_coverage": [
+  "healthy",
+  "silent",
+  "healthy",
+  "healthy"
+ ],
  "partitioned": [
   "no",
   "no",
   "no",
   "no"
- ],
- "behaviour": [
-  "hones",
-  "hones",
-  "hones",
-  "hones"
  ],
  "reputation": [
   "1.00",
@@ -681,21 +1587,387 @@ DOM values read at capture:
   "1.00"
  ],
  "rejected": [
-  "0 of 332",
-  "2 of 306",
-  "0 of 233",
-  "0 of 237"
+  "17 of 1307",
+  "0 of 903",
+  "1 of 969",
+  "1 of 1008"
  ],
- "candidate_regions_m2": {},
+ "regions": {
+  "P-014": {
+   "area_m2": 79.3,
+   "reachable_m2": 269.4,
+   "ratio": "29%",
+   "in_blind_block_m2": 53.9,
+   "in_healthy_zones_m2": 0,
+   "zone_overlap_m2": {
+    "1": 25.3
+   },
+   "silent": "1",
+   "occluded": "1"
+  }
+ },
  "identities": [
-  "P-004 worker-0 seen @(1.2, 10.5) via node 0 err 0.81",
-  "P-001 worker-1 seen @(11.9, 12.4) via node 1 err 0.61",
-  "P-002 worker-3 seen @(25.0, 22.6) via node 2 err 0.64",
-  "P-003 worker-2 seen @(11.5, 12.0) via node 1 err 0.39",
-  "P-005 worker-4 seen @(39.0, 4.4) via node 3 err 0.59"
+  "P-001 worker-0 seen @(1.0, 10.4) via node 0 err 0.06",
+  "P-002 worker-1 seen @(24.5, 7.5) via node 1 err 0.30",
+  "P-003 worker-4 seen @(17.6, 17.5) via node 2 err 0.22",
+  "P-004 worker-3 seen @(34.3, 1.4) via node 3 err 0.15",
+  "P-014 worker-2 unseen @(13.8, 14.5) via node 0 err –"
  ],
+ "forks": [],
+ "centralized": {
+  "status": "HEALTHY",
+  "tracked_now": "4",
+  "starling_now": "4",
+  "truth": "5",
+  "detail": "5 identities in the shared table; 4201 observations delivered."
+ },
+ "conflict": "no conflict running",
  "query": {
-  "status": "none"
+  "status": "answered",
+  "verdict": "ANSWER"
+ }
+}
+```
+
+### 2b4_hidden_10s.jpg  (t = 195.5 s since launch)
+
+P-014 hidden 11.6 s: search area 169.9 m² vs 647.3 m² reachable without negative evidence (26%); overlap with healthy cameras' zones 0 m²; zone overlap {'1': 100.9}.
+
+DOM values read at capture:
+
+```json
+{
+ "nodes_live": "4",
+ "sim_time_s": "192.0",
+ "convergence": "CONVERGED",
+ "spread": "1",
+ "gaps": "0",
+ "partition": "none",
+ "forks_open": "0",
+ "mean_error_m": "0.19",
+ "claims_per_node": [
+  "4280",
+  "4280",
+  "4281",
+  "4280"
+ ],
+ "live": [
+  "LIVE",
+  "LIVE",
+  "LIVE",
+  "LIVE"
+ ],
+ "camera_zone_coverage": [
+  "healthy",
+  "silent",
+  "healthy",
+  "healthy"
+ ],
+ "partitioned": [
+  "no",
+  "no",
+  "no",
+  "no"
+ ],
+ "reputation": [
+  "1.00",
+  "1.00",
+  "1.00",
+  "1.00"
+ ],
+ "rejected": [
+  "17 of 1330",
+  "0 of 928",
+  "1 of 993",
+  "1 of 1032"
+ ],
+ "regions": {
+  "P-014": {
+   "area_m2": 169.9,
+   "reachable_m2": 647.3,
+   "ratio": "26%",
+   "in_blind_block_m2": 69,
+   "in_healthy_zones_m2": 0,
+   "zone_overlap_m2": {
+    "1": 100.9
+   },
+   "silent": "1",
+   "occluded": "1"
+  }
+ },
+ "identities": [
+  "P-001 worker-0 seen @(1.1, 7.0) via node 0 err 0.18",
+  "P-002 worker-1 seen @(23.8, 7.3) via node 1 err 0.23",
+  "P-003 worker-4 seen @(22.7, 17.7) via node 2 err 0.20",
+  "P-004 worker-3 seen @(35.4, 1.5) via node 3 err 0.16",
+  "P-014 worker-2 unseen @(13.8, 14.5) via node 0 err –"
+ ],
+ "forks": [],
+ "centralized": {
+  "status": "HEALTHY",
+  "tracked_now": "4",
+  "starling_now": "4",
+  "truth": "5",
+  "detail": "5 identities in the shared table; 4305 observations delivered."
+ },
+ "conflict": "no conflict running",
+ "query": {
+  "status": "answered",
+  "verdict": "ANSWER"
+ }
+}
+```
+
+### 2b5_hidden_16s.jpg  (t = 201.9 s since launch)
+
+P-014 hidden 16.8 s: search area 174 m² vs 844.3 m² reachable without negative evidence (21%); overlap with healthy cameras' zones 0 m²; zone overlap {'1': 105}.
+
+DOM values read at capture:
+
+```json
+{
+ "nodes_live": "4",
+ "sim_time_s": "197.2",
+ "convergence": "CONVERGED",
+ "spread": "1",
+ "gaps": "0",
+ "partition": "none",
+ "forks_open": "0",
+ "mean_error_m": "0.33",
+ "claims_per_node": [
+  "4378",
+  "4377",
+  "4377",
+  "4378"
+ ],
+ "live": [
+  "LIVE",
+  "LIVE",
+  "LIVE",
+  "LIVE"
+ ],
+ "camera_zone_coverage": [
+  "healthy",
+  "silent",
+  "healthy",
+  "healthy"
+ ],
+ "partitioned": [
+  "no",
+  "no",
+  "no",
+  "no"
+ ],
+ "reputation": [
+  "1.00",
+  "1.00",
+  "1.00",
+  "1.00"
+ ],
+ "rejected": [
+  "17 of 1359",
+  "0 of 957",
+  "1 of 1023",
+  "1 of 1061"
+ ],
+ "regions": {
+  "P-014": {
+   "area_m2": 174,
+   "reachable_m2": 844.3,
+   "ratio": "21%",
+   "in_blind_block_m2": 69,
+   "in_healthy_zones_m2": 0,
+   "zone_overlap_m2": {
+    "1": 105
+   },
+   "silent": "1",
+   "occluded": "1"
+  }
+ },
+ "identities": [
+  "P-001 worker-0 seen @(1.0, 3.9) via node 0 err 0.46",
+  "P-002 worker-1 seen @(18.6, 7.5) via node 1 err 0.38",
+  "P-003 worker-4 seen @(25.0, 20.3) via node 2 err 0.43",
+  "P-004 worker-3 seen @(37.1, 1.5) via node 3 err 0.03",
+  "P-014 worker-2 unseen @(13.8, 14.5) via node 0 err –"
+ ],
+ "forks": [],
+ "centralized": {
+  "status": "HEALTHY",
+  "tracked_now": "4",
+  "starling_now": "4",
+  "truth": "5",
+  "detail": "5 identities in the shared table; 4406 observations delivered."
+ },
+ "conflict": "no conflict running",
+ "query": {
+  "status": "answered",
+  "verdict": "ANSWER"
+ }
+}
+```
+
+### 2b6_hidden_22s.jpg  (t = 207.5 s since launch)
+
+P-014 hidden 22.8 s: search area 174 m² vs 932.5 m² reachable without negative evidence (19%); overlap with healthy cameras' zones 0 m²; zone overlap {'1': 105}.
+
+DOM values read at capture:
+
+```json
+{
+ "nodes_live": "4",
+ "sim_time_s": "203.2",
+ "convergence": "CONVERGED",
+ "spread": "1",
+ "gaps": "0",
+ "partition": "none",
+ "forks_open": "0",
+ "mean_error_m": "0.55",
+ "claims_per_node": [
+  "4514",
+  "4514",
+  "4514",
+  "4515"
+ ],
+ "live": [
+  "LIVE",
+  "LIVE",
+  "LIVE",
+  "LIVE"
+ ],
+ "camera_zone_coverage": [
+  "healthy",
+  "silent",
+  "healthy",
+  "healthy"
+ ],
+ "partitioned": [
+  "no",
+  "no",
+  "no",
+  "no"
+ ],
+ "reputation": [
+  "1.00",
+  "1.00",
+  "1.00",
+  "1.00"
+ ],
+ "rejected": [
+  "17 of 1389",
+  "0 of 986",
+  "1 of 1054",
+  "1 of 1092"
+ ],
+ "regions": {
+  "P-014": {
+   "area_m2": 174,
+   "reachable_m2": 932.5,
+   "ratio": "19%",
+   "in_blind_block_m2": 69,
+   "in_healthy_zones_m2": 0,
+   "zone_overlap_m2": {
+    "1": 105
+   },
+   "silent": "1",
+   "occluded": "1"
+  }
+ },
+ "identities": [
+  "P-001 worker-0 seen @(5.8, 1.3) via node 0 err 0.79",
+  "P-002 worker-1 seen @(14.9, 7.2) via node 1 err 0.65",
+  "P-003 worker-4 seen @(22.3, 23.6) via node 2 err 0.69",
+  "P-004 worker-3 seen @(38.9, 2.4) via node 3 err 0.08",
+  "P-014 worker-2 unseen @(13.8, 14.5) via node 0 err –"
+ ],
+ "forks": [],
+ "centralized": {
+  "status": "HEALTHY",
+  "tracked_now": "4",
+  "starling_now": "4",
+  "truth": "5",
+  "detail": "5 identities in the shared table; 4512 observations delivered."
+ },
+ "conflict": "no conflict running",
+ "query": {
+  "status": "answered",
+  "verdict": "ANSWER"
+ }
+}
+```
+
+### 2b7_reemerged.jpg  (t = 213.0 s since launch)
+
+worker-2 re-emerges from the block; identity now P-014 (before: P-014).
+
+DOM values read at capture:
+
+```json
+{
+ "nodes_live": "4",
+ "sim_time_s": "208.2",
+ "convergence": "CONVERGED",
+ "spread": "4",
+ "gaps": "0",
+ "partition": "none",
+ "forks_open": "0",
+ "mean_error_m": "0.37",
+ "claims_per_node": [
+  "4619",
+  "4615",
+  "4619",
+  "4619"
+ ],
+ "live": [
+  "LIVE",
+  "LIVE",
+  "LIVE",
+  "LIVE"
+ ],
+ "camera_zone_coverage": [
+  "healthy",
+  "silent",
+  "healthy",
+  "healthy"
+ ],
+ "partitioned": [
+  "no",
+  "no",
+  "no",
+  "no"
+ ],
+ "reputation": [
+  "1.00",
+  "1.00",
+  "1.00",
+  "1.00"
+ ],
+ "rejected": [
+  "17 of 1412",
+  "0 of 1009",
+  "1 of 1076",
+  "1 of 1120"
+ ],
+ "regions": {},
+ "identities": [
+  "P-001 worker-0 seen @(10.3, 1.6) via node 0 err 0.09",
+  "P-002 worker-1 seen @(15.0, 2.0) via node 1 err 0.34",
+  "P-003 worker-4 seen @(17.3, 23.5) via node 2 err 0.69",
+  "P-004 worker-3 seen @(39.0, 6.2) via node 3 err 0.18",
+  "P-014 worker-2 seen @(26.9, 12.0) via node 3 err 0.54"
+ ],
+ "forks": [],
+ "centralized": {
+  "status": "HEALTHY",
+  "tracked_now": "5",
+  "starling_now": "5",
+  "truth": "5",
+  "detail": "5 identities in the shared table; 4622 observations delivered."
+ },
+ "conflict": "no conflict running",
+ "query": {
+  "status": "answered",
+  "verdict": "ANSWER"
  }
 }
 ```
@@ -704,174 +1976,513 @@ Measured values:
 
 ```json
 {
-  "episodes": [
+  "seconds_click_to_region_on_page": 16.2,
+  "identity_measured": "P-014",
+  "identity_after_reemerging": "P-014",
+  "same_identity_after": true,
+  "n_samples": 30,
+  "region_lifetime_s": 26.8,
+  "first_area_m2": 11.1,
+  "max_area_m2": 174,
+  "final_area_m2": 174,
+  "reach_at_end_m2": 932.5,
+  "final_ratio_area_over_reach": 0.187,
+  "max_healthy_zone_overlap_m2": 0,
+  "max_area_outside_blind_block_m2": 105,
+  "samples": [
     {
-      "identity": "P-003",
-      "sim_time_at_start_s": 45.2,
-      "samples": [
-        [
-          0.1,
-          28.81
-        ],
-        [
-          0.5,
-          28.81
-        ],
-        [
-          1.0,
-          63.31
-        ],
-        [
-          1.5,
-          63.31
-        ],
-        [
-          1.9,
-          63.31
-        ],
-        [
-          2.4,
-          35.94
-        ],
-        [
-          3.0,
-          84.56
-        ],
-        [
-          3.4,
-          84.56
-        ],
-        [
-          3.9,
-          84.56
-        ]
-      ],
-      "identity_after_reemerging": "P-003",
-      "same_identity_after": true,
-      "n_samples": 9,
-      "peak_area_m2": 84.56,
-      "final_area_m2": 84.56,
-      "area_ever_decreased": true
+      "t": 0.0,
+      "area": 11.1,
+      "reach": 18.3,
+      "ratio_pct": "60%",
+      "blind": 11.1,
+      "healthy_overlap": 0,
+      "zone_overlap": {},
+      "healthy": "0,2,3",
+      "silent": "1",
+      "occluded": "1",
+      "hidden_s": 1.6,
+      "explanation": "worker-2 unseen 2 s. Cameras 0, 2, 3 are healthy and saw nobody, so their zones are ruled out. camera 1 is silent (occluded, no healthy attestation): its silence is not counted as evidence. Search area 11 m² instead of 18 m² reachable."
     },
     {
-      "identity": "P-003",
-      "sim_time_at_start_s": 63.2,
-      "samples": [
-        [
-          0.0,
-          18.31
-        ],
-        [
-          0.5,
-          18.31
-        ],
-        [
-          0.9,
-          45.94
-        ],
-        [
-          1.4,
-          45.94
-        ],
-        [
-          1.8,
-          69.06
-        ],
-        [
-          2.3,
-          69.06
-        ],
-        [
-          2.8,
-          69.06
-        ],
-        [
-          3.2,
-          116.5
-        ],
-        [
-          3.7,
-          116.5
-        ]
-      ],
-      "identity_after_reemerging": "P-003",
-      "same_identity_after": true,
-      "n_samples": 9,
-      "peak_area_m2": 116.5,
-      "final_area_m2": 116.5,
-      "area_ever_decreased": false
+      "t": 1.0,
+      "area": 19.1,
+      "reach": 46.2,
+      "ratio_pct": "41%",
+      "blind": 19.1,
+      "healthy_overlap": 0,
+      "zone_overlap": {},
+      "healthy": "0,2,3",
+      "silent": "1",
+      "occluded": "1",
+      "hidden_s": 2.6,
+      "explanation": "worker-2 unseen 3 s. Cameras 0, 2, 3 are healthy and saw nobody, so their zones are ruled out. camera 1 is silent (occluded, no healthy attestation): its silence is not counted as evidence. Search area 19 m² instead of 46 m² reachable."
     },
     {
-      "identity": "P-003",
-      "sim_time_at_start_s": 81.4,
-      "samples": [
-        [
-          0.0,
-          18.31
-        ],
-        [
-          0.5,
-          18.31
-        ],
-        [
-          0.9,
-          47.31
-        ],
-        [
-          1.4,
-          47.31
-        ],
-        [
-          1.9,
-          47.31
-        ],
-        [
-          2.3,
-          47.31
-        ],
-        [
-          2.8,
-          47.31
-        ],
-        [
-          3.2,
-          86.56
-        ],
-        [
-          3.7,
-          86.56
-        ],
-        [
-          4.2,
-          86.56
-        ],
-        [
-          4.7,
-          86.56
-        ]
-      ],
-      "identity_after_reemerging": "P-003",
-      "same_identity_after": true,
-      "n_samples": 11,
-      "peak_area_m2": 86.56,
-      "final_area_m2": 86.56,
-      "area_ever_decreased": false
+      "t": 1.9,
+      "area": 29.3,
+      "reach": 84.4,
+      "ratio_pct": "35%",
+      "blind": 28.8,
+      "healthy_overlap": 0,
+      "zone_overlap": {
+        "1": 0.4
+      },
+      "healthy": "0,2,3",
+      "silent": "1",
+      "occluded": "1",
+      "hidden_s": 3.6,
+      "explanation": "worker-2 unseen 4 s. Cameras 0, 2, 3 are healthy and saw nobody, so their zones are ruled out. camera 1 is silent (occluded, no healthy attestation): its silence is not counted as evidence. The region therefore leaks into camera 1's zone. Search area 29 m² instead of 84 m² reachable."
+    },
+    {
+      "t": 2.8,
+      "area": 29.3,
+      "reach": 84.4,
+      "ratio_pct": "35%",
+      "blind": 28.8,
+      "healthy_overlap": 0,
+      "zone_overlap": {
+        "1": 0.4
+      },
+      "healthy": "0,2,3",
+      "silent": "1",
+      "occluded": "1",
+      "hidden_s": 3.6,
+      "explanation": "worker-2 unseen 4 s. Cameras 0, 2, 3 are healthy and saw nobody, so their zones are ruled out. camera 1 is silent (occluded, no healthy attestation): its silence is not counted as evidence. The region therefore leaks into camera 1's zone. Search area 29 m² instead of 84 m² reachable."
+    },
+    {
+      "t": 3.7,
+      "area": 39.7,
+      "reach": 133.7,
+      "ratio_pct": "30%",
+      "blind": 34.5,
+      "healthy_overlap": 0,
+      "zone_overlap": {
+        "1": 5.2
+      },
+      "healthy": "0,2,3",
+      "silent": "1",
+      "occluded": "1",
+      "hidden_s": 4.6,
+      "explanation": "worker-2 unseen 5 s. Cameras 0, 2, 3 are healthy and saw nobody, so their zones are ruled out. camera 1 is silent (occluded, no healthy attestation): its silence is not counted as evidence. The region therefore leaks into camera 1's zone. Search area 40 m² instead of 134 m² reachable."
+    },
+    {
+      "t": 4.6,
+      "area": 55.4,
+      "reach": 192.8,
+      "ratio_pct": "29%",
+      "blind": 42.2,
+      "healthy_overlap": 0,
+      "zone_overlap": {
+        "1": 13.2
+      },
+      "healthy": "0,2,3",
+      "silent": "1",
+      "occluded": "1",
+      "hidden_s": 5.6,
+      "explanation": "worker-2 unseen 6 s. Cameras 0, 2, 3 are healthy and saw nobody, so their zones are ruled out. camera 1 is silent (occluded, no healthy attestation): its silence is not counted as evidence. The region therefore leaks into camera 1's zone. Search area 55 m² instead of 193 m² reachable."
+    },
+    {
+      "t": 5.5,
+      "area": 79.3,
+      "reach": 269.4,
+      "ratio_pct": "29%",
+      "blind": 53.9,
+      "healthy_overlap": 0,
+      "zone_overlap": {
+        "1": 25.3
+      },
+      "healthy": "0,2,3",
+      "silent": "1",
+      "occluded": "1",
+      "hidden_s": 6.6,
+      "explanation": "worker-2 unseen 7 s. Cameras 0, 2, 3 are healthy and saw nobody, so their zones are ruled out. camera 1 is silent (occluded, no healthy attestation): its silence is not counted as evidence. The region therefore leaks into camera 1's zone. Search area 79 m² instead of 269 m² reachable."
+    },
+    {
+      "t": 6.5,
+      "area": 99.4,
+      "reach": 355.8,
+      "ratio_pct": "28%",
+      "blind": 59.8,
+      "healthy_overlap": 0,
+      "zone_overlap": {
+        "1": 39.6
+      },
+      "healthy": "0,2,3",
+      "silent": "1",
+      "occluded": "1",
+      "hidden_s": 7.6,
+      "explanation": "worker-2 unseen 8 s. Cameras 0, 2, 3 are healthy and saw nobody, so their zones are ruled out. camera 1 is silent (occluded, no healthy attestation): its silence is not counted as evidence. The region therefore leaks into camera 1's zone. Search area 99 m² instead of 356 m² reachable."
+    },
+    {
+      "t": 7.5,
+      "area": 122.4,
+      "reach": 430.3,
+      "ratio_pct": "28%",
+      "blind": 65.9,
+      "healthy_overlap": 0,
+      "zone_overlap": {
+        "1": 56.5
+      },
+      "healthy": "0,2,3",
+      "silent": "1",
+      "occluded": "1",
+      "hidden_s": 8.6,
+      "explanation": "worker-2 unseen 9 s. Cameras 0, 2, 3 are healthy and saw nobody, so their zones are ruled out. camera 1 is silent (occluded, no healthy attestation): its silence is not counted as evidence. The region therefore leaks into camera 1's zone. Search area 122 m² instead of 430 m² reachable."
+    },
+    {
+      "t": 8.4,
+      "area": 146.4,
+      "reach": 511.3,
+      "ratio_pct": "29%",
+      "blind": 69,
+      "healthy_overlap": 0,
+      "zone_overlap": {
+        "1": 77.4
+      },
+      "healthy": "0,2,3",
+      "silent": "1",
+      "occluded": "1",
+      "hidden_s": 9.6,
+      "explanation": "worker-2 unseen 10 s. Cameras 0, 2, 3 are healthy and saw nobody, so their zones are ruled out. camera 1 is silent (occluded, no healthy attestation): its silence is not counted as evidence. The region therefore leaks into camera 1's zone. Search area 146 m² instead of 511 m² reachable."
+    },
+    {
+      "t": 9.3,
+      "area": 161.3,
+      "reach": 586.4,
+      "ratio_pct": "28%",
+      "blind": 69,
+      "healthy_overlap": 0,
+      "zone_overlap": {
+        "1": 92.2
+      },
+      "healthy": "0,2,3",
+      "silent": "1",
+      "occluded": "1",
+      "hidden_s": 10.6,
+      "explanation": "worker-2 unseen 11 s. Cameras 0, 2, 3 are healthy and saw nobody, so their zones are ruled out. camera 1 is silent (occluded, no healthy attestation): its silence is not counted as evidence. The region therefore leaks into camera 1's zone. Search area 161 m² instead of 586 m² reachable."
+    },
+    {
+      "t": 10.2,
+      "area": 169.9,
+      "reach": 647.3,
+      "ratio_pct": "26%",
+      "blind": 69,
+      "healthy_overlap": 0,
+      "zone_overlap": {
+        "1": 100.9
+      },
+      "healthy": "0,2,3",
+      "silent": "1",
+      "occluded": "1",
+      "hidden_s": 11.6,
+      "explanation": "worker-2 unseen 12 s. Cameras 0, 2, 3 are healthy and saw nobody, so their zones are ruled out. camera 1 is silent (occluded, no healthy attestation): its silence is not counted as evidence. The region therefore leaks into camera 1's zone. Search area 170 m² instead of 647 m² reachable."
+    },
+    {
+      "t": 11.2,
+      "area": 173.6,
+      "reach": 690.1,
+      "ratio_pct": "25%",
+      "blind": 69,
+      "healthy_overlap": 0,
+      "zone_overlap": {
+        "1": 104.6
+      },
+      "healthy": "0,2,3",
+      "silent": "1",
+      "occluded": "1",
+      "hidden_s": 12.6,
+      "explanation": "worker-2 unseen 13 s. Cameras 0, 2, 3 are healthy and saw nobody, so their zones are ruled out. camera 1 is silent (occluded, no healthy attestation): its silence is not counted as evidence. The region therefore leaks into camera 1's zone. Search area 174 m² instead of 690 m² reachable."
+    },
+    {
+      "t": 12.1,
+      "area": 174,
+      "reach": 730.1,
+      "ratio_pct": "24%",
+      "blind": 69,
+      "healthy_overlap": 0,
+      "zone_overlap": {
+        "1": 105
+      },
+      "healthy": "0,2,3",
+      "silent": "1",
+      "occluded": "1",
+      "hidden_s": 13.6,
+      "explanation": "worker-2 unseen 14 s. Cameras 0, 2, 3 are healthy and saw nobody, so their zones are ruled out. camera 1 is silent (occluded, no healthy attestation): its silence is not counted as evidence. The region therefore leaks into camera 1's zone. Search area 174 m² instead of 730 m² reachable."
+    },
+    {
+      "t": 13.0,
+      "area": 174,
+      "reach": 774.3,
+      "ratio_pct": "23%",
+      "blind": 69,
+      "healthy_overlap": 0,
+      "zone_overlap": {
+        "1": 105
+      },
+      "healthy": "0,2,3",
+      "silent": "1",
+      "occluded": "1",
+      "hidden_s": 14.8,
+      "explanation": "worker-2 unseen 15 s. Cameras 0, 2, 3 are healthy and saw nobody, so their zones are ruled out. camera 1 is silent (occluded, no healthy attestation): its silence is not counted as evidence. The region therefore leaks into camera 1's zone. Search area 174 m² instead of 774 m² reachable."
+    },
+    {
+      "t": 13.9,
+      "area": 174,
+      "reach": 774.3,
+      "ratio_pct": "23%",
+      "blind": 69,
+      "healthy_overlap": 0,
+      "zone_overlap": {
+        "1": 105
+      },
+      "healthy": "0,2,3",
+      "silent": "1",
+      "occluded": "1",
+      "hidden_s": 14.8,
+      "explanation": "worker-2 unseen 15 s. Cameras 0, 2, 3 are healthy and saw nobody, so their zones are ruled out. camera 1 is silent (occluded, no healthy attestation): its silence is not counted as evidence. The region therefore leaks into camera 1's zone. Search area 174 m² instead of 774 m² reachable."
+    },
+    {
+      "t": 14.8,
+      "area": 174,
+      "reach": 774.3,
+      "ratio_pct": "23%",
+      "blind": 69,
+      "healthy_overlap": 0,
+      "zone_overlap": {
+        "1": 105
+      },
+      "healthy": "0,2,3",
+      "silent": "1",
+      "occluded": "1",
+      "hidden_s": 14.8,
+      "explanation": "worker-2 unseen 15 s. Cameras 0, 2, 3 are healthy and saw nobody, so their zones are ruled out. camera 1 is silent (occluded, no healthy attestation): its silence is not counted as evidence. The region therefore leaks into camera 1's zone. Search area 174 m² instead of 774 m² reachable."
+    },
+    {
+      "t": 15.7,
+      "area": 174,
+      "reach": 813.6,
+      "ratio_pct": "21%",
+      "blind": 69,
+      "healthy_overlap": 0,
+      "zone_overlap": {
+        "1": 105
+      },
+      "healthy": "0,2,3",
+      "silent": "1",
+      "occluded": "1",
+      "hidden_s": 15.8,
+      "explanation": "worker-2 unseen 16 s. Cameras 0, 2, 3 are healthy and saw nobody, so their zones are ruled out. camera 1 is silent (occluded, no healthy attestation): its silence is not counted as evidence. The region therefore leaks into camera 1's zone. Search area 174 m² instead of 814 m² reachable."
+    },
+    {
+      "t": 16.6,
+      "area": 174,
+      "reach": 844.3,
+      "ratio_pct": "21%",
+      "blind": 69,
+      "healthy_overlap": 0,
+      "zone_overlap": {
+        "1": 105
+      },
+      "healthy": "0,2,3",
+      "silent": "1",
+      "occluded": "1",
+      "hidden_s": 16.8,
+      "explanation": "worker-2 unseen 17 s. Cameras 0, 2, 3 are healthy and saw nobody, so their zones are ruled out. camera 1 is silent (occluded, no healthy attestation): its silence is not counted as evidence. The region therefore leaks into camera 1's zone. Search area 174 m² instead of 844 m² reachable."
+    },
+    {
+      "t": 17.6,
+      "area": 174,
+      "reach": 871.8,
+      "ratio_pct": "20%",
+      "blind": 69,
+      "healthy_overlap": 0,
+      "zone_overlap": {
+        "1": 105
+      },
+      "healthy": "0,2,3",
+      "silent": "1",
+      "occluded": "1",
+      "hidden_s": 17.8,
+      "explanation": "worker-2 unseen 18 s. Cameras 0, 2, 3 are healthy and saw nobody, so their zones are ruled out. camera 1 is silent (occluded, no healthy attestation): its silence is not counted as evidence. The region therefore leaks into camera 1's zone. Search area 174 m² instead of 872 m² reachable."
+    },
+    {
+      "t": 18.5,
+      "area": 174,
+      "reach": 897.9,
+      "ratio_pct": "19%",
+      "blind": 69,
+      "healthy_overlap": 0,
+      "zone_overlap": {
+        "1": 105
+      },
+      "healthy": "0,2,3",
+      "silent": "1",
+      "occluded": "1",
+      "hidden_s": 18.8,
+      "explanation": "worker-2 unseen 19 s. Cameras 0, 2, 3 are healthy and saw nobody, so their zones are ruled out. camera 1 is silent (occluded, no healthy attestation): its silence is not counted as evidence. The region therefore leaks into camera 1's zone. Search area 174 m² instead of 898 m² reachable."
+    },
+    {
+      "t": 19.4,
+      "area": 174,
+      "reach": 918.7,
+      "ratio_pct": "19%",
+      "blind": 69,
+      "healthy_overlap": 0,
+      "zone_overlap": {
+        "1": 105
+      },
+      "healthy": "0,2,3",
+      "silent": "1",
+      "occluded": "1",
+      "hidden_s": 19.8,
+      "explanation": "worker-2 unseen 20 s. Cameras 0, 2, 3 are healthy and saw nobody, so their zones are ruled out. camera 1 is silent (occluded, no healthy attestation): its silence is not counted as evidence. The region therefore leaks into camera 1's zone. Search area 174 m² instead of 919 m² reachable."
+    },
+    {
+      "t": 20.3,
+      "area": 174,
+      "reach": 930.1,
+      "ratio_pct": "19%",
+      "blind": 69,
+      "healthy_overlap": 0,
+      "zone_overlap": {
+        "1": 105
+      },
+      "healthy": "0,2,3",
+      "silent": "1",
+      "occluded": "1",
+      "hidden_s": 20.8,
+      "explanation": "worker-2 unseen 21 s. Cameras 0, 2, 3 are healthy and saw nobody, so their zones are ruled out. camera 1 is silent (occluded, no healthy attestation): its silence is not counted as evidence. The region therefore leaks into camera 1's zone. Search area 174 m² instead of 930 m² reachable."
+    },
+    {
+      "t": 21.2,
+      "area": 174,
+      "reach": 932.5,
+      "ratio_pct": "19%",
+      "blind": 69,
+      "healthy_overlap": 0,
+      "zone_overlap": {
+        "1": 105
+      },
+      "healthy": "0,2,3",
+      "silent": "1",
+      "occluded": "1",
+      "hidden_s": 21.8,
+      "explanation": "worker-2 unseen 22 s. Cameras 0, 2, 3 are healthy and saw nobody, so their zones are ruled out. camera 1 is silent (occluded, no healthy attestation): its silence is not counted as evidence. The region therefore leaks into camera 1's zone. Search area 174 m² instead of 932 m² reachable."
+    },
+    {
+      "t": 22.2,
+      "area": 174,
+      "reach": 932.5,
+      "ratio_pct": "19%",
+      "blind": 69,
+      "healthy_overlap": 0,
+      "zone_overlap": {
+        "1": 105
+      },
+      "healthy": "0,2,3",
+      "silent": "1",
+      "occluded": "1",
+      "hidden_s": 22.8,
+      "explanation": "worker-2 unseen 23 s. Cameras 0, 2, 3 are healthy and saw nobody, so their zones are ruled out. camera 1 is silent (occluded, no healthy attestation): its silence is not counted as evidence. The region therefore leaks into camera 1's zone. Search area 174 m² instead of 932 m² reachable."
+    },
+    {
+      "t": 23.2,
+      "area": 174,
+      "reach": 932.5,
+      "ratio_pct": "19%",
+      "blind": 69,
+      "healthy_overlap": 0,
+      "zone_overlap": {
+        "1": 105
+      },
+      "healthy": "0,2,3",
+      "silent": "1",
+      "occluded": "1",
+      "hidden_s": 23.8,
+      "explanation": "worker-2 unseen 24 s. Cameras 0, 2, 3 are healthy and saw nobody, so their zones are ruled out. camera 1 is silent (occluded, no healthy attestation): its silence is not counted as evidence. The region therefore leaks into camera 1's zone. Search area 174 m² instead of 932 m² reachable."
+    },
+    {
+      "t": 24.1,
+      "area": 174,
+      "reach": 932.5,
+      "ratio_pct": "19%",
+      "blind": 69,
+      "healthy_overlap": 0,
+      "zone_overlap": {
+        "1": 105
+      },
+      "healthy": "0,2,3",
+      "silent": "1",
+      "occluded": "1",
+      "hidden_s": 24.8,
+      "explanation": "worker-2 unseen 25 s. Cameras 0, 2, 3 are healthy and saw nobody, so their zones are ruled out. camera 1 is silent (occluded, no healthy attestation): its silence is not counted as evidence. The region therefore leaks into camera 1's zone. Search area 174 m² instead of 932 m² reachable."
+    },
+    {
+      "t": 25.0,
+      "area": 174,
+      "reach": 932.5,
+      "ratio_pct": "19%",
+      "blind": 69,
+      "healthy_overlap": 0,
+      "zone_overlap": {
+        "1": 105
+      },
+      "healthy": "0,2,3",
+      "silent": "1",
+      "occluded": "1",
+      "hidden_s": 25.8,
+      "explanation": "worker-2 unseen 26 s. Cameras 0, 2, 3 are healthy and saw nobody, so their zones are ruled out. camera 1 is silent (occluded, no healthy attestation): its silence is not counted as evidence. The region therefore leaks into camera 1's zone. Search area 174 m² instead of 932 m² reachable."
+    },
+    {
+      "t": 25.9,
+      "area": 174,
+      "reach": 932.5,
+      "ratio_pct": "19%",
+      "blind": 69,
+      "healthy_overlap": 0,
+      "zone_overlap": {
+        "1": 105
+      },
+      "healthy": "0,2,3",
+      "silent": "1",
+      "occluded": "1",
+      "hidden_s": 26.8,
+      "explanation": "worker-2 unseen 27 s. Cameras 0, 2, 3 are healthy and saw nobody, so their zones are ruled out. camera 1 is silent (occluded, no healthy attestation): its silence is not counted as evidence. The region therefore leaks into camera 1's zone. Search area 174 m² instead of 932 m² reachable."
+    },
+    {
+      "t": 26.8,
+      "area": 174,
+      "reach": 932.5,
+      "ratio_pct": "19%",
+      "blind": 69,
+      "healthy_overlap": 0,
+      "zone_overlap": {
+        "1": 105
+      },
+      "healthy": "0,2,3",
+      "silent": "1",
+      "occluded": "1",
+      "hidden_s": 26.8,
+      "explanation": "worker-2 unseen 27 s. Cameras 0, 2, 3 are healthy and saw nobody, so their zones are ruled out. camera 1 is silent (occluded, no healthy attestation): its silence is not counted as evidence. The region therefore leaks into camera 1's zone. Search area 174 m² instead of 932 m² reachable."
     }
   ],
-  "n_episodes": 3,
-  "other_identities_with_regions_at_end": []
+  "max_overlap_with_occluded_zone_1_m2": 105,
+  "max_overlap_with_other_zones_m2": 0.0,
+  "samples_where_page_explains_the_silence": 30,
+  "explanation_at_peak_leak": "worker-2 unseen 14 s. Cameras 0, 2, 3 are healthy and saw nobody, so their zones are ruled out. camera 1 is silent (occluded, no healthy attestation): its silence is not counted as evidence. The region therefore leaks into camera 1's zone. Search area 174 m² instead of 730 m² reachable."
 }
 ```
 
 ## Moment 3 — Partition and heal: PASS
 
-**What it should demonstrate:** Cut nodes {2,3} from {0,1}; both sides keep working; on heal the replicas reconverge (equal claim counts, no gaps); any genuine conflict shows as an open fork.
+**What it should demonstrate:** Cut nodes {2,3} from {0,1}; both sides keep working; on heal the replicas reconverge (equal claim counts, no gaps).
 
 **Action taken:** Pressed 'Partition {2,3} from {0,1}', waited, pressed 'Heal', and timed how long until the convergence badge read CONVERGED.
 
-**Verdict reason:** partition shown on all nodes, spread grew to 51.0, converged 2.4s after heal with gaps=0; open forks: 0
+**Verdict reason:** partition shown on all nodes, spread grew to 51.0, converged 1.1s after heal with gaps=0
 
-### 3a_before_partition.jpg  (t = 89.7 s since launch)
+### 3a_before_partition.jpg  (t = 213.1 s since launch)
 
 Before: all nodes hold (almost) the same number of claims.
 
@@ -880,18 +2491,18 @@ DOM values read at capture:
 ```json
 {
  "nodes_live": "4",
- "sim_time_s": "86.4",
+ "sim_time_s": "208.2",
  "convergence": "CONVERGED",
- "spread": "3",
+ "spread": "4",
  "gaps": "0",
  "partition": "none",
- "open_forks": "0",
- "mean_error_m": "0.33",
+ "forks_open": "0",
+ "mean_error_m": "0.37",
  "claims_per_node": [
-  "1956",
-  "1959",
-  "1956",
-  "1957"
+  "4619",
+  "4615",
+  "4619",
+  "4619"
  ],
  "live": [
   "LIVE",
@@ -899,17 +2510,17 @@ DOM values read at capture:
   "LIVE",
   "LIVE"
  ],
+ "camera_zone_coverage": [
+  "healthy",
+  "silent",
+  "healthy",
+  "healthy"
+ ],
  "partitioned": [
   "no",
   "no",
   "no",
   "no"
- ],
- "behaviour": [
-  "hones",
-  "hones",
-  "hones",
-  "hones"
  ],
  "reputation": [
   "1.00",
@@ -918,26 +2529,36 @@ DOM values read at capture:
   "1.00"
  ],
  "rejected": [
-  "0 of 579",
-  "2 of 557",
-  "0 of 406",
-  "0 of 417"
+  "17 of 1412",
+  "0 of 1009",
+  "1 of 1076",
+  "1 of 1120"
  ],
- "candidate_regions_m2": {},
+ "regions": {},
  "identities": [
-  "P-004 worker-0 seen @(7.1, 23.6) via node 0 err 0.38",
-  "P-001 worker-1 seen @(17.9, 19.2) via node 1 err 0.06",
-  "P-002 worker-3 seen @(31.0, 4.8) via node 2 err 0.39",
-  "P-003 worker-2 seen @(11.8, 12.0) via node 1 err 0.29",
-  "P-005 worker-4 seen @(37.9, 2.9) via node 3 err 0.55"
+  "P-001 worker-0 seen @(10.3, 1.6) via node 0 err 0.09",
+  "P-002 worker-1 seen @(15.0, 2.0) via node 1 err 0.34",
+  "P-003 worker-4 seen @(17.3, 23.5) via node 2 err 0.69",
+  "P-004 worker-3 seen @(39.0, 6.2) via node 3 err 0.18",
+  "P-014 worker-2 seen @(26.9, 12.0) via node 3 err 0.54"
  ],
+ "forks": [],
+ "centralized": {
+  "status": "HEALTHY",
+  "tracked_now": "5",
+  "starling_now": "5",
+  "truth": "5",
+  "detail": "5 identities in the shared table; 4622 observations delivered."
+ },
+ "conflict": "no conflict running",
  "query": {
-  "status": "none"
+  "status": "answered",
+  "verdict": "ANSWER"
  }
 }
 ```
 
-### 3b_partition_during.jpg  (t = 91.0 s since launch)
+### 3b_partition_during.jpg  (t = 214.4 s since launch)
 
 Partition applied: every node card reports 'partitioned: yes'.
 
@@ -946,18 +2567,18 @@ DOM values read at capture:
 ```json
 {
  "nodes_live": "4",
- "sim_time_s": "88.4",
+ "sim_time_s": "210.4",
  "convergence": "PARTITIONED",
- "spread": "4",
+ "spread": "5",
  "gaps": "0",
  "partition": "CUT",
- "open_forks": "0",
- "mean_error_m": "0.20",
+ "forks_open": "0",
+ "mean_error_m": "0.36",
  "claims_per_node": [
-  "2003",
-  "2005",
-  "2003",
-  "2001"
+  "4664",
+  "4661",
+  "4666",
+  "4666"
  ],
  "live": [
   "LIVE",
@@ -965,17 +2586,17 @@ DOM values read at capture:
   "LIVE",
   "LIVE"
  ],
+ "camera_zone_coverage": [
+  "healthy",
+  "silent",
+  "healthy",
+  "healthy"
+ ],
  "partitioned": [
   "yes",
   "yes",
   "yes",
   "yes"
- ],
- "behaviour": [
-  "hones",
-  "hones",
-  "hones",
-  "hones"
  ],
  "reputation": [
   "1.00",
@@ -984,26 +2605,36 @@ DOM values read at capture:
   "1.00"
  ],
  "rejected": [
-  "0 of 588",
-  "2 of 577",
-  "0 of 416",
-  "0 of 426"
+  "17 of 1422",
+  "0 of 1019",
+  "1 of 1086",
+  "1 of 1139"
  ],
- "candidate_regions_m2": {},
+ "regions": {},
  "identities": [
-  "P-004 worker-0 seen @(5.1, 24.0) via node 0 err 0.50",
-  "P-001 worker-1 seen @(18.0, 19.9) via node 1 err 0.02",
-  "P-002 worker-3 seen @(31.1, 5.2) via node 2 err 0.07",
-  "P-003 worker-2 seen @(13.2, 11.9) via node 1 err 0.15",
-  "P-005 worker-4 seen @(39.2, 3.1) via node 3 err 0.26"
+  "P-001 worker-0 seen @(11.8, 1.9) via node 0 err 0.43",
+  "P-002 worker-1 seen @(15.1, 1.5) via node 1 err 0.49",
+  "P-003 worker-4 seen @(15.2, 23.4) via node 2 err 0.14",
+  "P-004 worker-3 seen @(38.9, 7.2) via node 3 err 0.34",
+  "P-014 worker-2 seen @(28.9, 12.2) via node 3 err 0.39"
  ],
+ "forks": [],
+ "centralized": {
+  "status": "PARTIAL",
+  "tracked_now": "5",
+  "starling_now": "5",
+  "truth": "5",
+  "detail": "Cameras 2, 3 cannot reach the server: their workers are lost (0 observations never delivered)."
+ },
+ "conflict": "no conflict running",
  "query": {
-  "status": "none"
+  "status": "answered",
+  "verdict": "ANSWER"
  }
 }
 ```
 
-### 3c_partition_later.jpg  (t = 103.2 s since launch)
+### 3c_partition_later.jpg  (t = 226.6 s since launch)
 
 12 s into the partition: the two sides' claim counts have drifted apart.
 
@@ -1012,24 +2643,30 @@ DOM values read at capture:
 ```json
 {
  "nodes_live": "4",
- "sim_time_s": "100.4",
+ "sim_time_s": "222.4",
  "convergence": "PARTITIONED",
- "spread": "50",
+ "spread": "62",
  "gaps": "0",
  "partition": "CUT",
- "open_forks": "0",
- "mean_error_m": "0.23",
+ "forks_open": "0",
+ "mean_error_m": "0.33",
  "claims_per_node": [
-  "2168",
-  "2169",
-  "2119",
-  "2120"
+  "4782",
+  "4782",
+  "4842",
+  "4844"
  ],
  "live": [
   "LIVE",
   "LIVE",
   "LIVE",
   "LIVE"
+ ],
+ "camera_zone_coverage": [
+  "healthy",
+  "silent",
+  "healthy",
+  "healthy"
  ],
  "partitioned": [
   "yes",
@@ -1037,12 +2674,6 @@ DOM values read at capture:
   "yes",
   "yes"
  ],
- "behaviour": [
-  "hones",
-  "hones",
-  "hones",
-  "hones"
- ],
  "reputation": [
   "1.00",
   "1.00",
@@ -1050,48 +2681,56 @@ DOM values read at capture:
   "1.00"
  ],
  "rejected": [
-  "0 of 646",
-  "2 of 683",
-  "0 of 473",
-  "0 of 484"
+  "17 of 1482",
+  "0 of 1077",
+  "1 of 1147",
+  "1 of 1255"
  ],
- "candidate_regions_m2": {
-  "P-003": 34.44
- },
+ "regions": {},
  "identities": [
-  "P-004 worker-0 seen @(0.9, 15.8) via node 0 err 0.11",
-  "P-001 worker-1 seen @(12.0, 22.1) via node 1 err 0.68",
-  "P-002 worker-3 seen @(30.9, 13.7) via node 2 err 0.08",
-  "P-003 worker-2 unseen @(11.1, 11.9) via node 1 err –",
-  "P-005 worker-4 seen @(37.6, 3.0) via node 3 err 0.03"
+  "P-001 worker-0 seen @(12.1, 16.2) via node 0 err 0.51",
+  "P-002 worker-1 seen @(24.9, 3.8) via node 1 err 0.31",
+  "P-003 worker-4 seen @(19.0, 17.5) via node 2 err 0.37",
+  "P-004 worker-3 seen @(38.9, 18.4) via node 3 err 0.15",
+  "P-014 worker-2 seen @(31.8, 17.5) via node 3 err 0.33"
  ],
+ "forks": [],
+ "centralized": {
+  "status": "PARTIAL",
+  "tracked_now": "2",
+  "starling_now": "5",
+  "truth": "5",
+  "detail": "Cameras 2, 3 cannot reach the server: their workers are lost (177 observations never delivered)."
+ },
+ "conflict": "no conflict running",
  "query": {
-  "status": "none"
+  "status": "answered",
+  "verdict": "ANSWER"
  }
 }
 ```
 
-### 3d_after_heal.jpg  (t = 106.1 s since launch)
+### 3d_after_heal.jpg  (t = 228.2 s since launch)
 
-After heal: convergence badge CONVERGED, spread 6, gaps 0 (2.4s after pressing Heal).
+After heal: CONVERGED, spread 6, gaps 0 (1.1s after pressing Heal).
 
 DOM values read at capture:
 
 ```json
 {
  "nodes_live": "4",
- "sim_time_s": "103.4",
+ "sim_time_s": "224.4",
  "convergence": "CONVERGED",
  "spread": "6",
  "gaps": "0",
  "partition": "none",
- "open_forks": "0",
- "mean_error_m": "0.34",
+ "forks_open": "0",
+ "mean_error_m": "0.64",
  "claims_per_node": [
-  "2340",
-  "2339",
-  "2338",
-  "2344"
+  "5006",
+  "5001",
+  "5005",
+  "5007"
  ],
  "live": [
   "LIVE",
@@ -1099,17 +2738,17 @@ DOM values read at capture:
   "LIVE",
   "LIVE"
  ],
+ "camera_zone_coverage": [
+  "healthy",
+  "silent",
+  "healthy",
+  "healthy"
+ ],
  "partitioned": [
   "no",
   "no",
   "no",
   "no"
- ],
- "behaviour": [
-  "hones",
-  "hones",
-  "hones",
-  "hones"
  ],
  "reputation": [
   "1.00",
@@ -1118,21 +2757,31 @@ DOM values read at capture:
   "1.00"
  ],
  "rejected": [
-  "0 of 667",
-  "2 of 700",
-  "0 of 489",
-  "0 of 501"
+  "17 of 1494",
+  "0 of 1088",
+  "1 of 1157",
+  "1 of 1278"
  ],
- "candidate_regions_m2": {},
+ "regions": {},
  "identities": [
-  "P-004 worker-0 seen @(1.0, 13.9) via node 0 err 0.66",
-  "P-001 worker-1 seen @(12.0, 18.5) via node 1 err 0.04",
-  "P-002 worker-3 seen @(31.0, 15.8) via node 2 err 0.65",
-  "P-003 worker-2 seen @(7.9, 12.0) via node 0 err 0.33",
-  "P-005 worker-4 seen @(39.0, 3.0) via node 3 err 0.04"
+  "P-001 worker-0 seen @(12.1, 18.7) via node 0 err 0.62",
+  "P-002 worker-1 seen @(25.0, 5.6) via node 1 err 0.69",
+  "P-003 worker-4 seen @(21.0, 17.5) via node 2 err 0.64",
+  "P-004 worker-3 seen @(38.9, 20.2) via node 3 err 0.71",
+  "P-014 worker-2 seen @(30.0, 17.5) via node 3 err 0.53"
  ],
+ "forks": [],
+ "centralized": {
+  "status": "HEALTHY",
+  "tracked_now": "5",
+  "starling_now": "5",
+  "truth": "5",
+  "detail": "5 identities in the shared table; 4820 observations delivered."
+ },
+ "conflict": "no conflict running",
  "query": {
-  "status": "none"
+  "status": "answered",
+  "verdict": "ANSWER"
  }
 }
 ```
@@ -1143,146 +2792,138 @@ Measured values:
 {
   "before": {
     "claims": [
-      1956.0,
-      1959.0,
-      1956.0,
-      1957.0
+      4619.0,
+      4615.0,
+      4619.0,
+      4619.0
     ],
-    "spread": 3.0,
+    "spread": 4.0,
     "convergence": "CONVERGED"
   },
   "partition_state_shown_on_all_4_nodes": true,
   "spread_and_claims_during_partition": [
     [
       0.0,
-      4.0,
+      5.0,
       [
-        2003.0,
-        2005.0,
-        2003.0,
-        2001.0
+        4664.0,
+        4661.0,
+        4666.0,
+        4666.0
       ]
     ],
     [
       1.5,
-      8.0,
+      7.0,
       [
-        2021.0,
-        2023.0,
-        2015.0,
-        2017.0
+        4676.0,
+        4676.0,
+        4681.0,
+        4683.0
       ]
     ],
     [
       3.0,
-      17.0,
+      15.0,
       [
-        2051.0,
-        2051.0,
-        2034.0,
-        2036.0
+        4696.0,
+        4696.0,
+        4710.0,
+        4711.0
       ]
     ],
     [
       4.5,
-      22.0,
+      19.0,
       [
-        2064.0,
-        2066.0,
-        2044.0,
-        2046.0
+        4705.0,
+        4706.0,
+        4724.0,
+        4724.0
       ]
     ],
     [
-      6.1,
-      34.0,
+      6.0,
+      29.0,
       [
-        2094.0,
-        2096.0,
-        2062.0,
-        2064.0
+        4725.0,
+        4725.0,
+        4752.0,
+        4754.0
       ]
     ],
     [
       7.6,
-      40.0,
+      35.0,
       [
-        2107.0,
-        2109.0,
-        2069.0,
-        2071.0
+        4734.0,
+        4734.0,
+        4767.0,
+        4769.0
       ]
     ],
     [
       9.1,
-      49.0,
+      45.0,
       [
-        2136.0,
-        2138.0,
-        2089.0,
-        2091.0
+        4753.0,
+        4753.0,
+        4797.0,
+        4798.0
       ]
     ],
     [
       10.6,
       51.0,
       [
-        2149.0,
-        2150.0,
-        2099.0,
-        2101.0
+        4763.0,
+        4763.0,
+        4812.0,
+        4814.0
       ]
     ]
   ],
   "max_spread_during_partition": 51.0,
-  "seconds_from_heal_to_converged": 2.4,
+  "seconds_from_heal_to_converged": 1.1,
   "after_heal_claims": [
-    2340.0,
-    2339.0,
-    2338.0,
-    2344.0
+    5006.0,
+    5001.0,
+    5005.0,
+    5007.0
   ],
-  "after_heal_gaps": 0.0,
-  "open_forks_during": 0.0,
-  "open_forks_after": 0,
-  "claims_on_sides_pre_heal": [
-    2168.0,
-    2169.0,
-    2119.0,
-    2120.0
-  ]
+  "after_heal_gaps": 0.0
 }
 ```
 
 ## Moment 4 — Lying node: PASS
 
-**What it should demonstrate:** A node fabricates sightings; peers reject implausible claims and its reputation, as seen by peers, drops; it recovers when it stops.
+**What it should demonstrate:** A node fabricates sightings; peers reject implausible claims and its reputation, as seen by peers, drops; it recovers when it stops. Honest nodes must not lose reputation.
 
 **Action taken:** Selected node 2, pressed 'Make node lie', sampled reputation and rejected-claim counters every ~2 s for up to 40 s, then pressed 'Stop lying' and sampled recovery for up to 60 s.
 
-**Verdict reason:** liar's reputation < 0.7 after 3.6s (48.0 claims rejected), honest nodes stayed >= 1.0, recovered > 0.9 8.1s after stopping
+**Verdict reason:** liar's reputation < 0.7 after 12.8s (72.0 claims rejected), honest nodes stayed >= 1.0 (their rejected counters grew by [7.0, 0, 0.0] during the test), recovered > 0.9 8.1s after stopping
 
-### 4a_before_lie.jpg  (t = 106.2 s since launch)
+### 4a_before_lie.jpg  (t = 228.2 s since launch)
 
-Before: reputation of all nodes = [1.0, 1.0, 1.0, 1.0].
+Before: reputation [1.0, 1.0, 1.0, 1.0], rejected [17.0, 0.0, 1.0, 1.0].
 
 DOM values read at capture:
 
 ```json
 {
  "nodes_live": "4",
- "sim_time_s": "103.4",
+ "sim_time_s": "224.4",
  "convergence": "CONVERGED",
  "spread": "6",
  "gaps": "0",
  "partition": "none",
- "open_forks": "0",
- "mean_error_m": "0.34",
+ "forks_open": "0",
+ "mean_error_m": "0.64",
  "claims_per_node": [
-  "2340",
-  "2339",
-  "2338",
-  "2344"
+  "5006",
+  "5001",
+  "5005",
+  "5007"
  ],
  "live": [
   "LIVE",
@@ -1290,17 +2931,17 @@ DOM values read at capture:
   "LIVE",
   "LIVE"
  ],
+ "camera_zone_coverage": [
+  "healthy",
+  "silent",
+  "healthy",
+  "healthy"
+ ],
  "partitioned": [
   "no",
   "no",
   "no",
   "no"
- ],
- "behaviour": [
-  "hones",
-  "hones",
-  "hones",
-  "hones"
  ],
  "reputation": [
   "1.00",
@@ -1309,46 +2950,56 @@ DOM values read at capture:
   "1.00"
  ],
  "rejected": [
-  "0 of 667",
-  "2 of 700",
-  "0 of 489",
-  "0 of 501"
+  "17 of 1494",
+  "0 of 1088",
+  "1 of 1157",
+  "1 of 1278"
  ],
- "candidate_regions_m2": {},
+ "regions": {},
  "identities": [
-  "P-004 worker-0 seen @(1.0, 13.9) via node 0 err 0.66",
-  "P-001 worker-1 seen @(12.0, 18.5) via node 1 err 0.04",
-  "P-002 worker-3 seen @(31.0, 15.8) via node 2 err 0.65",
-  "P-003 worker-2 seen @(7.9, 12.0) via node 0 err 0.33",
-  "P-005 worker-4 seen @(39.0, 3.0) via node 3 err 0.04"
+  "P-001 worker-0 seen @(12.1, 18.7) via node 0 err 0.62",
+  "P-002 worker-1 seen @(25.0, 5.6) via node 1 err 0.69",
+  "P-003 worker-4 seen @(21.0, 17.5) via node 2 err 0.64",
+  "P-004 worker-3 seen @(38.9, 20.2) via node 3 err 0.71",
+  "P-014 worker-2 seen @(30.0, 17.5) via node 3 err 0.53"
  ],
+ "forks": [],
+ "centralized": {
+  "status": "HEALTHY",
+  "tracked_now": "5",
+  "starling_now": "5",
+  "truth": "5",
+  "detail": "5 identities in the shared table; 4820 observations delivered."
+ },
+ "conflict": "no conflict running",
  "query": {
-  "status": "none"
+  "status": "answered",
+  "verdict": "ANSWER"
  }
 }
 ```
 
-### 4b_lying_early.jpg  (t = 112.1 s since launch)
+### 4b_lying_early.jpg  (t = 234.2 s since launch)
 
-5.4s after 'Make node 2 lie': reputation [1.0, 1.0, 0.6, 1.0], rejected [0.0, 2.0, 23.0, 0.0].
+5.4s after 'Make node 2 lie': reputation [1.0, 1.0, 1.0, 1.0], rejected [17.0, 0.0, 1.0, 1.0].
 
 DOM values read at capture:
 
 ```json
 {
  "nodes_live": "4",
- "sim_time_s": "109.4",
+ "sim_time_s": "230.4",
  "convergence": "CONVERGED",
- "spread": "12",
+ "spread": "5",
  "gaps": "0",
  "partition": "none",
- "open_forks": "0",
- "mean_error_m": "0.63",
+ "forks_open": "0",
+ "mean_error_m": "0.21",
  "claims_per_node": [
-  "2503",
-  "2504",
-  "2498",
-  "2510"
+  "5140",
+  "5144",
+  "5143",
+  "5145"
  ],
  "live": [
   "LIVE",
@@ -1356,17 +3007,93 @@ DOM values read at capture:
   "LIVE",
   "LIVE"
  ],
+ "camera_zone_coverage": [
+  "healthy",
+  "silent",
+  "healthy",
+  "healthy"
+ ],
  "partitioned": [
   "no",
   "no",
   "no",
   "no"
  ],
- "behaviour": [
-  "hones",
-  "hones",
-  "LYING",
-  "hones"
+ "reputation": [
+  "1.00",
+  "1.00",
+  "1.00",
+  "1.00"
+ ],
+ "rejected": [
+  "17 of 1519",
+  "0 of 1112",
+  "1 of 1208",
+  "1 of 1321"
+ ],
+ "regions": {},
+ "identities": [
+  "P-001 worker-0 seen @(9.7, 23.6) via node 0 err 0.25",
+  "P-002 worker-1 seen @(20.8, 7.5) via node 1 err 0.18",
+  "P-003 worker-4 seen @(25.0, 19.4) via node 2 err 0.26",
+  "P-004 worker-3 seen @(35.7, 23.4) via node 3 err 0.25",
+  "P-014 worker-2 seen @(24.5, 17.4) via node 2 err 0.11"
+ ],
+ "forks": [],
+ "centralized": {
+  "status": "HEALTHY",
+  "tracked_now": "5",
+  "starling_now": "5",
+  "truth": "5",
+  "detail": "5 identities in the shared table; 4949 observations delivered."
+ },
+ "conflict": "no conflict running",
+ "query": {
+  "status": "answered",
+  "verdict": "ANSWER"
+ }
+}
+```
+
+### 4c_lying_dropped.jpg  (t = 250.6 s since launch)
+
+Node 2's reputation has dropped: [1.0, 1.0, 0.6, 1.0], rejected [17.0, 0.0, 72.0, 1.0].
+
+DOM values read at capture:
+
+```json
+{
+ "nodes_live": "4",
+ "sim_time_s": "246.6",
+ "convergence": "CONVERGED",
+ "spread": "8",
+ "gaps": "0",
+ "partition": "none",
+ "forks_open": "0",
+ "mean_error_m": "0.22",
+ "claims_per_node": [
+  "5631",
+  "5633",
+  "5625",
+  "5633"
+ ],
+ "live": [
+  "LIVE",
+  "LIVE",
+  "LIVE",
+  "LIVE"
+ ],
+ "camera_zone_coverage": [
+  "healthy",
+  "healthy",
+  "healthy",
+  "healthy"
+ ],
+ "partitioned": [
+  "no",
+  "no",
+  "no",
+  "no"
  ],
  "reputation": [
   "1.00",
@@ -1375,45 +3102,55 @@ DOM values read at capture:
   "1.00"
  ],
  "rejected": [
-  "0 of 724",
-  "2 of 730",
-  "23 of 543",
-  "0 of 527"
+  "17 of 1623",
+  "0 of 1192",
+  "72 of 1422",
+  "1 of 1405"
  ],
- "candidate_regions_m2": {},
+ "regions": {},
  "identities": [
-  "P-004 worker-0 seen @(1.2, 6.8) via node 0 err 0.79",
-  "P-001 worker-1 seen @(12.0, 15.1) via node 1 err 0.78",
-  "P-003 worker-2 seen @(4.3, 12.0) via node 0 err 0.30",
-  "P-005 worker-4 seen @(36.9, 6.0) via node 3 err 0.65"
+  "P-001 worker-0 seen @(1.0, 12.8) via node 0 err 0.25",
+  "P-002 worker-1 seen @(16.9, 1.6) via node 1 err 0.30",
+  "P-004 worker-3 seen @(26.9, 14.4) via node 3 err 0.09",
+  "P-014 worker-2 seen @(10.1, 17.6) via node 0 err 0.23"
  ],
+ "forks": [],
+ "centralized": {
+  "status": "HEALTHY",
+  "tracked_now": "5",
+  "starling_now": "4",
+  "truth": "5",
+  "detail": "5 identities in the shared table; 5356 observations delivered."
+ },
+ "conflict": "no conflict running",
  "query": {
-  "status": "none"
+  "status": "answered",
+  "verdict": "ANSWER"
  }
 }
 ```
 
-### 4c_lying_dropped.jpg  (t = 119.4 s since launch)
+### 4d_recovering.jpg  (t = 257.1 s since launch)
 
-Node 2's reputation has dropped: [1.0, 1.0, 0.57, 1.0], rejected [0.0, 2.0, 48.0, 0.0].
+6.0s after 'Stop lying': reputation [1.0, 1.0, 0.89, 1.0].
 
 DOM values read at capture:
 
 ```json
 {
  "nodes_live": "4",
- "sim_time_s": "116.6",
+ "sim_time_s": "252.6",
  "convergence": "CONVERGED",
- "spread": "10",
+ "spread": "7",
  "gaps": "0",
  "partition": "none",
- "open_forks": "0",
- "mean_error_m": "0.51",
+ "forks_open": "0",
+ "mean_error_m": "0.54",
  "claims_per_node": [
-  "2700",
-  "2700",
-  "2696",
-  "2706"
+  "5781",
+  "5780",
+  "5774",
+  "5779"
  ],
  "live": [
   "LIVE",
@@ -1421,64 +3158,75 @@ DOM values read at capture:
   "LIVE",
   "LIVE"
  ],
+ "camera_zone_coverage": [
+  "healthy",
+  "healthy",
+  "healthy",
+  "healthy"
+ ],
  "partitioned": [
   "no",
   "no",
   "no",
   "no"
  ],
- "behaviour": [
-  "hones",
-  "hones",
-  "LYING",
-  "hones"
- ],
  "reputation": [
   "1.00",
   "1.00",
-  "0.57",
+  "0.89",
   "1.00"
  ],
  "rejected": [
-  "0 of 786",
-  "2 of 761",
-  "48 of 601",
-  "0 of 560"
+  "17 of 1685",
+  "0 of 1223",
+  "73 of 1452",
+  "1 of 1437"
  ],
- "candidate_regions_m2": {},
+ "regions": {},
  "identities": [
-  "P-004 worker-0 seen @(4.8, 1.9) via node 0 err 0.64",
-  "P-001 worker-1 seen @(12.1, 7.1) via node 1 err 0.52",
-  "P-003 worker-2 seen @(7.9, 12.0) via node 0 err 0.30",
-  "P-005 worker-4 seen @(38.9, 3.3) via node 3 err 0.56"
+  "P-001 worker-0 seen @(1.1, 8.0) via node 0 err 0.71",
+  "P-002 worker-1 seen @(20.4, 1.5) via node 1 err 0.60",
+  "P-003 worker-4 seen @(15.0, 18.4) via node 2 err 0.10",
+  "P-004 worker-3 seen @(26.9, 11.3) via node 3 err 0.70",
+  "P-014 worker-2 seen @(4.7, 17.5) via node 0 err 0.58"
  ],
+ "forks": [],
+ "centralized": {
+  "status": "HEALTHY",
+  "tracked_now": "5",
+  "starling_now": "5",
+  "truth": "5",
+  "detail": "5 identities in the shared table; 5504 observations delivered."
+ },
+ "conflict": "no conflict running",
  "query": {
-  "status": "none"
+  "status": "answered",
+  "verdict": "ANSWER"
  }
 }
 ```
 
-### 4d_recovering.jpg  (t = 125.9 s since launch)
+### 4e_after_stop.jpg  (t = 259.2 s since launch)
 
-6.0s after 'Stop lying': reputation [1.0, 1.0, 0.83, 1.0].
+End of recovery window: reputation [0.83, 1.0, 0.93, 1.0].
 
 DOM values read at capture:
 
 ```json
 {
  "nodes_live": "4",
- "sim_time_s": "122.6",
+ "sim_time_s": "254.8",
  "convergence": "CONVERGED",
- "spread": "22",
+ "spread": "6",
  "gaps": "0",
  "partition": "none",
- "open_forks": "0",
- "mean_error_m": "0.12",
+ "forks_open": "0",
+ "mean_error_m": "0.57",
  "claims_per_node": [
-  "2823",
-  "2828",
-  "2823",
-  "2806"
+  "5830",
+  "5829",
+  "5824",
+  "5829"
  ],
  "live": [
   "LIVE",
@@ -1486,106 +3234,50 @@ DOM values read at capture:
   "LIVE",
   "LIVE"
  ],
+ "camera_zone_coverage": [
+  "healthy",
+  "healthy",
+  "healthy",
+  "healthy"
+ ],
  "partitioned": [
   "no",
   "no",
   "no",
   "no"
  ],
- "behaviour": [
-  "hones",
-  "hones",
-  "hones",
-  "hones"
- ],
  "reputation": [
-  "1.00",
-  "1.00",
   "0.83",
-  "1.00"
- ],
- "rejected": [
-  "0 of 815",
-  "2 of 794",
-  "53 of 635",
-  "0 of 587"
- ],
- "candidate_regions_m2": {},
- "identities": [
-  "P-004 worker-0 seen @(7.0, 6.2) via node 0 err 0.04",
-  "P-001 worker-1 seen @(13.5, 2.1) via node 1 err 0.13",
-  "P-002 worker-3 seen @(25.1, 22.8) via node 2 err 0.40",
-  "P-003 worker-2 seen @(11.6, 12.0) via node 1 err 0.03",
-  "P-005 worker-4 seen @(36.0, 5.6) via node 3 err 0.02"
- ],
- "query": {
-  "status": "none"
- }
-}
-```
-
-### 4e_after_stop.jpg  (t = 128.0 s since launch)
-
-End of recovery window: reputation [1.0, 1.0, 0.93, 1.0].
-
-DOM values read at capture:
-
-```json
-{
- "nodes_live": "4",
- "sim_time_s": "125.6",
- "convergence": "CONVERGED",
- "spread": "24",
- "gaps": "0",
- "partition": "none",
- "open_forks": "0",
- "mean_error_m": "0.10",
- "claims_per_node": [
-  "2897",
-  "2898",
-  "2898",
-  "2874"
- ],
- "live": [
-  "LIVE",
-  "LIVE",
-  "LIVE",
-  "LIVE"
- ],
- "partitioned": [
-  "no",
-  "no",
-  "no",
-  "no"
- ],
- "behaviour": [
-  "hones",
-  "hones",
-  "hones",
-  "hones"
- ],
- "reputation": [
-  "1.00",
   "1.00",
   "0.93",
   "1.00"
  ],
  "rejected": [
-  "0 of 828",
-  "2 of 824",
-  "53 of 650",
-  "0 of 602"
+  "24 of 1705",
+  "0 of 1233",
+  "73 of 1462",
+  "1 of 1447"
  ],
- "candidate_regions_m2": {},
+ "regions": {},
  "identities": [
-  "P-004 worker-0 seen @(7.1, 8.1) via node 0 err 0.10",
-  "P-001 worker-1 seen @(16.9, 2.0) via node 1 err 0.07",
-  "P-002 worker-3 seen @(24.9, 22.2) via node 2 err 0.09",
-  "P-003 worker-2 seen @(13.3, 12.0) via node 1 err 0.12",
-  "P-005 worker-4 seen @(36.5, 3.1) via node 3 err 0.11"
+  "P-001 worker-0 seen @(0.9, 5.3) via node 0 err 0.41",
+  "P-002 worker-1 seen @(22.5, 1.6) via node 1 err 0.49",
+  "P-003 worker-4 seen @(15.6, 17.5) via node 2 err 0.38",
+  "P-004 worker-3 seen @(26.9, 8.7) via node 3 err 0.30",
+  "P-014 worker-2 seen @(3.5, 17.6) via node 0 err 1.26"
  ],
+ "forks": [],
+ "centralized": {
+  "status": "HEALTHY",
+  "tracked_now": "5",
+  "starling_now": "5",
+  "truth": "5",
+  "detail": "5 identities in the shared table; 5559 observations delivered."
+ },
+ "conflict": "no conflict running",
  "query": {
-  "status": "none"
+  "status": "answered",
+  "verdict": "ANSWER"
  }
 }
 ```
@@ -1601,7 +3293,13 @@ Measured values:
     1.0,
     1.0
   ],
-  "reputation_and_rejected_samples_while_lying": [
+  "rejected_before": [
+    17.0,
+    0.0,
+    1.0,
+    1.0
+  ],
+  "samples_while_lying": [
     {
       "t": 0.0,
       "reputation": [
@@ -1611,10 +3309,10 @@ Measured values:
         1.0
       ],
       "rejected": [
+        17.0,
         0.0,
-        2.0,
-        0.0,
-        0.0
+        1.0,
+        1.0
       ]
     },
     {
@@ -1622,14 +3320,14 @@ Measured values:
       "reputation": [
         1.0,
         1.0,
-        0.88,
+        1.0,
         1.0
       ],
       "rejected": [
+        17.0,
         0.0,
-        2.0,
-        3.0,
-        0.0
+        1.0,
+        1.0
       ]
     },
     {
@@ -1637,14 +3335,14 @@ Measured values:
       "reputation": [
         1.0,
         1.0,
-        0.69,
+        1.0,
         1.0
       ],
       "rejected": [
+        17.0,
         0.0,
-        2.0,
-        12.0,
-        0.0
+        1.0,
+        1.0
       ]
     },
     {
@@ -1652,14 +3350,14 @@ Measured values:
       "reputation": [
         1.0,
         1.0,
-        0.6,
+        1.0,
         1.0
       ],
       "rejected": [
+        17.0,
         0.0,
-        2.0,
-        23.0,
-        0.0
+        1.0,
+        1.0
       ]
     },
     {
@@ -1667,14 +3365,14 @@ Measured values:
       "reputation": [
         1.0,
         1.0,
-        0.58,
+        0.85,
         1.0
       ],
       "rejected": [
+        17.0,
         0.0,
-        2.0,
-        31.0,
-        0.0
+        5.0,
+        1.0
       ]
     },
     {
@@ -1682,57 +3380,137 @@ Measured values:
       "reputation": [
         1.0,
         1.0,
-        0.59,
+        0.72,
         1.0
       ],
       "rejected": [
+        17.0,
         0.0,
-        2.0,
-        35.0,
-        0.0
+        14.0,
+        1.0
       ]
     },
     {
-      "t": 10.9,
+      "t": 11.0,
       "reputation": [
         1.0,
         1.0,
-        0.58,
+        0.7,
         1.0
       ],
       "rejected": [
+        17.0,
         0.0,
-        2.0,
-        39.0,
-        0.0
+        24.0,
+        1.0
       ]
     },
     {
-      "t": 12.7,
+      "t": 12.8,
       "reputation": [
         1.0,
         1.0,
-        0.57,
+        0.68,
         1.0
       ],
       "rejected": [
+        17.0,
         0.0,
-        2.0,
-        48.0,
-        0.0
+        33.0,
+        1.0
+      ]
+    },
+    {
+      "t": 14.6,
+      "reputation": [
+        1.0,
+        1.0,
+        0.68,
+        1.0
+      ],
+      "rejected": [
+        17.0,
+        0.0,
+        42.0,
+        1.0
+      ]
+    },
+    {
+      "t": 16.4,
+      "reputation": [
+        1.0,
+        1.0,
+        0.67,
+        1.0
+      ],
+      "rejected": [
+        17.0,
+        0.0,
+        51.0,
+        1.0
+      ]
+    },
+    {
+      "t": 18.2,
+      "reputation": [
+        1.0,
+        1.0,
+        0.69,
+        1.0
+      ],
+      "rejected": [
+        17.0,
+        0.0,
+        56.0,
+        1.0
+      ]
+    },
+    {
+      "t": 20.0,
+      "reputation": [
+        1.0,
+        1.0,
+        0.68,
+        1.0
+      ],
+      "rejected": [
+        17.0,
+        0.0,
+        64.0,
+        1.0
+      ]
+    },
+    {
+      "t": 21.8,
+      "reputation": [
+        1.0,
+        1.0,
+        0.6,
+        1.0
+      ],
+      "rejected": [
+        17.0,
+        0.0,
+        72.0,
+        1.0
       ]
     }
   ],
-  "seconds_until_liar_reputation_below_0.7": 3.6,
-  "liar_rejected_claims_at_end": 48.0,
-  "lowest_honest_node_reputation_while_lying": 1.0,
-  "recovery_samples_after_stop": [
+  "seconds_until_liar_reputation_below_0.7": 12.8,
+  "liar_rejected_claims_at_end_of_lying": 72.0,
+  "lowest_honest_reputation_while_lying": 1.0,
+  "honest_nodes_rejected_claims_added_during_test": [
+    7.0,
+    0,
+    0.0
+  ],
+  "recovery_samples": [
     {
       "t": 0.0,
       "reputation": [
         1.0,
         1.0,
-        0.57,
+        0.62,
         1.0
       ]
     },
@@ -1741,7 +3519,7 @@ Measured values:
       "reputation": [
         1.0,
         1.0,
-        0.66,
+        0.75,
         1.0
       ]
     },
@@ -1750,7 +3528,7 @@ Measured values:
       "reputation": [
         1.0,
         1.0,
-        0.74,
+        0.82,
         1.0
       ]
     },
@@ -1759,14 +3537,14 @@ Measured values:
       "reputation": [
         1.0,
         1.0,
-        0.83,
+        0.89,
         1.0
       ]
     },
     {
       "t": 8.1,
       "reputation": [
-        1.0,
+        0.83,
         1.0,
         0.93,
         1.0
@@ -1779,33 +3557,33 @@ Measured values:
 
 ## Moment 5 — Query and refusal: PASS
 
-**What it should demonstrate:** A text query (with a `safety` capability token) returns a structured answer that separates confirmed from inferred and names unreachable nodes; unanswerable queries are refused with a reason.
+**What it should demonstrate:** A text query (with a `safety` capability token) returns a structured answer separating confirmed from inferred and naming unreachable nodes; unanswerable queries are refused with a reason; a query about a worker in the blind block reports the candidate region, not a made-up position.
 
-**Action taken:** Typed queries into the query box and read the rendered result from the DOM: a valid one, an unknown worker, a query during a partition, and one under a `productivity` token.
+**Action taken:** Typed queries into the query box and read the rendered result from the DOM: a valid one, an unknown worker, a query during a partition, one under a `productivity` token, and (during moment 2a) one about the worker hidden in the uncovered block.
 
-**Verdict reason:** valid query answered with confirmed/inferred/unreachable; unknown worker and productivity purpose refused with reasons; partition edge case gave: refused — Reason: 'P-002' was only observed by node 2, which is/are unreachable for the entire requested window — a partitioned wing, not an absence
+**Verdict reason:** valid query answered (confirmed/inferred/unreachable); unknown worker and productivity purpose refused with reasons; partition edge case: refused; blind-block query reported: Inferred: currently unseen — could be anywhere in a 69.0 m² candidate region · last position is appearance-matched, not anchored — treat as a hypothes
 
-### 5a_answer_worker2.jpg  (t = 128.5 s since launch)
+### 5e_query_worker_in_blind_block.jpg  (t = 58.2 s since launch)
 
-Valid query 'where is worker 2' (purpose safety).
+Query 'where is worker 2' while worker-2 is hidden in the uncovered block: the answer reports the last confirmed position and the candidate region, not a made-up position.
 
 DOM values read at capture:
 
 ```json
 {
  "nodes_live": "4",
- "sim_time_s": "125.6",
+ "sim_time_s": "55.6",
  "convergence": "CONVERGED",
- "spread": "24",
+ "spread": "1",
  "gaps": "0",
  "partition": "none",
- "open_forks": "0",
- "mean_error_m": "0.10",
+ "forks_open": "0",
+ "mean_error_m": "0.41",
  "claims_per_node": [
-  "2897",
-  "2898",
-  "2898",
-  "2874"
+  "1133",
+  "1134",
+  "1134",
+  "1134"
  ],
  "live": [
   "LIVE",
@@ -1813,38 +3591,58 @@ DOM values read at capture:
   "LIVE",
   "LIVE"
  ],
+ "camera_zone_coverage": [
+  "healthy",
+  "healthy",
+  "healthy",
+  "healthy"
+ ],
  "partitioned": [
   "no",
   "no",
   "no",
   "no"
  ],
- "behaviour": [
-  "hones",
-  "hones",
-  "hones",
-  "hones"
- ],
  "reputation": [
   "1.00",
   "1.00",
-  "0.93",
+  "1.00",
   "1.00"
  ],
  "rejected": [
-  "0 of 828",
-  "2 of 824",
-  "53 of 650",
-  "0 of 602"
+  "1 of 329",
+  "0 of 268",
+  "0 of 272",
+  "0 of 268"
  ],
- "candidate_regions_m2": {},
+ "regions": {
+  "P-005": {
+   "area_m2": 69,
+   "reachable_m2": 594.5,
+   "ratio": "12%",
+   "in_blind_block_m2": 69,
+   "in_healthy_zones_m2": 0,
+   "zone_overlap_m2": {},
+   "silent": "",
+   "occluded": ""
+  }
+ },
  "identities": [
-  "P-004 worker-0 seen @(7.1, 8.1) via node 0 err 0.10",
-  "P-001 worker-1 seen @(16.9, 2.0) via node 1 err 0.07",
-  "P-002 worker-3 seen @(24.9, 22.2) via node 2 err 0.09",
-  "P-003 worker-2 seen @(13.3, 12.0) via node 1 err 0.12",
-  "P-005 worker-4 seen @(36.5, 3.1) via node 3 err 0.11"
+  "P-001 worker-0 seen @(1.1, 7.0) via node 0 err 0.49",
+  "P-002 worker-1 seen @(24.9, 4.7) via node 1 err 0.08",
+  "P-003 worker-4 seen @(24.7, 23.6) via node 2 err 0.48",
+  "P-004 worker-3 seen @(29.8, 23.4) via node 3 err 0.60",
+  "P-005 worker-2 unseen @(13.9, 14.5) via node 0 err –"
  ],
+ "forks": [],
+ "centralized": {
+  "status": "HEALTHY",
+  "tracked_now": "4",
+  "starling_now": "4",
+  "truth": "5",
+  "detail": "5 identities in the shared table; 1135 observations delivered."
+ },
+ "conflict": "no conflict running",
  "query": {
   "status": "answered",
   "verdict": "ANSWER"
@@ -1852,7 +3650,83 @@ DOM values read at capture:
 }
 ```
 
-### 5b_refusal_unknown.jpg  (t = 129.0 s since launch)
+### 5a_answer_worker3.jpg  (t = 259.7 s since launch)
+
+Valid query 'where is worker 3' (purpose safety).
+
+DOM values read at capture:
+
+```json
+{
+ "nodes_live": "4",
+ "sim_time_s": "254.8",
+ "convergence": "CONVERGED",
+ "spread": "6",
+ "gaps": "0",
+ "partition": "none",
+ "forks_open": "0",
+ "mean_error_m": "0.57",
+ "claims_per_node": [
+  "5830",
+  "5829",
+  "5824",
+  "5829"
+ ],
+ "live": [
+  "LIVE",
+  "LIVE",
+  "LIVE",
+  "LIVE"
+ ],
+ "camera_zone_coverage": [
+  "healthy",
+  "healthy",
+  "healthy",
+  "healthy"
+ ],
+ "partitioned": [
+  "no",
+  "no",
+  "no",
+  "no"
+ ],
+ "reputation": [
+  "0.83",
+  "1.00",
+  "0.93",
+  "1.00"
+ ],
+ "rejected": [
+  "24 of 1705",
+  "0 of 1233",
+  "73 of 1462",
+  "1 of 1447"
+ ],
+ "regions": {},
+ "identities": [
+  "P-001 worker-0 seen @(0.9, 5.3) via node 0 err 0.41",
+  "P-002 worker-1 seen @(22.5, 1.6) via node 1 err 0.49",
+  "P-003 worker-4 seen @(15.6, 17.5) via node 2 err 0.38",
+  "P-004 worker-3 seen @(26.9, 8.7) via node 3 err 0.30",
+  "P-014 worker-2 seen @(3.5, 17.6) via node 0 err 1.26"
+ ],
+ "forks": [],
+ "centralized": {
+  "status": "HEALTHY",
+  "tracked_now": "5",
+  "starling_now": "5",
+  "truth": "5",
+  "detail": "5 identities in the shared table; 5559 observations delivered."
+ },
+ "conflict": "no conflict running",
+ "query": {
+  "status": "answered",
+  "verdict": "ANSWER"
+ }
+}
+```
+
+### 5b_refusal_unknown.jpg  (t = 260.3 s since launch)
 
 Unanswerable query 'where is worker 9': refused with its reason.
 
@@ -1861,18 +3735,18 @@ DOM values read at capture:
 ```json
 {
  "nodes_live": "4",
- "sim_time_s": "126.6",
+ "sim_time_s": "255.8",
  "convergence": "CONVERGED",
- "spread": "2",
+ "spread": "7",
  "gaps": "0",
  "partition": "none",
- "open_forks": "0",
- "mean_error_m": "0.19",
+ "forks_open": "0",
+ "mean_error_m": "0.43",
  "claims_per_node": [
-  "2921",
-  "2921",
-  "2919",
-  "2920"
+  "5856",
+  "5854",
+  "5849",
+  "5854"
  ],
  "live": [
   "LIVE",
@@ -1880,38 +3754,58 @@ DOM values read at capture:
   "LIVE",
   "LIVE"
  ],
+ "camera_zone_coverage": [
+  "healthy",
+  "healthy",
+  "healthy",
+  "healthy"
+ ],
  "partitioned": [
   "no",
   "no",
   "no",
   "no"
  ],
- "behaviour": [
-  "hones",
-  "hones",
-  "hones",
-  "hones"
- ],
  "reputation": [
-  "1.00",
+  "0.71",
   "1.00",
   "0.95",
   "1.00"
  ],
  "rejected": [
-  "0 of 834",
-  "2 of 834",
-  "53 of 654",
-  "0 of 608"
+  "29 of 1715",
+  "0 of 1238",
+  "73 of 1466",
+  "1 of 1452"
  ],
- "candidate_regions_m2": {},
+ "regions": {
+  "P-014": {
+   "area_m2": 18.3,
+   "reachable_m2": 38.1,
+   "ratio": "48%",
+   "in_blind_block_m2": 18.3,
+   "in_healthy_zones_m2": 0,
+   "zone_overlap_m2": {},
+   "silent": "",
+   "occluded": ""
+  }
+ },
  "identities": [
-  "P-004 worker-0 seen @(7.0, 9.3) via node 0 err 0.27",
-  "P-001 worker-1 seen @(17.8, 1.9) via node 1 err 0.28",
-  "P-002 worker-3 seen @(25.1, 22.3) via node 2 err 0.15",
-  "P-003 worker-2 seen @(14.1, 12.0) via node 1 err 0.04",
-  "P-005 worker-4 seen @(37.5, 2.9) via node 3 err 0.19"
+  "P-001 worker-0 seen @(0.9, 4.4) via node 0 err 0.25",
+  "P-002 worker-1 seen @(23.5, 1.5) via node 1 err 0.47",
+  "P-003 worker-4 seen @(16.5, 17.4) via node 2 err 0.50",
+  "P-004 worker-3 seen @(26.9, 7.8) via node 3 err 0.51",
+  "P-014 worker-2 unseen @(4.4, 17.5) via node 0 err –"
  ],
+ "forks": [],
+ "centralized": {
+  "status": "HEALTHY",
+  "tracked_now": "5",
+  "starling_now": "4",
+  "truth": "5",
+  "detail": "5 identities in the shared table; 5583 observations delivered."
+ },
+ "conflict": "no conflict running",
  "query": {
   "status": "refused",
   "verdict": "REFUSED"
@@ -1919,7 +3813,7 @@ DOM values read at capture:
 }
 ```
 
-### 5c_query_while_partitioned.jpg  (t = 133.8 s since launch)
+### 5c_query_while_partitioned.jpg  (t = 265.1 s since launch)
 
 Edge case: 'where is worker 3' while {2,3} is cut off from the querying side.
 
@@ -1928,18 +3822,18 @@ DOM values read at capture:
 ```json
 {
  "nodes_live": "4",
- "sim_time_s": "130.2",
+ "sim_time_s": "260.8",
  "convergence": "PARTITIONED",
- "spread": "23",
+ "spread": "22",
  "gaps": "0",
  "partition": "CUT",
- "open_forks": "0",
- "mean_error_m": "0.33",
+ "forks_open": "0",
+ "mean_error_m": "0.65",
  "claims_per_node": [
-  "2985",
-  "2987",
-  "2971",
-  "2964"
+  "5947",
+  "5945",
+  "5925",
+  "5925"
  ],
  "live": [
   "LIVE",
@@ -1947,38 +3841,57 @@ DOM values read at capture:
   "LIVE",
   "LIVE"
  ],
+ "camera_zone_coverage": [
+  "healthy",
+  "healthy",
+  "healthy",
+  "healthy"
+ ],
  "partitioned": [
   "yes",
   "yes",
   "yes",
   "yes"
  ],
- "behaviour": [
-  "hones",
-  "hones",
-  "hones",
-  "hones"
- ],
  "reputation": [
-  "1.00",
+  "0.64",
   "1.00",
   "0.96",
   "1.00"
  ],
  "rejected": [
-  "0 of 849",
-  "2 of 866",
-  "53 of 671",
-  "0 of 625"
+  "31 of 1765",
+  "0 of 1262",
+  "73 of 1489",
+  "1 of 1476"
  ],
- "candidate_regions_m2": {},
+ "regions": {
+  "P-014": {
+   "area_m2": 62.2,
+   "reachable_m2": 250.2,
+   "ratio": "25%",
+   "in_blind_block_m2": 62.2,
+   "in_healthy_zones_m2": 0,
+   "zone_overlap_m2": {},
+   "silent": "",
+   "occluded": ""
+  }
+ },
  "identities": [
-  "P-004 worker-0 seen @(7.0, 13.6) via node 0 err 0.44",
-  "P-001 worker-1 seen @(17.9, 4.0) via node 1 err 0.16",
-  "P-002 worker-3 seen @(25.0, 20.0) via node 2 err 0.37",
-  "P-003 worker-2 seen @(14.1, 12.1) via node 1 err 0.45",
-  "P-005 worker-4 seen @(39.1, 5.2) via node 3 err 0.22"
+  "P-002 worker-1 seen @(25.0, 5.0) via node 1 err 0.67",
+  "P-003 worker-4 seen @(21.7, 17.6) via node 2 err 0.54",
+  "P-004 worker-3 seen @(27.0, 2.3) via node 3 err 0.74",
+  "P-014 worker-2 unseen @(14.3, 17.5) via node 2 err –"
  ],
+ "forks": [],
+ "centralized": {
+  "status": "PARTIAL",
+  "tracked_now": "3",
+  "starling_now": "3",
+  "truth": "5",
+  "detail": "Cameras 2, 3 cannot reach the server: their workers are lost (234 observations never delivered)."
+ },
+ "conflict": "no conflict running",
  "query": {
   "status": "refused",
   "verdict": "REFUSED"
@@ -1986,7 +3899,7 @@ DOM values read at capture:
 }
 ```
 
-### 5d_refusal_productivity.jpg  (t = 137.7 s since launch)
+### 5d_refusal_productivity.jpg  (t = 268.9 s since launch)
 
 Same query under a `productivity` token: refused (purpose limitation).
 
@@ -1995,18 +3908,18 @@ DOM values read at capture:
 ```json
 {
  "nodes_live": "4",
- "sim_time_s": "134.2",
+ "sim_time_s": "263.8",
  "convergence": "CONVERGED",
- "spread": "26",
+ "spread": "5",
  "gaps": "0",
  "partition": "none",
- "open_forks": "0",
- "mean_error_m": "0.38",
+ "forks_open": "0",
+ "mean_error_m": "0.53",
  "claims_per_node": [
-  "3111",
-  "3113",
-  "3110",
-  "3087"
+  "6050",
+  "6048",
+  "6045",
+  "6048"
  ],
  "live": [
   "LIVE",
@@ -2014,38 +3927,47 @@ DOM values read at capture:
   "LIVE",
   "LIVE"
  ],
+ "camera_zone_coverage": [
+  "healthy",
+  "healthy",
+  "healthy",
+  "healthy"
+ ],
  "partitioned": [
   "no",
   "no",
   "no",
   "no"
  ],
- "behaviour": [
-  "hones",
-  "hones",
-  "hones",
-  "hones"
- ],
  "reputation": [
-  "1.00",
+  "0.98",
   "1.00",
   "0.99",
   "1.00"
  ],
  "rejected": [
-  "0 of 869",
-  "2 of 905",
-  "53 of 689",
-  "0 of 645"
+  "31 of 1796",
+  "0 of 1278",
+  "73 of 1505",
+  "1 of 1492"
  ],
- "candidate_regions_m2": {},
+ "regions": {},
  "identities": [
-  "P-004 worker-0 seen @(6.9, 18.6) via node 0 err 0.31",
-  "P-001 worker-1 seen @(18.0, 7.9) via node 1 err 0.43",
-  "P-002 worker-3 seen @(25.1, 15.9) via node 2 err 0.28",
-  "P-003 worker-2 seen @(11.7, 11.8) via node 1 err 0.50",
-  "P-005 worker-4 seen @(38.0, 5.9) via node 3 err 0.40"
+  "P-001 worker-0 seen @(6.0, 1.4) via node 0 err 0.79",
+  "P-002 worker-1 seen @(24.5, 7.6) via node 1 err 0.71",
+  "P-003 worker-4 seen @(22.5, 17.5) via node 2 err 0.47",
+  "P-004 worker-3 seen @(29.7, 1.6) via node 3 err 0.57",
+  "P-014 worker-2 seen @(1.1, 14.5) via node 0 err 0.10"
  ],
+ "forks": [],
+ "centralized": {
+  "status": "HEALTHY",
+  "tracked_now": "5",
+  "starling_now": "5",
+  "truth": "5",
+  "detail": "5 identities in the shared table; 5718 observations delivered."
+ },
+ "conflict": "no conflict running",
  "query": {
   "status": "refused",
   "verdict": "REFUSED"
@@ -2061,11 +3983,10 @@ Measured values:
     "status": "answered",
     "verdict": "ANSWER",
     "reason": null,
-    "confirmed": "Confirmed: last seen at (13.3, 12.0) m by node 1, 0s ago, confidence 0.97",
+    "confirmed": "Confirmed: last seen at (26.9, 7.8) m by node 3, 0s ago, confidence 0.90",
     "inferred": "Inferred: currently seen — no inference needed · last position is appearance-matched, not anchored — treat as a hypothesis",
     "unreachable": "Unreachable nodes: none · 4 of 4 nodes responded",
-    "text": "Subject:          P-003\nLast confirmed:   (13.3, 12.0) m, t=125.6, confidence 0.97, node 1\nAnchor:           none recorded\nInferred:         last position is appearance-matched, not anchored — treat as a hypothesis\nCompleteness:     4 of 4 nodes responded",
-    "note": "ANSWER — where is worker 2 [safety]'worker 2' → resolved identity P-003 (display mapping from the simulator's ground truth)Confirmed: last seen at (13.3, 12.0) m by node 1, 0s ago, confidence 0.97Inferred: currently seen — no inference needed · last position is appearance-matched, not anchored — treat as a hypothesisUnreachable nodes: none · 4 of 4 nodes respondedSubject:          P-003\nLast confirmed:   (13.3, 12.0) m, t=125.6, confidence 0.97, node 1\nAnchor:           none recorded\nInferred:         last position is appearance-matched, not anchored — treat as a hypothesis\nCompleteness:     4"
+    "text": "Subject:          P-004\nLast confirmed:   (26.9, 7.8) m, t=255.8, confidence 0.90, node 3\nAnchor:           none recorded\nInferred:         last position is appearance-matched, not anchored — treat as a hypothesis\nCompleteness:     4 of 4 nodes responded"
   },
   "unknown_worker": {
     "status": "refused",
@@ -2074,18 +3995,16 @@ Measured values:
     "confirmed": null,
     "inferred": null,
     "unreachable": null,
-    "text": "subject 'worker 9' was never enrolled — no claims found for this identity",
-    "note": "REFUSED — where is worker 9 [safety]Reason: subject 'worker 9' was never enrolled — no claims found for this identitysubject 'worker 9' was never enrolled — no claims found for this identity"
+    "text": "subject 'worker 9' was never enrolled — no claims found for this identity"
   },
   "during_partition": {
     "status": "refused",
     "verdict": "REFUSED",
-    "reason": "Reason: 'P-002' was only observed by node 2, which is/are unreachable for the entire requested window — a partitioned wing, not an absence",
+    "reason": "Reason: 'P-004' was only observed by node 3, which is/are unreachable for the entire requested window — a partitioned wing, not an absence",
     "confirmed": null,
     "inferred": null,
     "unreachable": null,
-    "text": "'P-002' was only observed by node 2, which is/are unreachable for the entire requested window — a partitioned wing, not an absence",
-    "note": "REFUSED — where is worker 3 [safety]'worker 3' → resolved identity P-002 (display mapping from the simulator's ground truth)Reason: 'P-002' was only observed by node 2, which is/are unreachable for the entire requested window — a partitioned wing, not an absence'P-002' was only observed by node 2, which is/are unreachable for the entire requested window — a partitioned wing, not an absence"
+    "text": "'P-004' was only observed by node 3, which is/are unreachable for the entire requested window — a partitioned wing, not an absence"
   },
   "productivity_token": {
     "status": "refused",
@@ -2094,41 +4013,49 @@ Measured values:
     "confirmed": null,
     "inferred": null,
     "unreachable": null,
-    "text": "purpose 'productivity' is not authorised for querying (allowed: ['audit', 'incident', 'safety'])",
-    "note": "REFUSED — where is worker 2 [productivity]'worker 2' → resolved identity P-003 (display mapping from the simulator's ground truth)Reason: purpose 'productivity' is not authorised for querying (allowed: ['audit', 'incident', 'safety'])purpose 'productivity' is not authorised for querying (allowed: ['audit', 'incident', 'safety'])"
+    "text": "purpose 'productivity' is not authorised for querying (allowed: ['audit', 'incident', 'safety'])"
+  },
+  "worker_in_blind_block": {
+    "status": "answered",
+    "verdict": "ANSWER",
+    "reason": null,
+    "confirmed": "Confirmed: last seen at (14.0, 14.5) m by node 0, 10.6s ago, confidence 0.96",
+    "inferred": "Inferred: currently unseen — could be anywhere in a 69.0 m² candidate region · last position is appearance-matched, not anchored — treat as a hypothesis",
+    "unreachable": "Unreachable nodes: none · 4 of 4 nodes responded",
+    "text": "Subject:          P-005\nLast confirmed:   (14.0, 14.5) m, t=45.0, confidence 0.96, node 0\nAnchor:           none recorded\nInferred:         last position is appearance-matched, not anchored — treat as a hypothesis\nCandidate region: 69.0 m²\nCompleteness:     4 of 4 nodes responded"
   }
 }
 ```
 
 ## Moment 6 — Robustness: PASS
 
-**What it should demonstrate:** The dashboard survives a page reload; a node process that actually dies is shown as OFFLINE, and shown live again when restarted.
+**What it should demonstrate:** The dashboard survives a page reload; a node process that actually dies is shown as OFFLINE (and its camera zone as silent), and shown live again when restarted.
 
-**Action taken:** Reloaded the browser page; then hard-killed node 1's OS process (not via any dashboard control), watched the card, restarted the process, and watched it return.
+**Action taken:** Reloaded the browser page; hard-killed node 1's OS process (not via any dashboard control), watched its card and zone, restarted the process, and watched it return.
 
-**Verdict reason:** reload recovered in 0.0s; killed node OFFLINE after 5.3s; LIVE again 2.5s after restart; converged 3.8s after restart
+**Verdict reason:** reload recovered in 0.1s; killed node OFFLINE after 4.9s (its camera zone: silent); LIVE again 4.1s after restart; converged 5.8s after restart
 
-### 6a_after_reload.jpg  (t = 137.8 s since launch)
+### 6a_after_reload.jpg  (t = 269.0 s since launch)
 
-Page reloaded mid-run; dashboard recovered in 0.0s with 4 nodes live.
+Page reloaded mid-run; recovered in 0.1s with 4 nodes live.
 
 DOM values read at capture:
 
 ```json
 {
  "nodes_live": "4",
- "sim_time_s": "135.2",
+ "sim_time_s": "265.0",
  "convergence": "CONVERGED",
- "spread": "22",
+ "spread": "7",
  "gaps": "0",
  "partition": "none",
- "open_forks": "0",
- "mean_error_m": "0.37",
+ "forks_open": "0",
+ "mean_error_m": "0.36",
  "claims_per_node": [
-  "3133",
-  "3134",
-  "3133",
-  "3112"
+  "6074",
+  "6073",
+  "6067",
+  "6073"
  ],
  "live": [
   "LIVE",
@@ -2136,65 +4063,74 @@ DOM values read at capture:
   "LIVE",
   "LIVE"
  ],
+ "camera_zone_coverage": [
+  "healthy",
+  "healthy",
+  "healthy",
+  "healthy"
+ ],
  "partitioned": [
   "no",
   "no",
   "no",
   "no"
  ],
- "behaviour": [
-  "hones",
-  "hones",
-  "hones",
-  "hones"
- ],
  "reputation": [
-  "1.00",
+  "0.99",
   "1.00",
   "0.99",
   "1.00"
  ],
  "rejected": [
-  "0 of 874",
-  "2 of 914",
-  "53 of 694",
-  "0 of 650"
+  "31 of 1806",
+  "0 of 1282",
+  "73 of 1510",
+  "1 of 1496"
  ],
- "candidate_regions_m2": {},
+ "regions": {},
  "identities": [
-  "P-004 worker-0 seen @(7.0, 19.6) via node 0 err 0.53",
-  "P-001 worker-1 seen @(17.9, 8.8) via node 1 err 0.17",
-  "P-002 worker-3 seen @(24.9, 14.9) via node 2 err 0.34",
-  "P-003 worker-2 seen @(11.1, 12.0) via node 1 err 0.45",
-  "P-005 worker-4 seen @(37.0, 6.0) via node 3 err 0.37"
+  "P-001 worker-0 seen @(7.5, 1.4) via node 0 err 0.52",
+  "P-002 worker-1 seen @(23.2, 7.4) via node 1 err 0.39",
+  "P-003 worker-4 seen @(23.7, 17.5) via node 2 err 0.33",
+  "P-004 worker-3 seen @(30.8, 1.6) via node 3 err 0.50",
+  "P-014 worker-2 seen @(1.0, 14.4) via node 0 err 0.07"
  ],
+ "forks": [],
+ "centralized": {
+  "status": "HEALTHY",
+  "tracked_now": "5",
+  "starling_now": "5",
+  "truth": "5",
+  "detail": "5 identities in the shared table; 5743 observations delivered."
+ },
+ "conflict": "no conflict running",
  "query": {
   "status": "none"
  }
 }
 ```
 
-### 6b_node1_killed.jpg  (t = 143.2 s since launch)
+### 6b_node1_killed.jpg  (t = 274.0 s since launch)
 
-Node 1's process was killed; its card reads OFFLINE after 5.3s; nodes live: 3.
+Node 1's process killed; card reads OFFLINE after 4.9s, its camera zone is 'silent'; nodes live 3.
 
 DOM values read at capture:
 
 ```json
 {
  "nodes_live": "3",
- "sim_time_s": "139.6",
+ "sim_time_s": "269.4",
  "convergence": "CONVERGED",
- "spread": "6",
+ "spread": "8",
  "gaps": "0",
  "partition": "none",
- "open_forks": "0",
- "mean_error_m": "0.38",
+ "forks_open": "0",
+ "mean_error_m": "0.52",
  "claims_per_node": [
-  "3196",
-  "3134",
-  "3195",
-  "3201"
+  "6172",
+  "6073",
+  "6167",
+  "6175"
  ],
  "live": [
   "LIVE",
@@ -2202,17 +4138,17 @@ DOM values read at capture:
   "LIVE",
   "LIVE"
  ],
+ "camera_zone_coverage": [
+  "healthy",
+  "silent",
+  "healthy",
+  "healthy"
+ ],
  "partitioned": [
   "no",
   "no",
   "no",
   "no"
- ],
- "behaviour": [
-  "hones",
-  "hones",
-  "hones",
-  "hones"
  ],
  "reputation": [
   "1.00",
@@ -2221,49 +4157,68 @@ DOM values read at capture:
   "1.00"
  ],
  "rejected": [
-  "0 of 897",
-  "2 of 917",
-  "53 of 716",
-  "0 of 673"
+  "31 of 1844",
+  "0 of 1283",
+  "73 of 1530",
+  "1 of 1517"
  ],
- "candidate_regions_m2": {
-  "P-001": 92.19,
-  "P-003": 128.5
+ "regions": {
+  "P-002": {
+   "area_m2": 66.2,
+   "reachable_m2": 91.1,
+   "ratio": "73%",
+   "in_blind_block_m2": 38.4,
+   "in_healthy_zones_m2": 0,
+   "zone_overlap_m2": {
+    "1": 27.8
+   },
+   "silent": "1",
+   "occluded": ""
+  }
  },
  "identities": [
-  "P-004 worker-0 seen @(6.3, 24.0) via node 0 err 0.09",
-  "P-001 worker-1 unseen @(18.1, 9.0) via node 1 err –",
-  "P-002 worker-3 seen @(25.1, 13.1) via node 2 err 0.53",
-  "P-003 worker-2 unseen @(11.1, 12.0) via node 1 err –",
-  "P-005 worker-4 seen @(36.1, 3.9) via node 3 err 0.51"
+  "P-001 worker-0 seen @(12.1, 2.2) via node 0 err 0.80",
+  "P-002 worker-1 unseen @(22.7, 7.5) via node 1 err –",
+  "P-003 worker-4 seen @(25.0, 18.3) via node 2 err 0.60",
+  "P-004 worker-3 seen @(35.8, 1.6) via node 3 err 0.62",
+  "P-014 worker-2 seen @(1.0, 14.6) via node 0 err 0.07"
  ],
+ "forks": [],
+ "centralized": {
+  "status": "HEALTHY",
+  "tracked_now": "5",
+  "starling_now": "4",
+  "truth": "5",
+  "detail": "5 identities in the shared table; 5871 observations delivered."
+ },
+ "conflict": "no conflict running",
  "query": {
   "status": "none"
  }
 }
 ```
 
-### 6c_node1_restarted.jpg  (t = 145.8 s since launch)
+### 6c_node1_restarted.jpg  (t = 278.3 s since launch)
 
-Node 1 restarted; card reads LIVE after 2.5s.
+Node 1 restarted; LIVE after 4.1s.
 
 DOM values read at capture:
 
 ```json
 {
  "nodes_live": "4",
- "sim_time_s": "142.6",
+ "sim_time_s": "273.4",
  "convergence": "CONVERGING",
- "spread": "97",
- "gaps": "74",
+ "spread": "180",
+ "gaps": "2",
  "partition": "none",
- "open_forks": "0",
- "mean_error_m": "0.60",
+ "forks_open": "0",
+ "mean_error_m": "0.54",
  "claims_per_node": [
-  "3251",
-  "3160",
-  "3245",
-  "3257"
+  "6252",
+  "6073",
+  "6243",
+  "6253"
  ],
  "live": [
   "LIVE",
@@ -2271,17 +4226,17 @@ DOM values read at capture:
   "LIVE",
   "LIVE"
  ],
+ "camera_zone_coverage": [
+  "healthy",
+  "silent",
+  "healthy",
+  "healthy"
+ ],
  "partitioned": [
   "no",
   "no",
   "no",
   "no"
- ],
- "behaviour": [
-  "hones",
-  "hones",
-  "hones",
-  "hones"
  ],
  "reputation": [
   "1.00",
@@ -2290,46 +4245,68 @@ DOM values read at capture:
   "1.00"
  ],
  "rejected": [
-  "0 of 925",
-  "2 of 920",
-  "53 of 731",
-  "0 of 687"
+  "31 of 1887",
+  "0 of 1287",
+  "73 of 1550",
+  "1 of 1539"
  ],
- "candidate_regions_m2": {},
+ "regions": {
+  "P-002": {
+   "area_m2": 169.3,
+   "reachable_m2": 319.8,
+   "ratio": "53%",
+   "in_blind_block_m2": 69,
+   "in_healthy_zones_m2": 0,
+   "zone_overlap_m2": {
+    "1": 100.2
+   },
+   "silent": "1",
+   "occluded": ""
+  }
+ },
  "identities": [
-  "P-004 worker-0 seen @(4.5, 23.9) via node 0 err 0.75",
-  "P-001 worker-1 seen @(18.1, 13.0) via node 1 err 0.78",
-  "P-002 worker-3 seen @(24.9, 10.2) via node 2 err 0.57",
-  "P-003 worker-2 seen @(6.4, 11.9) via node 0 err 0.33",
-  "P-005 worker-4 seen @(38.0, 3.0) via node 3 err 0.57"
+  "P-001 worker-0 seen @(11.9, 7.2) via node 0 err 0.60",
+  "P-002 worker-1 unseen @(22.7, 7.5) via node 1 err –",
+  "P-003 worker-4 seen @(25.1, 20.5) via node 2 err 0.78",
+  "P-004 worker-3 seen @(38.9, 2.6) via node 3 err 0.69",
+  "P-014 worker-2 seen @(1.1, 14.6) via node 0 err 0.11"
  ],
+ "forks": [],
+ "centralized": {
+  "status": "HEALTHY",
+  "tracked_now": "5",
+  "starling_now": "4",
+  "truth": "5",
+  "detail": "5 identities in the shared table; 5968 observations delivered."
+ },
+ "conflict": "no conflict running",
  "query": {
   "status": "none"
  }
 }
 ```
 
-### 6d_after_recovery.jpg  (t = 147.1 s since launch)
+### 6d_after_recovery.jpg  (t = 280.0 s since launch)
 
-After recovery: CONVERGED, gaps 0, claims [3277.0, 3290.0, 3270.0, 3279.0].
+After recovery: CONVERGED, gaps 0, claims [6302.0, 6285.0, 6296.0, 6300.0].
 
 DOM values read at capture:
 
 ```json
 {
  "nodes_live": "4",
- "sim_time_s": "143.6",
+ "sim_time_s": "275.4",
  "convergence": "CONVERGED",
- "spread": "20",
+ "spread": "17",
  "gaps": "0",
  "partition": "none",
- "open_forks": "0",
- "mean_error_m": "0.63",
+ "forks_open": "0",
+ "mean_error_m": "0.50",
  "claims_per_node": [
-  "3277",
-  "3290",
-  "3270",
-  "3279"
+  "6302",
+  "6285",
+  "6296",
+  "6300"
  ],
  "live": [
   "LIVE",
@@ -2337,17 +4314,17 @@ DOM values read at capture:
   "LIVE",
   "LIVE"
  ],
+ "camera_zone_coverage": [
+  "healthy",
+  "healthy",
+  "healthy",
+  "healthy"
+ ],
  "partitioned": [
   "no",
   "no",
   "no",
   "no"
- ],
- "behaviour": [
-  "hones",
-  "hones",
-  "hones",
-  "hones"
  ],
  "reputation": [
   "1.00",
@@ -2356,19 +4333,28 @@ DOM values read at capture:
   "1.00"
  ],
  "rejected": [
-  "0 of 935",
-  "2 of 925",
-  "53 of 736",
-  "0 of 691"
+  "31 of 1907",
+  "0 of 1297",
+  "73 of 1560",
+  "1 of 1549"
  ],
- "candidate_regions_m2": {},
+ "regions": {},
  "identities": [
-  "P-004 worker-0 seen @(3.3, 24.1) via node 0 err 0.76",
-  "P-001 worker-1 seen @(18.0, 14.1) via node 1 err 0.80",
-  "P-002 worker-3 seen @(24.9, 9.3) via node 2 err 0.70",
-  "P-003 worker-2 seen @(5.8, 12.1) via node 0 err 0.31",
-  "P-005 worker-4 seen @(39.0, 3.0) via node 3 err 0.57"
+  "P-001 worker-0 seen @(12.1, 9.5) via node 0 err 0.71",
+  "P-002 worker-1 seen @(14.9, 6.9) via node 1 err 0.45",
+  "P-003 worker-4 seen @(25.0, 22.8) via node 2 err 0.55",
+  "P-004 worker-3 seen @(39.0, 4.8) via node 3 err 0.71",
+  "P-014 worker-2 seen @(1.1, 14.5) via node 0 err 0.08"
  ],
+ "forks": [],
+ "centralized": {
+  "status": "HEALTHY",
+  "tracked_now": "5",
+  "starling_now": "5",
+  "truth": "5",
+  "detail": "5 identities in the shared table; 6023 observations delivered."
+ },
+ "conflict": "no conflict running",
  "query": {
   "status": "none"
  }
@@ -2379,37 +4365,1247 @@ Measured values:
 
 ```json
 {
-  "seconds_to_recover_after_reload": 0.0,
-  "seconds_until_killed_node_shown_offline": 5.3,
+  "seconds_to_recover_after_reload": 0.1,
+  "seconds_until_killed_node_shown_offline": 4.9,
+  "killed_node_camera_zone_state": "silent",
   "other_nodes_stayed_live_while_node1_down": true,
-  "seconds_until_restarted_node_live": 2.5,
-  "seconds_from_restart_to_converged": 3.8
+  "seconds_until_restarted_node_live": 4.1,
+  "seconds_from_restart_to_converged": 5.8
+}
+```
+
+## Moment 7a — Conflict, resolvable: PASS
+
+**What it should demonstrate:** Both halves of a split network face-anchor a look-alike as the SAME identity; one trajectory is physically impossible from the identity's last confirmed anchor. After the network heals the fork appears and is resolved by reachability, with the reason shown.
+
+**Action taken:** Pressed 'Conflict - resolvable': the dashboard partitions the network, the simulator sends the two face-twins in (A anchored at the west gate twice, B at the east gate ~2 s after A's last anchor), then heals; the real resolver runs on the merged claims.
+
+**Verdict reason:** no fork while partitioned (389 far-side claims held back); after healing the fork appeared and was resolved by reachability: Resolved by reachability: branch 0 kept. Rejected: branch 1 requires 6.7 m/s over 4.2 s, exceeds v_max 1.6 m/s.
+
+### 7a1_before.jpg  (t = 284.0 s since launch)
+
+Clean start: healed network, no forks.
+
+DOM values read at capture:
+
+```json
+{
+ "nodes_live": "4",
+ "sim_time_s": "279.6",
+ "convergence": "CONVERGED",
+ "spread": "15",
+ "gaps": "0",
+ "partition": "none",
+ "forks_open": "0",
+ "mean_error_m": "0.33",
+ "claims_per_node": [
+  "6399",
+  "6384",
+  "6395",
+  "6399"
+ ],
+ "live": [
+  "LIVE",
+  "LIVE",
+  "LIVE",
+  "LIVE"
+ ],
+ "camera_zone_coverage": [
+  "healthy",
+  "healthy",
+  "healthy",
+  "healthy"
+ ],
+ "partitioned": [
+  "no",
+  "no",
+  "no",
+  "no"
+ ],
+ "reputation": [
+  "1.00",
+  "1.00",
+  "1.00",
+  "1.00"
+ ],
+ "rejected": [
+  "0 of 31",
+  "0 of 16",
+  "0 of 15",
+  "0 of 14"
+ ],
+ "regions": {},
+ "identities": [
+  "P-001 worker-0 seen @(11.9, 14.4) via node 0 err 0.61",
+  "P-002 worker-1 seen @(15.0, 5.1) via node 1 err 0.36",
+  "P-003 worker-4 seen @(21.5, 23.6) via node 2 err 0.32",
+  "P-005 worker-2 seen @(1.0, 14.5) via node 0 err 0.03",
+  "P-004 – seen @(38.9, 9.5) via node 3 err –"
+ ],
+ "forks": [],
+ "centralized": {
+  "status": "HEALTHY",
+  "tracked_now": "5",
+  "starling_now": "5",
+  "truth": "5",
+  "detail": "5 identities in the shared table; 6102 observations delivered."
+ },
+ "conflict": "no conflict running",
+ "query": {
+  "status": "none"
+ }
+}
+```
+
+### 7a2_partitioned_twins.jpg  (t = 306.2 s since launch)
+
+Partitioned: twin A on side {0,1}, twin B on side {2,3}; forks visible: 0 (conflict (resolvable): partitioned 21 s · 208 far-side claims held back).
+
+DOM values read at capture:
+
+```json
+{
+ "nodes_live": "4",
+ "sim_time_s": "301.8",
+ "convergence": "PARTITIONED",
+ "spread": "206",
+ "gaps": "0",
+ "partition": "CUT",
+ "forks_open": "0",
+ "mean_error_m": "0.07",
+ "claims_per_node": [
+  "6838",
+  "6823",
+  "6632",
+  "6632"
+ ],
+ "live": [
+  "LIVE",
+  "LIVE",
+  "LIVE",
+  "LIVE"
+ ],
+ "camera_zone_coverage": [
+  "healthy",
+  "healthy",
+  "healthy",
+  "healthy"
+ ],
+ "partitioned": [
+  "yes",
+  "yes",
+  "yes",
+  "yes"
+ ],
+ "reputation": [
+  "1.00",
+  "1.00",
+  "1.00",
+  "1.00"
+ ],
+ "rejected": [
+  "1 of 337",
+  "0 of 119",
+  "0 of 121",
+  "0 of 116"
+ ],
+ "regions": {},
+ "identities": [
+  "P-001 worker-0 seen @(5.7, 23.5) via node 0 err 0.02",
+  "P-002 worker-1 seen @(25.0, 6.8) via node 1 err 0.07",
+  "P-003 worker-4 seen @(20.5, 17.5) via node 2 err 0.09",
+  "P-005 worker-2 seen @(0.9, 14.5) via node 0 err 0.05",
+  "P-004 worker-3 seen @(35.7, 23.4) via node 3 err 0.15",
+  "P-006 worker-5 seen @(6.0, 19.9) via node 0 err 0.03"
+ ],
+ "forks": [],
+ "centralized": {
+  "status": "PARTIAL",
+  "tracked_now": "4",
+  "starling_now": "6",
+  "truth": "6",
+  "detail": "Cameras 2, 3 cannot reach the server: their workers are lost (440 observations never delivered)."
+ },
+ "conflict": "conflict (resolvable): partitioned 21 s · 208 far-side claims held back",
+ "query": {
+  "status": "none"
+ }
+}
+```
+
+### 7a3_after_heal_fork.jpg  (t = 324.1 s since launch)
+
+After the network healed: 1 fork(s) shown, open=0.
+
+DOM values read at capture:
+
+```json
+{
+ "nodes_live": "4",
+ "sim_time_s": "319.8",
+ "convergence": "CONVERGING",
+ "spread": "352",
+ "gaps": "1114",
+ "partition": "none",
+ "forks_open": "0",
+ "mean_error_m": "2.73",
+ "claims_per_node": [
+  "7399",
+  "7177",
+  "7047",
+  "7058"
+ ],
+ "live": [
+  "LIVE",
+  "LIVE",
+  "LIVE",
+  "LIVE"
+ ],
+ "camera_zone_coverage": [
+  "healthy",
+  "healthy",
+  "healthy",
+  "healthy"
+ ],
+ "partitioned": [
+  "no",
+  "no",
+  "no",
+  "no"
+ ],
+ "reputation": [
+  "1.00",
+  "1.00",
+  "1.00",
+  "1.00"
+ ],
+ "rejected": [
+  "1 of 599",
+  "0 of 205",
+  "0 of 206",
+  "1 of 236"
+ ],
+ "regions": {},
+ "identities": [
+  "P-001 worker-0 seen @(0.9, 11.5) via node 0 err 0.17",
+  "P-002 worker-1 seen @(15.0, 3.0) via node 1 err 0.10",
+  "P-003 worker-4 seen @(19.9, 23.6) via node 2 err 0.29",
+  "P-005 worker-2 seen @(1.0, 14.6) via node 0 err 0.10",
+  "P-004 worker-3 seen @(26.9, 17.5) via node 3 err 0.08",
+  "P-006 worker-5 seen @(29.1, 14.6) via node 3 err 18.27",
+  "P-007 worker-5 seen @(11.9, 8.2) via node 0 err 0.12"
+ ],
+ "forks": [
+  {
+   "status": "RESOLVED_REACHABILITY",
+   "explanation": "Resolved by reachability: branch 0 kept. Rejected: branch 1 requires 6.7 m/s over 4.2 s, exceeds v_max 1.6 m/s."
+  }
+ ],
+ "centralized": {
+  "status": "HEALTHY",
+  "tracked_now": "6",
+  "starling_now": "7",
+  "truth": "7",
+  "detail": "6 identities in the shared table; 6887 observations delivered."
+ },
+ "conflict": "conflict (resolvable): healed 39 s",
+ "query": {
+  "status": "none"
+ }
+}
+```
+
+### 7a4_8s_later.jpg  (t = 332.2 s since launch)
+
+8 s later: fork status unchanged (['RESOLVED_REACHABILITY']).
+
+DOM values read at capture:
+
+```json
+{
+ "nodes_live": "4",
+ "sim_time_s": "326.8",
+ "convergence": "CONVERGED",
+ "spread": "17",
+ "gaps": "0",
+ "partition": "none",
+ "forks_open": "0",
+ "mean_error_m": "0.60",
+ "claims_per_node": [
+  "7840",
+  "7847",
+  "7830",
+  "7841"
+ ],
+ "live": [
+  "LIVE",
+  "LIVE",
+  "LIVE",
+  "LIVE"
+ ],
+ "camera_zone_coverage": [
+  "healthy",
+  "healthy",
+  "healthy",
+  "healthy"
+ ],
+ "partitioned": [
+  "no",
+  "no",
+  "no",
+  "no"
+ ],
+ "reputation": [
+  "1.00",
+  "1.00",
+  "1.00",
+  "1.00"
+ ],
+ "rejected": [
+  "1 of 707",
+  "0 of 242",
+  "0 of 243",
+  "1 of 307"
+ ],
+ "regions": {},
+ "identities": [
+  "P-001 worker-0 seen @(0.9, 3.2) via node 0 err 0.75",
+  "P-002 worker-1 seen @(19.9, 1.5) via node 1 err 0.70",
+  "P-003 worker-4 seen @(15.0, 21.3) via node 2 err 0.60",
+  "P-005 worker-2 seen @(0.9, 14.4) via node 0 err 0.07",
+  "P-004 worker-3 seen @(27.0, 12.2) via node 3 err 0.75",
+  "P-006 worker-5 seen @(9.1, 4.9) via node 0 err 0.72",
+  "P-008 – seen @(29.9, 19.9) via node 3 err –"
+ ],
+ "forks": [
+  {
+   "status": "RESOLVED_REACHABILITY",
+   "explanation": "Resolved by reachability: branch 0 kept. Rejected: branch 1 requires 6.7 m/s over 4.2 s, exceeds v_max 1.6 m/s."
+  }
+ ],
+ "centralized": {
+  "status": "HEALTHY",
+  "tracked_now": "6",
+  "starling_now": "7",
+  "truth": "7",
+  "detail": "6 identities in the shared table; 7140 observations delivered."
+ },
+ "conflict": "conflict (resolvable): healed 39 s",
+ "query": {
+  "status": "none"
+ }
+}
+```
+
+Measured values:
+
+```json
+{
+  "variant": "resolvable",
+  "forks_visible_while_partitioned": 0,
+  "far_side_claims_held_back_max": 389,
+  "seconds_to_fork_after_start": 40.0,
+  "fork_status": "RESOLVED_REACHABILITY",
+  "fork_status_8s_later": "RESOLVED_REACHABILITY",
+  "fork_explanation": "Resolved by reachability: branch 0 kept. Rejected: branch 1 requires 6.7 m/s over 4.2 s, exceeds v_max 1.6 m/s.",
+  "fork_branch_rows": [
+    [
+      "0",
+      "9.66, 12.46",
+      "156",
+      "0",
+      "KEPT"
+    ],
+    [
+      "1",
+      "33.27, 12.61",
+      "1",
+      "3",
+      "rejected"
+    ]
+  ],
+  "fork_markers_on_map": [
+    {
+      "id": "fork-branch-P_100_312s-0",
+      "x": 9.66,
+      "y": 12.46,
+      "text": "kept A"
+    },
+    {
+      "id": "fork-branch-P_100_312s-1",
+      "x": 33.27,
+      "y": 12.61,
+      "text": "rejected B"
+    }
+  ],
+  "forks_open_counter": "0",
+  "event_log_head": [
+    "321.8s FORK RESOLVED on P-006 by reachability: branch 1 requires 6.7 m/s over 4.2 s, exceeds v_max 1.6 m/s",
+    "321.8s FORK OPENED on P-006 (face id P-100): 2 claim chains bind it to incompatible positions (9.66, 12.46) vs (33.27, 12.61)",
+    "320.6s CONFLICT (resolvable): network healed; the two sides now merge their claims",
+    "320.6s HEAL all links (ok={0: True, 1: True, 2: True, 3: True})",
+    "316.8s new identity P-007",
+    "284.1s new identity P-006",
+    "282.2s SCRIPT conflict_resolvable: started",
+    "282.1s PARTITION [0, 1] | [2, 3] (ok={0: True, 1: True, 2: True, 3: True})"
+  ]
+}
+```
+
+## Moment 7b — Conflict, ambiguous: FAIL
+
+**What it should demonstrate:** Same set-up, but both trajectories are physically possible. After the network heals the fork appears and STAYS OPEN, shown as an ambiguity for a human with both candidate positions drawn on the map; the system never picks a winner.
+
+**Action taken:** Pressed 'Conflict - ambiguous' (twin A anchored at the west gate once, twin B anchored as the same identity at the east gate 25 s later), waited for the heal and the fork, and checked it 8 s later.
+
+**Verdict reason:** no fork appeared after healing; no fork line in the event log
+
+### 7b1_before.jpg  (t = 336.2 s since launch)
+
+Clean start: healed network, no forks.
+
+DOM values read at capture:
+
+```json
+{
+ "nodes_live": "4",
+ "sim_time_s": "331.8",
+ "convergence": "CONVERGED",
+ "spread": "27",
+ "gaps": "0",
+ "partition": "none",
+ "forks_open": "0",
+ "mean_error_m": "0.12",
+ "claims_per_node": [
+  "8011",
+  "7984",
+  "8000",
+  "8010"
+ ],
+ "live": [
+  "LIVE",
+  "LIVE",
+  "LIVE",
+  "LIVE"
+ ],
+ "camera_zone_coverage": [
+  "healthy",
+  "healthy",
+  "healthy",
+  "healthy"
+ ],
+ "partitioned": [
+  "no",
+  "no",
+  "no",
+  "no"
+ ],
+ "reputation": [
+  "1.00",
+  "1.00",
+  "1.00",
+  "1.00"
+ ],
+ "rejected": [
+  "0 of 38",
+  "0 of 12",
+  "0 of 13",
+  "0 of 30"
+ ],
+ "regions": {},
+ "identities": [
+  "P-001 worker-3 seen @(27.0, 8.8) via node 3 err 0.05",
+  "P-002 worker-6 seen @(34.3, 20.1) via node 3 err 0.16",
+  "P-003 worker-0 seen @(5.3, 1.5) via node 0 err 0.24",
+  "P-006 worker-1 seen @(22.2, 1.5) via node 1 err 0.03",
+  "P-004 worker-4 seen @(16.3, 17.6) via node 2 err 0.13",
+  "P-005 worker-2 seen @(1.0, 14.5) via node 0 err 0.03",
+  "P-007 worker-5 seen @(4.9, 5.5) via node 0 err 0.21"
+ ],
+ "forks": [],
+ "centralized": {
+  "status": "HEALTHY",
+  "tracked_now": "6",
+  "starling_now": "7",
+  "truth": "7",
+  "detail": "6 identities in the shared table; 7317 observations delivered."
+ },
+ "conflict": "no conflict running",
+ "query": {
+  "status": "none"
+ }
+}
+```
+
+### 7b2_partitioned_twins.jpg  (t = 358.5 s since launch)
+
+Partitioned: twin A on side {0,1}, twin B on side {2,3}; forks visible: 0 (conflict (ambiguous): partitioned 21 s · 208 far-side claims held back).
+
+DOM values read at capture:
+
+```json
+{
+ "nodes_live": "4",
+ "sim_time_s": "353.2",
+ "convergence": "PARTITIONED",
+ "spread": "209",
+ "gaps": "0",
+ "partition": "CUT",
+ "forks_open": "0",
+ "mean_error_m": "0.37",
+ "claims_per_node": [
+  "8433",
+  "8437",
+  "8228",
+  "8228"
+ ],
+ "live": [
+  "LIVE",
+  "LIVE",
+  "LIVE",
+  "LIVE"
+ ],
+ "camera_zone_coverage": [
+  "healthy",
+  "healthy",
+  "healthy",
+  "healthy"
+ ],
+ "partitioned": [
+  "yes",
+  "yes",
+  "yes",
+  "yes"
+ ],
+ "reputation": [
+  "1.00",
+  "1.00",
+  "1.00",
+  "1.00"
+ ],
+ "rejected": [
+  "25 of 358",
+  "0 of 116",
+  "0 of 118",
+  "0 of 139"
+ ],
+ "regions": {
+  "P-002": {
+   "area_m2": 69,
+   "reachable_m2": 783.7,
+   "ratio": "9%",
+   "in_blind_block_m2": 69,
+   "in_healthy_zones_m2": 0,
+   "zone_overlap_m2": {},
+   "silent": "",
+   "occluded": ""
+  },
+  "P-007": {
+   "area_m2": 69,
+   "reachable_m2": 778.1,
+   "ratio": "9%",
+   "in_blind_block_m2": 69,
+   "in_healthy_zones_m2": 0,
+   "zone_overlap_m2": {},
+   "silent": "",
+   "occluded": ""
+  },
+  "P-008": {
+   "area_m2": 69,
+   "reachable_m2": 744.8,
+   "ratio": "9%",
+   "in_blind_block_m2": 69,
+   "in_healthy_zones_m2": 0,
+   "zone_overlap_m2": {},
+   "silent": "",
+   "occluded": ""
+  }
+ },
+ "identities": [
+  "P-001 worker-3 seen @(38.9, 5.1) via node 3 err 0.38",
+  "P-002 worker-6 unseen @(34.8, 20.1) via node 3 err –",
+  "P-003 worker-0 seen @(12.1, 18.2) via node 0 err 0.35",
+  "P-006 worker-1 seen @(23.1, 7.6) via node 1 err 0.52",
+  "P-004 worker-4 seen @(25.0, 23.1) via node 2 err 0.39",
+  "P-005 worker-2 seen @(0.8, 14.4) via node 0 err 0.21",
+  "P-007 worker-5 unseen @(5.0, 5.9) via node 0 err –",
+  "P-008 worker-5 unseen @(11.2, 12.5) via node 0 err –"
+ ],
+ "forks": [],
+ "centralized": {
+  "status": "PARTIAL",
+  "tracked_now": "4",
+  "starling_now": "5",
+  "truth": "6",
+  "detail": "Cameras 2, 3 cannot reach the server: their workers are lost (842 observations never delivered)."
+ },
+ "conflict": "conflict (ambiguous): partitioned 21 s · 208 far-side claims held back",
+ "query": {
+  "status": "none"
+ }
+}
+```
+
+### 7b3_after_heal_fork.jpg  (t = 446.5 s since launch)
+
+After the network healed: 0 fork(s) shown, open=0.
+
+DOM values read at capture:
+
+```json
+{
+ "nodes_live": "4",
+ "sim_time_s": "439.4",
+ "convergence": "CONVERGED",
+ "spread": "16",
+ "gaps": "0",
+ "partition": "none",
+ "forks_open": "0",
+ "mean_error_m": "0.50",
+ "claims_per_node": [
+  "11331",
+  "11315",
+  "11327",
+  "11330"
+ ],
+ "live": [
+  "LIVE",
+  "LIVE",
+  "LIVE",
+  "LIVE"
+ ],
+ "camera_zone_coverage": [
+  "healthy",
+  "healthy",
+  "healthy",
+  "healthy"
+ ],
+ "partitioned": [
+  "no",
+  "no",
+  "no",
+  "no"
+ ],
+ "reputation": [
+  "1.00",
+  "1.00",
+  "1.00",
+  "1.00"
+ ],
+ "rejected": [
+  "25 of 1477",
+  "0 of 542",
+  "0 of 546",
+  "61 of 867"
+ ],
+ "regions": {
+  "P-007": {
+   "area_m2": 69,
+   "reachable_m2": 932.5,
+   "ratio": "7%",
+   "in_blind_block_m2": 69,
+   "in_healthy_zones_m2": 0,
+   "zone_overlap_m2": {},
+   "silent": "",
+   "occluded": ""
+  },
+  "P-008": {
+   "area_m2": 69,
+   "reachable_m2": 725.3,
+   "ratio": "10%",
+   "in_blind_block_m2": 69,
+   "in_healthy_zones_m2": 0,
+   "zone_overlap_m2": {},
+   "silent": "",
+   "occluded": ""
+  }
+ },
+ "identities": [
+  "P-001 worker-3 seen @(39.1, 7.7) via node 3 err 0.66",
+  "P-003 worker-0 seen @(1.8, 23.5) via node 0 err 0.68",
+  "P-006 worker-1 seen @(23.8, 7.5) via node 1 err 0.55",
+  "P-004 worker-4 seen @(24.7, 23.6) via node 2 err 0.53",
+  "P-005 worker-2 seen @(1.0, 14.4) via node 0 err 0.09",
+  "P-007 worker-5 unseen @(5.1, 22.0) via node 0 err –",
+  "P-008 worker-6 unseen @(36.1, 9.1) via node 3 err –"
+ ],
+ "forks": [],
+ "centralized": {
+  "status": "HEALTHY",
+  "tracked_now": "5",
+  "starling_now": "5",
+  "truth": "5",
+  "detail": "6 identities in the shared table; 10210 observations delivered."
+ },
+ "conflict": "conflict (ambiguous): healed 38 s",
+ "query": {
+  "status": "none"
+ }
+}
+```
+
+### 7b4_8s_later.jpg  (t = 454.6 s since launch)
+
+8 s later: fork status unchanged ([]).
+
+DOM values read at capture:
+
+```json
+{
+ "nodes_live": "4",
+ "sim_time_s": "447.4",
+ "convergence": "CONVERGED",
+ "spread": "15",
+ "gaps": "0",
+ "partition": "none",
+ "forks_open": "0",
+ "mean_error_m": "0.46",
+ "claims_per_node": [
+  "11526",
+  "11512",
+  "11523",
+  "11527"
+ ],
+ "live": [
+  "LIVE",
+  "LIVE",
+  "LIVE",
+  "LIVE"
+ ],
+ "camera_zone_coverage": [
+  "healthy",
+  "healthy",
+  "healthy",
+  "healthy"
+ ],
+ "partitioned": [
+  "no",
+  "no",
+  "no",
+  "no"
+ ],
+ "reputation": [
+  "1.00",
+  "1.00",
+  "1.00",
+  "1.00"
+ ],
+ "rejected": [
+  "25 of 1552",
+  "0 of 577",
+  "0 of 584",
+  "61 of 904"
+ ],
+ "regions": {
+  "P-007": {
+   "area_m2": 69,
+   "reachable_m2": 932.5,
+   "ratio": "7%",
+   "in_blind_block_m2": 69,
+   "in_healthy_zones_m2": 0,
+   "zone_overlap_m2": {},
+   "silent": "",
+   "occluded": ""
+  },
+  "P-008": {
+   "area_m2": 69,
+   "reachable_m2": 932.4,
+   "ratio": "7%",
+   "in_blind_block_m2": 69,
+   "in_healthy_zones_m2": 0,
+   "zone_overlap_m2": {},
+   "silent": "",
+   "occluded": ""
+  }
+ },
+ "identities": [
+  "P-001 worker-3 seen @(39.1, 13.5) via node 3 err 0.76",
+  "P-003 worker-0 seen @(0.8, 14.7) via node 0 err 0.15",
+  "P-006 worker-1 seen @(15.9, 7.5) via node 1 err 0.72",
+  "P-004 worker-4 seen @(18.4, 23.5) via node 2 err 0.60",
+  "P-005 worker-2 seen @(1.0, 14.4) via node 0 err 0.08",
+  "P-007 worker-5 unseen @(5.1, 22.0) via node 0 err –",
+  "P-008 worker-6 unseen @(36.1, 9.1) via node 3 err –"
+ ],
+ "forks": [],
+ "centralized": {
+  "status": "HEALTHY",
+  "tracked_now": "5",
+  "starling_now": "5",
+  "truth": "5",
+  "detail": "6 identities in the shared table; 10405 observations delivered."
+ },
+ "conflict": "conflict (ambiguous): healed 38 s",
+ "query": {
+  "status": "none"
+ }
+}
+```
+
+Measured values:
+
+```json
+{
+  "variant": "ambiguous",
+  "forks_visible_while_partitioned": 0,
+  "far_side_claims_held_back_max": 420,
+  "seconds_to_fork_after_start": null,
+  "fork_status": null,
+  "fork_status_8s_later": null,
+  "fork_explanation": null,
+  "fork_branch_rows": null,
+  "fork_markers_on_map": [],
+  "forks_open_counter": "0",
+  "event_log_head": [
+    "425s worker-6 went UNSEEN at (36.1, 9.09) — candidate region opened",
+    "417.5s worker-6 RE-SEEN as the same identity after 8.4s (region peaked/ended at 12.4 m²)",
+    "412.4s worker-5 went UNSEEN at (5.77, 22.02) — candidate region opened",
+    "411.4s worker-6 went UNSEEN at (30.38, 4.98) — candidate region opened",
+    "393s worker-6 RE-SEEN as the same identity after 7.6s (region peaked/ended at 43.0 m²)",
+    "393s worker-3 RE-SEEN as the same identity after 14.8s (region peaked/ended at 69.0 m²)",
+    "391s worker-6 went UNSEEN at (38.02, 18.15) — candidate region opened",
+    "389.9s worker-3 went UNSEEN at (32.77, 23.58) — candidate region opened"
+  ]
+}
+```
+
+## Moment 8 — Centralized comparison: PARTIAL
+
+**What it should demonstrate:** A centralized single-server system (the original project's matcher; NOT Starling) runs beside Starling on the same input. Under a partition it must lose the cut-off cameras' workers while Starling keeps tracking all of them; with the server killed it must be DOWN while Starling is unaffected; restarted, it recovers (from empty state).
+
+**Action taken:** Pressed Partition, read both panels, healed; pressed 'Kill central server' (the server process exits), read both panels and Starling's claim counter over 8 s; pressed 'Restart central server'.
+
+**Verdict reason:** under partition centralized tracked 3 vs Starling 5 of 5 present
+
+### 8a_healthy.jpg  (t = 455.2 s since launch)
+
+Healthy: centralized tracks 5, Starling tracks 5, actually present 5.
+
+DOM values read at capture:
+
+```json
+{
+ "nodes_live": "4",
+ "sim_time_s": "448.4",
+ "convergence": "CONVERGED",
+ "spread": "18",
+ "gaps": "0",
+ "partition": "none",
+ "forks_open": "0",
+ "mean_error_m": "0.43",
+ "claims_per_node": [
+  "11553",
+  "11535",
+  "11546",
+  "11550"
+ ],
+ "live": [
+  "LIVE",
+  "LIVE",
+  "LIVE",
+  "LIVE"
+ ],
+ "camera_zone_coverage": [
+  "healthy",
+  "healthy",
+  "healthy",
+  "healthy"
+ ],
+ "partitioned": [
+  "no",
+  "no",
+  "no",
+  "no"
+ ],
+ "reputation": [
+  "1.00",
+  "1.00",
+  "1.00",
+  "1.00"
+ ],
+ "rejected": [
+  "25 of 1564",
+  "0 of 583",
+  "0 of 590",
+  "61 of 910"
+ ],
+ "regions": {
+  "P-008": {
+   "area_m2": 69,
+   "reachable_m2": 932.5,
+   "ratio": "7%",
+   "in_blind_block_m2": 69,
+   "in_healthy_zones_m2": 0,
+   "zone_overlap_m2": {},
+   "silent": "",
+   "occluded": ""
+  }
+ },
+ "identities": [
+  "P-001 worker-3 seen @(39.0, 14.7) via node 3 err 0.69",
+  "P-003 worker-0 seen @(1.0, 14.6) via node 0 err 0.10",
+  "P-006 worker-1 seen @(15.0, 7.4) via node 1 err 0.68",
+  "P-004 worker-4 seen @(17.4, 23.5) via node 2 err 0.59",
+  "P-005 worker-2 seen @(1.1, 14.6) via node 0 err 0.09",
+  "P-008 worker-6 unseen @(36.1, 9.1) via node 3 err –"
+ ],
+ "forks": [],
+ "centralized": {
+  "status": "HEALTHY",
+  "tracked_now": "5",
+  "starling_now": "5",
+  "truth": "5",
+  "detail": "6 identities in the shared table; 10430 observations delivered."
+ },
+ "conflict": "conflict (ambiguous): healed 38 s",
+ "query": {
+  "status": "none"
+ }
+}
+```
+
+### 8b_partition_central_loses_side.jpg  (t = 484.9 s since launch)
+
+Partitioned: centralized PARTIAL tracks 3; Starling tracks 5 of 5 present. Cameras 2, 3 cannot reach the server: their workers are lost (1340 observations never delivered).
+
+DOM values read at capture:
+
+```json
+{
+ "nodes_live": "4",
+ "sim_time_s": "477.0",
+ "convergence": "PARTITIONED",
+ "spread": "137",
+ "gaps": "0",
+ "partition": "CUT",
+ "forks_open": "0",
+ "mean_error_m": "0.56",
+ "claims_per_node": [
+  "11970",
+  "11974",
+  "11837",
+  "11837"
+ ],
+ "live": [
+  "LIVE",
+  "LIVE",
+  "LIVE",
+  "LIVE"
+ ],
+ "camera_zone_coverage": [
+  "healthy",
+  "healthy",
+  "healthy",
+  "healthy"
+ ],
+ "partitioned": [
+  "yes",
+  "yes",
+  "yes",
+  "yes"
+ ],
+ "reputation": [
+  "1.00",
+  "1.00",
+  "1.00",
+  "1.00"
+ ],
+ "rejected": [
+  "25 of 1837",
+  "0 of 726",
+  "0 of 727",
+  "61 of 1050"
+ ],
+ "regions": {},
+ "identities": [
+  "P-001 worker-3 seen @(27.1, 17.2) via node 3 err 0.61",
+  "P-003 worker-0 seen @(11.9, 9.9) via node 0 err 0.77",
+  "P-006 worker-1 seen @(25.0, 5.0) via node 1 err 0.53",
+  "P-004 worker-4 seen @(23.9, 23.5) via node 2 err 0.68",
+  "P-005 worker-2 seen @(0.8, 14.4) via node 0 err 0.19"
+ ],
+ "forks": [],
+ "centralized": {
+  "status": "PARTIAL",
+  "tracked_now": "3",
+  "starling_now": "5",
+  "truth": "5",
+  "detail": "Cameras 2, 3 cannot reach the server: their workers are lost (1340 observations never delivered)."
+ },
+ "conflict": "conflict (ambiguous): healed 38 s · 275 far-side claims held back",
+ "query": {
+  "status": "none"
+ }
+}
+```
+
+### 8c_central_killed.jpg  (t = 491.2 s since launch)
+
+Central server killed: status DOWN, tracks 0; Starling tracks 5 of 5 present, 4 nodes live.
+
+DOM values read at capture:
+
+```json
+{
+ "nodes_live": "4",
+ "sim_time_s": "484.0",
+ "convergence": "CONVERGED",
+ "spread": "16",
+ "gaps": "0",
+ "partition": "none",
+ "forks_open": "0",
+ "mean_error_m": "0.27",
+ "claims_per_node": [
+  "12393",
+  "12401",
+  "12385",
+  "12391"
+ ],
+ "live": [
+  "LIVE",
+  "LIVE",
+  "LIVE",
+  "LIVE"
+ ],
+ "camera_zone_coverage": [
+  "healthy",
+  "healthy",
+  "healthy",
+  "healthy"
+ ],
+ "partitioned": [
+  "no",
+  "no",
+  "no",
+  "no"
+ ],
+ "reputation": [
+  "1.00",
+  "1.00",
+  "1.00",
+  "1.00"
+ ],
+ "rejected": [
+  "25 of 1901",
+  "0 of 760",
+  "0 of 760",
+  "61 of 1082"
+ ],
+ "regions": {},
+ "identities": [
+  "P-001 worker-3 seen @(26.9, 11.6) via node 3 err 0.47",
+  "P-003 worker-0 seen @(12.0, 15.8) via node 0 err 0.36",
+  "P-006 worker-1 seen @(25.0, 6.7) via node 1 err 0.02",
+  "P-004 worker-4 seen @(16.7, 23.4) via node 2 err 0.32",
+  "P-005 worker-2 seen @(0.8, 14.5) via node 0 err 0.19"
+ ],
+ "forks": [],
+ "centralized": {
+  "status": "DOWN",
+  "tracked_now": "0",
+  "starling_now": "5",
+  "truth": "5",
+  "detail": "The central server process is not running: nothing is tracked."
+ },
+ "conflict": "conflict (ambiguous): healed 38 s",
+ "query": {
+  "status": "none"
+ }
+}
+```
+
+### 8d_starling_unaffected.jpg  (t = 497.3 s since launch)
+
+6 s later, central still DOWN; Starling claims 4653.0 (was 4408.0), convergence CONVERGED.
+
+DOM values read at capture:
+
+```json
+{
+ "nodes_live": "4",
+ "sim_time_s": "490.0",
+ "convergence": "CONVERGED",
+ "spread": "14",
+ "gaps": "0",
+ "partition": "none",
+ "forks_open": "0",
+ "mean_error_m": "0.40",
+ "claims_per_node": [
+  "12542",
+  "12549",
+  "12535",
+  "12539"
+ ],
+ "live": [
+  "LIVE",
+  "LIVE",
+  "LIVE",
+  "LIVE"
+ ],
+ "camera_zone_coverage": [
+  "healthy",
+  "healthy",
+  "healthy",
+  "healthy"
+ ],
+ "partitioned": [
+  "no",
+  "no",
+  "no",
+  "no"
+ ],
+ "reputation": [
+  "1.00",
+  "1.00",
+  "1.00",
+  "1.00"
+ ],
+ "rejected": [
+  "25 of 1961",
+  "0 of 789",
+  "0 of 790",
+  "61 of 1111"
+ ],
+ "regions": {},
+ "identities": [
+  "P-001 worker-3 seen @(26.9, 6.8) via node 3 err 0.56",
+  "P-003 worker-0 seen @(11.9, 23.1) via node 0 err 0.32",
+  "P-006 worker-1 seen @(23.4, 7.5) via node 1 err 0.62",
+  "P-004 worker-4 seen @(15.0, 21.1) via node 2 err 0.41",
+  "P-005 worker-2 seen @(0.9, 14.5) via node 0 err 0.11"
+ ],
+ "forks": [],
+ "centralized": {
+  "status": "DOWN",
+  "tracked_now": "0",
+  "starling_now": "5",
+  "truth": "5",
+  "detail": "The central server process is not running: nothing is tracked."
+ },
+ "conflict": "conflict (ambiguous): healed 38 s",
+ "query": {
+  "status": "none"
+ }
+}
+```
+
+### 8e_central_restarted.jpg  (t = 500.3 s since launch)
+
+Central server restarted: HEALTHY, tracks 5.
+
+DOM values read at capture:
+
+```json
+{
+ "nodes_live": "4",
+ "sim_time_s": "493.0",
+ "convergence": "CONVERGED",
+ "spread": "15",
+ "gaps": "0",
+ "partition": "none",
+ "forks_open": "0",
+ "mean_error_m": "0.21",
+ "claims_per_node": [
+  "12613",
+  "12622",
+  "12607",
+  "12611"
+ ],
+ "live": [
+  "LIVE",
+  "LIVE",
+  "LIVE",
+  "LIVE"
+ ],
+ "camera_zone_coverage": [
+  "healthy",
+  "healthy",
+  "healthy",
+  "healthy"
+ ],
+ "partitioned": [
+  "no",
+  "no",
+  "no",
+  "no"
+ ],
+ "reputation": [
+  "1.00",
+  "1.00",
+  "1.00",
+  "1.00"
+ ],
+ "rejected": [
+  "25 of 1986",
+  "0 of 802",
+  "0 of 802",
+  "61 of 1123"
+ ],
+ "regions": {},
+ "identities": [
+  "P-001 worker-3 seen @(27.1, 3.3) via node 3 err 0.32",
+  "P-003 worker-0 seen @(11.7, 23.5) via node 0 err 0.10",
+  "P-006 worker-1 seen @(20.7, 7.6) via node 1 err 0.14",
+  "P-004 worker-4 seen @(14.9, 18.1) via node 2 err 0.42",
+  "P-005 worker-2 seen @(1.1, 14.4) via node 0 err 0.08"
+ ],
+ "forks": [],
+ "centralized": {
+  "status": "HEALTHY",
+  "tracked_now": "5",
+  "starling_now": "5",
+  "truth": "5",
+  "detail": "5 identities in the shared table; 24 observations delivered."
+ },
+ "conflict": "conflict (ambiguous): healed 38 s",
+ "query": {
+  "status": "none"
+ }
+}
+```
+
+Measured values:
+
+```json
+{
+  "healthy": {
+    "status": "HEALTHY",
+    "tracked_now": "5",
+    "starling_now": "5",
+    "truth": "5",
+    "detail": "6 identities in the shared table; 10430 observations delivered."
+  },
+  "partitioned": {
+    "status": "PARTIAL",
+    "tracked_now": "3",
+    "starling_now": "5",
+    "truth": "5",
+    "detail": "Cameras 2, 3 cannot reach the server: their workers are lost (1340 observations never delivered)."
+  },
+  "killed": {
+    "status": "DOWN",
+    "tracked_now": "0",
+    "starling_now": "5",
+    "truth": "5",
+    "detail": "The central server process is not running: nothing is tracked."
+  },
+  "restarted": {
+    "status": "HEALTHY",
+    "tracked_now": "5",
+    "starling_now": "5",
+    "truth": "5",
+    "detail": "5 identities in the shared table; 24 observations delivered."
+  },
+  "starling_claims_before_kill": 4408.0,
+  "starling_claims_6s_after_kill": 4653.0,
+  "nodes_live_after_kill": "4",
+  "convergence_after_kill": "CONVERGED"
 }
 ```
 
 ## First-run findings
 
-Verdicts of the first, unmodified run:
-
-| # | Moment | Verdict | Reason |
-|---|---|---|---|
-| 0 | Startup | PASS | all 4 nodes live 5.3s after launch (page loaded, claims flowing) |
-| 1 | Normal walk | PASS | 5 identities tracked, worker-2 kept P-004 across nodes [0, 1], mean error 0.18 m vs ground truth |
-| 2 | Dead zone | PARTIAL | the region never shrank (it only grew/plateaued before the worker re-emerged). Areas over time: [(0.1, 41.75), (0.8, 41.75), (1.5, 67.75), (2.2, 106.06), (3.0, 149), (3.8, 149), (4.5, 195.5), (5.2, 249.88), (5.9, 249.88), (6.6, 311.25), (7.3, 383.12), (8.1, 461.75), (8.8, 461.75), (9.5, 542.56)] |
-| 3 | Partition and heal | PASS | partition shown on all nodes, spread grew to 30.0, converged 2.1s after heal with gaps=0; open forks: 0 |
-| 4 | Lying node | PASS | liar's reputation < 0.7 after 3.6s (51.0 claims rejected), honest nodes stayed >= 1.0, recovered > 0.9 8.1s after stopping |
-| 5 | Query and refusal | PASS | valid query answered with confirmed/inferred/unreachable; unknown worker and productivity purpose refused with reasons; partition edge case gave: refused — Reason: 'P-002' was only observed by node 2, which is/are unreachable for the entire requested window — a partitioned wing, not an absence |
-| 6 | Robustness | PASS | reload recovered in 0.1s; killed node OFFLINE after 5.0s; LIVE again 2.1s after restart; converged 5.0s after restart |
-
-The first run (commit `c141707`, before any change made in response to the review) reported six PASS and one PARTIAL. Reading its screenshots and recorded values critically, that headline was too rosy. Everything below failed or looked wrong on that run, and what was changed about it.
-
-1. **A worker's identity was lost mid-run (real system defect, missed by my own criteria).** From about 31 s of simulated time only 4 identities were listed for 5 workers: worker-1 (`P-001`) went "unseen" at (18.0, 19.2), inside node 1's own camera zone, stayed unseen and dropped off the table (screenshots `2b`–`2d`; the identity count in the recorded DOM values is 5 at `2c` and 4 from `2d` onwards, and 3 by `4b` during the lying test). The first-run criteria for moments 1 and 3–6 did not require all five workers to still be tracked, so they were marked PASS anyway. **Cause** (found with a debug harness): the resolver's reachability gate allows `v_max*dt + 2*pos_sigma + one grid cell` = 0.73 m between claims 0.2 s apart; two noisy detections 0.53 m apart landed 3 grid cells (0.75 m) apart after 0.25 m cell quantisation, the gate failed, a 1-claim duplicate identity was spawned, and the resolver (by design) never breaks a tie on a thin margin, so every later claim of that worker was left unassigned. **Fix:** new `MatchConfig.gate_extra_slack_m` (default 0 = original behaviour, so existing experiments are unchanged; the demo sets 0.5), with a regression test that first proves the duplicate occurs without it. **Review criteria tightened:** moment 1 now requires exactly the 5 workers as 5 identities at the end.
-2. **Moment 2 measured the wrong identity (harness bug).** The script sampled the first candidate region on the page, which belonged to `P-001` (worker-1, the lost identity above), not worker-2 (`P-004`). The recorded series (41.75 → 542.56 m² over 9.5 s, "never shrank") therefore says nothing about the dead-zone worker; worker-2 was still in node 0's zone on screen at that time. The PARTIAL verdict was right for the wrong reason. **Fix:** the script now selects the region belonging to worker-2's own identity label and records the label it measured.
-3. **A node process could crash (real defect, not visible in the first run's exit codes).** While reproducing item 1, a node died with `Assertion failed: check () ... msg.cpp:387` (libzmq). `GossipNode.publish` sent on a single shared PUB socket from both the node's main thread and its gossip-receive thread (anti-entropy replies) without a lock; ZeroMQ sockets are not thread-safe. Node 1 died at 30 s of simulated time in one debug run and stayed alive in the first review run (it was LIVE in every screenshot), so this is an intermittent crash (very likely easier to hit since the Part A signature fix made anti-entropy digests and replies far more frequent). **Fix:** a send lock, with a regression test hammering `publish` from four threads. **Review changed:** the log scan now reports `Assertion failed` / crash lines as process errors, and any process found not running after a moment downgrades that moment's verdict.
-4. **Smaller observations from the first run.** (a) The convergence badge tolerates a 30-claim spread (about one second of production), so "CONVERGED 2.1 s after heal" means gap-free and within that tolerance, not byte-identical (byte-identical sets are asserted in unit tests only). (b) Reputation of the lying node settled near 0.57 rather than approaching the floor, because it is the median of only three reporters. (c) Console-encoding artefacts (`�`) in the run log for `²`/`—` come from the Windows console, not the report; the HTML is UTF-8.
-
-5. **Later runs (2 and 3, after the fixes above): the dead-zone region still never shrank (real defect in the dashboard's use of negative evidence).** With the right identity now measured, three consecutive dark episodes of worker-2 all grew monotonically (for example 28.7 → 59.7 → 94.7 m²). Dumping the attestations the dashboard received showed why: when the worker walks in, the nearer node attests a boundary *crossing*, and my own bookkeeping then ignored every later "nobody crossed" attestation for that boundary (to avoid ruling out the worker's true position), so nothing ever cut the region. **Fix:** after an attested crossing the identity is treated as being on the far side of that boundary, so later "nobody crossed since" attestations rule out the *origin* side instead (`CandidateBelief.apply_attestation` gained an optional `reference_xy`; unit test added). After this, shrink events appear in the samples (for instance 42.6 → 32.2 m², screenshot `2e`), but growth still dominates in most episodes because the blind aisle is 25 m long and the belief uses a conservative `v_max` of 1.6 m/s against a 0.6 m/s worker, and an occluded node (silent, correctly) cannot shrink anything. The final moment-2 verdict is therefore based on shrinking in 1 of 3 episodes, stated as such.
-
+This report is from the first run; no earlier run exists.
 
 ## Browser console errors
 
@@ -2417,153 +5613,38 @@ None (no console errors/warnings, page errors or failed requests recorded).
 
 ## Process errors and exit status
 
-No Python tracebacks and no `level: error` log records in any process log.
+No Python tracebacks, no crash lines and no `level: error` log records in any process log.
 
-Warning-level events (counts): `{"node-0": {"PARTITION_HEALED": 4, "PARTITION_DETECTED": 3}, "node-1": {"PARTITION_HEALED": 4, "PARTITION_DETECTED": 2}, "node-2": {"node_attestation_disabled": 1, "PARTITION_HEALED": 4, "PARTITION_DETECTED": 3}, "node-3": {"node_attestation_disabled": 1, "PARTITION_HEALED": 3, "PARTITION_DETECTED": 2}}`
+Warning-level events (counts): `{"node-0": {"PARTITION_HEALED": 7, "PARTITION_DETECTED": 6}, "node-1": {"PARTITION_HEALED": 7, "PARTITION_DETECTED": 5}, "node-2": {"PARTITION_HEALED": 7, "PARTITION_DETECTED": 6}, "node-3": {"PARTITION_HEALED": 6, "PARTITION_DETECTED": 5}}`
+
+Claims rejected by nodes' plausibility check (logged per node; includes the deliberate liar and scripted actors): `{"dashboard": 194, "node-0": 137, "node-1": 4980, "node-2": 119, "node-3": 108}`
 
 | process | exit code | note |
 |---|---|---|
 | dashboard | 1 | still running at shutdown; stopped by the launcher |
+| central | 0 | had already exited before shutdown |
 | node-0 | 1 | still running at shutdown; stopped by the launcher |
 | node-1 | 1 | still running at shutdown; stopped by the launcher |
 | node-2 | 1 | still running at shutdown; stopped by the launcher |
 | node-3 | 1 | still running at shutdown; stopped by the launcher |
 | simulator | 1 | still running at shutdown; stopped by the launcher |
 
-On Windows the launcher stops a process with `TerminateProcess`, so a nonzero exit code for a process that was running is the launcher's stop, not a crash. Node 1 was deliberately killed and restarted during moment 6.
+On Windows the launcher stops a process with `TerminateProcess`, so a nonzero exit code for a process that was running is the launcher's stop, not a crash. Node 1 was deliberately killed and restarted in moment 6; the central server was killed and restarted in moment 8.
 
 ## Timings
 
 ```json
 {
-  "startup_s_launch_to_all_nodes_live": 4.1,
-  "heal_convergence_s": 2.4,
-  "reputation_drop_s_to_below_0.7": 3.6,
-  "reputation_recovery_s_to_above_0.9": 8.1,
-  "region_area_samples_m2_per_episode": [
-    [
-      [
-        0.1,
-        28.81
-      ],
-      [
-        0.5,
-        28.81
-      ],
-      [
-        1.0,
-        63.31
-      ],
-      [
-        1.5,
-        63.31
-      ],
-      [
-        1.9,
-        63.31
-      ],
-      [
-        2.4,
-        35.94
-      ],
-      [
-        3.0,
-        84.56
-      ],
-      [
-        3.4,
-        84.56
-      ],
-      [
-        3.9,
-        84.56
-      ]
-    ],
-    [
-      [
-        0.0,
-        18.31
-      ],
-      [
-        0.5,
-        18.31
-      ],
-      [
-        0.9,
-        45.94
-      ],
-      [
-        1.4,
-        45.94
-      ],
-      [
-        1.8,
-        69.06
-      ],
-      [
-        2.3,
-        69.06
-      ],
-      [
-        2.8,
-        69.06
-      ],
-      [
-        3.2,
-        116.5
-      ],
-      [
-        3.7,
-        116.5
-      ]
-    ],
-    [
-      [
-        0.0,
-        18.31
-      ],
-      [
-        0.5,
-        18.31
-      ],
-      [
-        0.9,
-        47.31
-      ],
-      [
-        1.4,
-        47.31
-      ],
-      [
-        1.9,
-        47.31
-      ],
-      [
-        2.3,
-        47.31
-      ],
-      [
-        2.8,
-        47.31
-      ],
-      [
-        3.2,
-        86.56
-      ],
-      [
-        3.7,
-        86.56
-      ],
-      [
-        4.2,
-        86.56
-      ],
-      [
-        4.7,
-        86.56
-      ]
-    ]
-  ]
+  "startup_s": 5.3,
+  "heal_convergence_s": 1.1,
+  "reputation_drop_s": 12.8,
+  "reputation_recovery_s": 8.1,
+  "dead_zone_healthy_lifetime_s": 24.9,
+  "dead_zone_healthy_ratio": 0.074,
+  "conflict_seconds_to_fork": {
+    "resolvable": 40.0,
+    "ambiguous": null
+  }
 }
 ```
 
@@ -2574,8 +5655,8 @@ On Windows the launcher stops a process with `TerminateProcess`, so a nonzero ex
   "os": "Windows 11 (10.0.26200)",
   "python": "3.12.1",
   "chromium": "153.0.8010.12",
-  "commit": "c8c7850",
-  "working_tree_dirty_outside_review_dir": false,
+  "commit": "4036a2b",
+  "working_tree_dirty_outside_review_dir": true,
   "packages": {
     "fastapi": "0.115.0",
     "uvicorn": "0.30.0",
@@ -2592,12 +5673,14 @@ On Windows the launcher stops a process with `TerminateProcess`, so a nonzero ex
 
 ## Known limitations and what is simulated
 
-- Perception is SIMULATED. There are no cameras, no video and no detector: a simulator process moves five virtual workers on a 2D floor plan and hands each node the noisy detections (position noise 0.08 m, embedding noise, 3 % missed detections) its own camera zone would produce. The 'ground truth' markers are the simulator's own state. Identity embeddings are synthetic 64-d unit vectors, so appearance matching is far easier than with real re-ID features. Nothing here says anything about real-camera accuracy.
-- The network PARTITION is application-level: the partition button tells each node to ignore inbound gossip from the other group (`POST /partition`). It is not packet loss/latency (netem) and the sending side is not gated. The dashboard's own observer is deliberately not partitioned, so it keeps hearing every node.
-- The 'lying node' is the project's own `AttackInjector` (fabricated claims at random free positions, 90 % intensity), not an adaptive adversary. Reputation is an EWMA over plausibility checks; a reputation of about 0.5 is the floor reached with three reporting peers (median).
-- The dashboard's 'rejected claims' counter is the DASHBOARD's own plausibility pass over what it overheard, not a count reported by each node. The label '≈ worker-N' next to an identity is display-only, matched to the nearest ground-truth worker; the network never sees worker names. 'where is worker 2' is translated through that mapping.
-- The resolver is run over a sliding 45 s window (it is O(claims x identities)); identity labels (P-001...) are kept stable across windows by claim overlap. Within a window the resolution is a pure function of the merged claim set.
-- The claim-count 'convergence' badge tolerates a small in-flight spread (30 claims, about a second of production) because the simulator keeps producing ~25 claims/s and digests are up to 1 s old; 'gaps' (holes in a node's own digest) must be exactly 0. Byte-identical claim sets are asserted in the unit tests, not readable from the page.
-- Candidate regions only shrink through gossiped attestations of boundaries (a boundary attested 'not crossed'); the blind aisle here is short, so the dark interval is a few seconds and the region can be dominated by growth. Silence (an occluded node sends no attestation) correctly does NOT shrink it.
-- Single machine, all processes on localhost; timings are for one Windows laptop and vary run to run. The video/YOLO path was not exercised at all. The baseline `apps/baseline.py` was not exercised by this review.
+- Perception is SIMULATED. There are no cameras, video or detector: a simulator moves virtual workers on a 2D floor plan and hands each node the noisy detections (position noise 0.08 m, embedding noise, 3 % missed detections) its own camera zone would produce. Identity embeddings are synthetic 64-d vectors, so appearance matching is far easier than with real re-ID features. The 'ground truth' markers are the simulator's own state.
+- The face-recognition gates (the source of forks) and the 'look-alike' twins are SIMULATED and SCRIPTED: two people share one face identity by construction. The resolver that turns that into a fork, resolves it by reachability or leaves it open is the project's real code, unmodified. The fork view is what node 0's side can see (far-side claims are held back while partitioned, released on heal); the map itself remains the global observer view.
+- The dead-zone episodes are scripted: one actor (worker-2) walks a fixed path through the uncovered block, and 'occluded' means the simulator stops that camera from sending healthy coverage attestations (a scripted occlusion; the camera's detections are not suppressed). The dashboard learns everything else from gossiped claims and attestations; the simulator's ground truth is used only to LABEL a silent camera as 'occluded' and to draw the faint truth rings.
+- Candidate regions grow at the conservative walking-speed bound (1.6 m/s) and are clipped only by (a) healthy attested zones and (b) obstacles. A camera zone with no healthy attestation (occluded, offline, partitioned away) is never subtracted, by design (silence is not evidence). The 'reachable without negative evidence' area is the same dilation with that clipping switched off.
+- The network PARTITION is application-level: each node ignores inbound gossip from the other group (`POST /partition`), the centralized server is told which cameras are cut. It is not packet loss/latency (netem) and the sending side is not gated. The dashboard's own observer is deliberately not partitioned.
+- THE CENTRALIZED SYSTEM IS A COMPARISON, NOT PART OF STARLING. It reuses the original project's identity matcher (`IdentityStore.match_or_create`, appearance-only cosine matching against one shared table) inside a new single-server process fed by the same simulated cameras; it has no geometry, so it also silently merges look-alikes. It is deliberately naive, and partitions/failure are simulated the same application-level way. It does not run the original video pipeline.
+- The lying node is the project's own `AttackInjector` (fabricated claims at random free positions, 90 % intensity), not an adaptive adversary. Reputation is an EWMA over plausibility checks; roughly 0.5-0.6 is the floor with three reporting peers (median). The dashboard's 'rejected' counter is the DASHBOARD's own plausibility pass over what it overheard.
+- The claim-count 'converged' badge tolerates a small in-flight spread (30 claims, about a second of production) plus gaps == 0. Byte-identical claim sets are asserted in unit tests, not readable from the page. The resolver runs over a sliding 45 s window; identity labels (P-001...) are kept stable across windows by claim overlap; fork results are remembered for 150 s of display time.
+- '≈ worker-N' next to an identity and the translation of 'where is worker 2' use the nearest ground-truth worker as a display-only label; the network never sees worker names.
+- Single machine, all processes on localhost; timings are for one Windows laptop and vary run to run. Nothing here exercises real cameras, the video/YOLO path or `apps/baseline.py` itself.
 - Screenshots are JPEGs of the real running page (full page height, 1440 px wide); no image was edited. Verdicts are computed from the DOM values recorded at capture time by explicit criteria in `scripts/review_demo.py`.

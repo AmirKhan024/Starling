@@ -123,7 +123,7 @@ def test_delayed_script_step_spawns_the_second_twin_later():
     runner.command({"kind": "script", "name": "conflict_ambiguous"})
     runner.tick_once()
     active = {w["worker_id"] for w in runner.tick_once()[1]["workers"]}
-    assert 5 in active and 6 not in active
+    assert 7 in active and 8 not in active  # the ambiguous scenario has its own twin pair
     for _ in range(5 * 26):
         gt = runner.tick_once()[1]
-    assert 6 in {w["worker_id"] for w in gt["workers"]}
+    assert 8 in {w["worker_id"] for w in gt["workers"]}

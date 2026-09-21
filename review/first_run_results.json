@@ -3,249 +3,1076 @@
   "0": {
    "title": "Startup",
    "verdict": "PASS",
-   "reason": "all 4 nodes live 5.3s after launch (page loaded, claims flowing)",
+   "reason": "all 4 nodes live and central server healthy 5.3s after launch; all camera zones healthy; demo-script panel lists 9 steps",
    "measures": {
-    "seconds_launch_to_all_nodes_live": 5.3
+    "seconds_launch_to_all_nodes_live": 5.3,
+    "demo_script_steps_listed": 9,
+    "zones_coverage": [
+     "healthy",
+     "healthy",
+     "healthy",
+     "healthy"
+    ]
    },
-   "what": "The dashboard loads and all four node processes are live.",
-   "action": "Launched `scripts/run_demo.py --headless` (simulator + 4 nodes + dashboard), opened the dashboard in headless Chromium."
+   "what": "The dashboard loads and all four node processes, the simulator and the centralized comparison server are up.",
+   "action": "Launched the demo in presenter mode (`scripts/run_demo.py --presenter`, launched here via `DemoLauncher`) and opened the dashboard in headless Chromium."
   },
   "1": {
    "title": "Normal walk",
    "verdict": "PASS",
-   "reason": "5 identities tracked, worker-2 kept P-004 across nodes [0, 1], mean error 0.18 m vs ground truth",
+   "reason": "4 identities tracked, labels unchanged for 25 s, max displacement 21.3 m, mean error 0.35 m vs ground truth",
    "measures": {
-    "identities_named_at_start": 5,
-    "max_identity_displacement_in_6s_m": 3.94,
+    "named_workers": [
+     "worker-0",
+     "worker-1",
+     "worker-3",
+     "worker-4"
+    ],
+    "identities_listed": 4,
+    "labels_unchanged_over_25s": true,
+    "max_displacement_m": 21.32,
+    "mean_position_error_m_avg": 0.35,
     "mean_position_error_m_samples": [
-     0.67,
-     0.67,
-     0.07,
-     0.07,
+     0.64,
      0.1,
-     0.1,
-     0.2,
-     0.49,
-     0.49,
-     0.66
+     0.07,
+     0.09,
+     0.14,
+     0.12,
+     0.06,
+     0.08
     ],
-    "mean_position_error_m_avg": 0.18,
-    "worker2_label_before_after_zone_change": [
-     "P-004",
-     "P-004"
-    ],
-    "worker2_nodes_seen_by": [
-     0,
-     1
-    ],
-    "final_per_identity_error_m": [
-     0.44,
-     2.06,
-     0.15,
-     0.32,
-     0.32
+    "per_identity_error_m": [
+     0.27,
+     0.26,
+     0.14,
+     0.16
     ]
    },
-   "what": "Believed worker positions (one colour per resolved identity) move across the floor plan and keep their identity across camera zones; faint ground-truth markers give the comparison.",
-   "action": "Observed only (no controls): sampled the DOM for ~30 s and followed worker-2, which walks from node 0's zone through the blind aisle into node 1's zone."
+   "what": "Believed worker positions (one colour per resolved identity) move across the floor plan; identities stay consistent; faint ground-truth markers give the comparison.",
+   "action": "Observed only for ~25 s. The four patrol workers stay inside their own camera zones (the stage actor worker-2 only appears in the dead-zone episodes), so 'identity across zones' is exercised in moment 2a."
   },
-  "2": {
-   "title": "Dead zone",
-   "verdict": "PARTIAL",
-   "reason": "the region never shrank (it only grew/plateaued before the worker re-emerged). Areas over time: [(0.1, 41.75), (0.8, 41.75), (1.5, 67.75), (2.2, 106.06), (3.0, 149), (3.8, 149), (4.5, 195.5), (5.2, 249.88), (5.9, 249.88), (6.6, 311.25), (7.3, 383.12), (8.1, 461.75), (8.8, 461.75), (9.5, 542.56)]",
+  "2a": {
+   "title": "Dead zone, healthy exits",
+   "verdict": "PASS",
+   "reason": "region confined to the block for 24.9 s (0 m² in healthy zones, at most 0.5 m² outside the block), final 69 m² vs 932.5 m² reachable (ratio 0.074), same identity P-005 on re-emergence",
    "measures": {
-    "identity_before": "P-004",
-    "identity_after_reemerging": "P-004",
+    "seconds_click_to_region_on_page": 16.7,
+    "identity_measured": "P-005",
+    "identity_after_reemerging": "P-005",
     "same_identity_after": true,
-    "area_samples_seconds_since_region_appeared_m2": [
-     [
-      0.1,
-      41.75
-     ],
-     [
-      0.8,
-      41.75
-     ],
-     [
-      1.5,
-      67.75
-     ],
-     [
-      2.2,
-      106.06
-     ],
-     [
-      3.0,
-      149
-     ],
-     [
-      3.8,
-      149
-     ],
-     [
-      4.5,
-      195.5
-     ],
-     [
-      5.2,
-      249.88
-     ],
-     [
-      5.9,
-      249.88
-     ],
-     [
-      6.6,
-      311.25
-     ],
-     [
-      7.3,
-      383.12
-     ],
-     [
-      8.1,
-      461.75
-     ],
-     [
-      8.8,
-      461.75
-     ],
-     [
-      9.5,
-      542.56
-     ]
-    ],
-    "n_samples": 14,
-    "peak_area_m2": 542.56,
-    "final_area_m2": 542.56,
-    "area_ever_decreased": false
+    "n_samples": 27,
+    "region_lifetime_s": 24.9,
+    "first_area_m2": 18.3,
+    "max_area_m2": 69,
+    "final_area_m2": 69,
+    "reach_at_end_m2": 932.5,
+    "final_ratio_area_over_reach": 0.074,
+    "max_healthy_zone_overlap_m2": 0,
+    "max_area_outside_blind_block_m2": 0.10000000000000142,
+    "samples": [
+     {
+      "t": 0.0,
+      "area": 18.3,
+      "reach": 40.9,
+      "ratio_pct": "45%",
+      "blind": 18.2,
+      "healthy_overlap": 0,
+      "zone_overlap": {},
+      "healthy": "0,1,2,3",
+      "silent": "",
+      "occluded": "",
+      "hidden_s": 2.4,
+      "explanation": "worker-2 unseen 2 s. Cameras 0, 1, 2, 3 are healthy and saw nobody, so their zones are ruled out. Search area 18 m² instead of 41 m² reachable."
+     },
+     {
+      "t": 1.1,
+      "area": 18.3,
+      "reach": 40.9,
+      "ratio_pct": "45%",
+      "blind": 18.2,
+      "healthy_overlap": 0,
+      "zone_overlap": {},
+      "healthy": "0,1,2,3",
+      "silent": "",
+      "occluded": "",
+      "hidden_s": 2.4,
+      "explanation": "worker-2 unseen 2 s. Cameras 0, 1, 2, 3 are healthy and saw nobody, so their zones are ruled out. Search area 18 m² instead of 41 m² reachable."
+     },
+     {
+      "t": 2.0,
+      "area": 27.7,
+      "reach": 77.2,
+      "ratio_pct": "36%",
+      "blind": 27.7,
+      "healthy_overlap": 0,
+      "zone_overlap": {},
+      "healthy": "0,1,2,3",
+      "silent": "",
+      "occluded": "",
+      "hidden_s": 3.4,
+      "explanation": "worker-2 unseen 3 s. Cameras 0, 1, 2, 3 are healthy and saw nobody, so their zones are ruled out. Search area 28 m² instead of 77 m² reachable."
+     },
+     {
+      "t": 3.0,
+      "area": 27.7,
+      "reach": 77.2,
+      "ratio_pct": "36%",
+      "blind": 27.7,
+      "healthy_overlap": 0,
+      "zone_overlap": {},
+      "healthy": "0,1,2,3",
+      "silent": "",
+      "occluded": "",
+      "hidden_s": 3.4,
+      "explanation": "worker-2 unseen 3 s. Cameras 0, 1, 2, 3 are healthy and saw nobody, so their zones are ruled out. Search area 28 m² instead of 77 m² reachable."
+     },
+     {
+      "t": 3.9,
+      "area": 33.8,
+      "reach": 125.6,
+      "ratio_pct": "27%",
+      "blind": 33.8,
+      "healthy_overlap": 0,
+      "zone_overlap": {},
+      "healthy": "0,1,2,3",
+      "silent": "",
+      "occluded": "",
+      "hidden_s": 4.4,
+      "explanation": "worker-2 unseen 4 s. Cameras 0, 1, 2, 3 are healthy and saw nobody, so their zones are ruled out. Search area 34 m² instead of 126 m² reachable."
+     },
+     {
+      "t": 4.8,
+      "area": 40.8,
+      "reach": 183.1,
+      "ratio_pct": "22%",
+      "blind": 40.8,
+      "healthy_overlap": 0,
+      "zone_overlap": {},
+      "healthy": "0,1,2,3",
+      "silent": "",
+      "occluded": "",
+      "hidden_s": 5.4,
+      "explanation": "worker-2 unseen 5 s. Cameras 0, 1, 2, 3 are healthy and saw nobody, so their zones are ruled out. Search area 41 m² instead of 183 m² reachable."
+     },
+     {
+      "t": 5.7,
+      "area": 52,
+      "reach": 256.7,
+      "ratio_pct": "20%",
+      "blind": 52,
+      "healthy_overlap": 0,
+      "zone_overlap": {},
+      "healthy": "0,1,2,3",
+      "silent": "",
+      "occluded": "",
+      "hidden_s": 6.4,
+      "explanation": "worker-2 unseen 6 s. Cameras 0, 1, 2, 3 are healthy and saw nobody, so their zones are ruled out. Search area 52 m² instead of 257 m² reachable."
+     },
+     {
+      "t": 6.7,
+      "area": 58.9,
+      "reach": 344.6,
+      "ratio_pct": "17%",
+      "blind": 58.9,
+      "healthy_overlap": 0,
+      "zone_overlap": {},
+      "healthy": "0,1,2,3",
+      "silent": "",
+      "occluded": "",
+      "hidden_s": 7.4,
+      "explanation": "worker-2 unseen 7 s. Cameras 0, 1, 2, 3 are healthy and saw nobody, so their zones are ruled out. Search area 59 m² instead of 345 m² reachable."
+     },
+     {
+      "t": 7.6,
+      "area": 64.9,
+      "reach": 421.9,
+      "ratio_pct": "15%",
+      "blind": 64.9,
+      "healthy_overlap": 0,
+      "zone_overlap": {},
+      "healthy": "0,1,2,3",
+      "silent": "",
+      "occluded": "",
+      "hidden_s": 8.4,
+      "explanation": "worker-2 unseen 8 s. Cameras 0, 1, 2, 3 are healthy and saw nobody, so their zones are ruled out. Search area 65 m² instead of 422 m² reachable."
+     },
+     {
+      "t": 8.5,
+      "area": 69,
+      "reach": 502.9,
+      "ratio_pct": "14%",
+      "blind": 69,
+      "healthy_overlap": 0,
+      "zone_overlap": {},
+      "healthy": "0,1,2,3",
+      "silent": "",
+      "occluded": "",
+      "hidden_s": 9.4,
+      "explanation": "worker-2 unseen 9 s. Cameras 0, 1, 2, 3 are healthy and saw nobody, so their zones are ruled out. Search area 69 m² instead of 503 m² reachable."
+     },
+     {
+      "t": 10.0,
+      "area": 69,
+      "reach": 652.3,
+      "ratio_pct": "11%",
+      "blind": 69,
+      "healthy_overlap": 0,
+      "zone_overlap": {},
+      "healthy": "0,1,2,3",
+      "silent": "",
+      "occluded": "",
+      "hidden_s": 11.6,
+      "explanation": "worker-2 unseen 12 s. Cameras 0, 1, 2, 3 are healthy and saw nobody, so their zones are ruled out. Search area 69 m² instead of 652 m² reachable."
+     },
+     {
+      "t": 11.0,
+      "area": 69,
+      "reach": 694.9,
+      "ratio_pct": "10%",
+      "blind": 69,
+      "healthy_overlap": 0,
+      "zone_overlap": {},
+      "healthy": "0,1,2,3",
+      "silent": "",
+      "occluded": "",
+      "hidden_s": 12.6,
+      "explanation": "worker-2 unseen 13 s. Cameras 0, 1, 2, 3 are healthy and saw nobody, so their zones are ruled out. Search area 69 m² instead of 695 m² reachable."
+     },
+     {
+      "t": 11.9,
+      "area": 69,
+      "reach": 694.9,
+      "ratio_pct": "10%",
+      "blind": 69,
+      "healthy_overlap": 0,
+      "zone_overlap": {},
+      "healthy": "0,1,2,3",
+      "silent": "",
+      "occluded": "",
+      "hidden_s": 12.6,
+      "explanation": "worker-2 unseen 13 s. Cameras 0, 1, 2, 3 are healthy and saw nobody, so their zones are ruled out. Search area 69 m² instead of 695 m² reachable."
+     },
+     {
+      "t": 12.8,
+      "area": 69,
+      "reach": 732.9,
+      "ratio_pct": "9%",
+      "blind": 69,
+      "healthy_overlap": 0,
+      "zone_overlap": {},
+      "healthy": "0,1,2,3",
+      "silent": "",
+      "occluded": "",
+      "hidden_s": 13.6,
+      "explanation": "worker-2 unseen 14 s. Cameras 0, 1, 2, 3 are healthy and saw nobody, so their zones are ruled out. Search area 69 m² instead of 733 m² reachable."
+     },
+     {
+      "t": 13.8,
+      "area": 69,
+      "reach": 768.7,
+      "ratio_pct": "9%",
+      "blind": 69,
+      "healthy_overlap": 0,
+      "zone_overlap": {},
+      "healthy": "0,1,2,3",
+      "silent": "",
+      "occluded": "",
+      "hidden_s": 14.6,
+      "explanation": "worker-2 unseen 15 s. Cameras 0, 1, 2, 3 are healthy and saw nobody, so their zones are ruled out. Search area 69 m² instead of 769 m² reachable."
+     },
+     {
+      "t": 14.7,
+      "area": 69,
+      "reach": 808.6,
+      "ratio_pct": "9%",
+      "blind": 69,
+      "healthy_overlap": 0,
+      "zone_overlap": {},
+      "healthy": "0,1,2,3",
+      "silent": "",
+      "occluded": "",
+      "hidden_s": 15.6,
+      "explanation": "worker-2 unseen 16 s. Cameras 0, 1, 2, 3 are healthy and saw nobody, so their zones are ruled out. Search area 69 m² instead of 809 m² reachable."
+     },
+     {
+      "t": 15.6,
+      "area": 69,
+      "reach": 840.2,
+      "ratio_pct": "8%",
+      "blind": 69,
+      "healthy_overlap": 0,
+      "zone_overlap": {},
+      "healthy": "0,1,2,3",
+      "silent": "",
+      "occluded": "",
+      "hidden_s": 16.6,
+      "explanation": "worker-2 unseen 17 s. Cameras 0, 1, 2, 3 are healthy and saw nobody, so their zones are ruled out. Search area 69 m² instead of 840 m² reachable."
+     },
+     {
+      "t": 16.5,
+      "area": 69,
+      "reach": 867.1,
+      "ratio_pct": "8%",
+      "blind": 69,
+      "healthy_overlap": 0,
+      "zone_overlap": {},
+      "healthy": "0,1,2,3",
+      "silent": "",
+      "occluded": "",
+      "hidden_s": 17.6,
+      "explanation": "worker-2 unseen 18 s. Cameras 0, 1, 2, 3 are healthy and saw nobody, so their zones are ruled out. Search area 69 m² instead of 867 m² reachable."
+     },
+     {
+      "t": 17.5,
+      "area": 69,
+      "reach": 894.3,
+      "ratio_pct": "8%",
+      "blind": 69,
+      "healthy_overlap": 0,
+      "zone_overlap": {},
+      "healthy": "0,1,2,3",
+      "silent": "",
+      "occluded": "",
+      "hidden_s": 18.6,
+      "explanation": "worker-2 unseen 19 s. Cameras 0, 1, 2, 3 are healthy and saw nobody, so their zones are ruled out. Search area 69 m² instead of 894 m² reachable."
+     },
+     {
+      "t": 18.4,
+      "area": 69,
+      "reach": 916.7,
+      "ratio_pct": "8%",
+      "blind": 69,
+      "healthy_overlap": 0,
+      "zone_overlap": {},
+      "healthy": "0,1,2,3",
+      "silent": "",
+      "occluded": "",
+      "hidden_s": 19.6,
+      "explanation": "worker-2 unseen 20 s. Cameras 0, 1, 2, 3 are healthy and saw nobody, so their zones are ruled out. Search area 69 m² instead of 917 m² reachable."
+     },
+     {
+      "t": 19.3,
+      "area": 69,
+      "reach": 929.6,
+      "ratio_pct": "7%",
+      "blind": 69,
+      "healthy_overlap": 0,
+      "zone_overlap": {},
+      "healthy": "0,1,2,3",
+      "silent": "",
+      "occluded": "",
+      "hidden_s": 20.6,
+      "explanation": "worker-2 unseen 21 s. Cameras 0, 1, 2, 3 are healthy and saw nobody, so their zones are ruled out. Search area 69 m² instead of 930 m² reachable."
+     },
+     {
+      "t": 20.2,
+      "area": 69,
+      "reach": 932.5,
+      "ratio_pct": "7%",
+      "blind": 69,
+      "healthy_overlap": 0,
+      "zone_overlap": {},
+      "healthy": "0,1,2,3",
+      "silent": "",
+      "occluded": "",
+      "hidden_s": 21.6,
+      "explanation": "worker-2 unseen 22 s. Cameras 0, 1, 2, 3 are healthy and saw nobody, so their zones are ruled out. Search area 69 m² instead of 932 m² reachable."
+     },
+     {
+      "t": 21.1,
+      "area": 69,
+      "reach": 932.5,
+      "ratio_pct": "7%",
+      "blind": 69,
+      "healthy_overlap": 0,
+      "zone_overlap": {},
+      "healthy": "0,1,2,3",
+      "silent": "",
+      "occluded": "",
+      "hidden_s": 22.6,
+      "explanation": "worker-2 unseen 23 s. Cameras 0, 1, 2, 3 are healthy and saw nobody, so their zones are ruled out. Search area 69 m² instead of 932 m² reachable."
+     },
+     {
+      "t": 22.0,
+      "area": 69,
+      "reach": 932.5,
+      "ratio_pct": "7%",
+      "blind": 69,
+      "healthy_overlap": 0,
+      "zone_overlap": {},
+      "healthy": "0,1,2,3",
+      "silent": "",
+      "occluded": "",
+      "hidden_s": 23.6,
+      "explanation": "worker-2 unseen 24 s. Cameras 0, 1, 2, 3 are healthy and saw nobody, so their zones are ruled out. Search area 69 m² instead of 932 m² reachable."
+     },
+     {
+      "t": 23.0,
+      "area": 69,
+      "reach": 932.5,
+      "ratio_pct": "7%",
+      "blind": 69,
+      "healthy_overlap": 0,
+      "zone_overlap": {},
+      "healthy": "0,1,2,3",
+      "silent": "",
+      "occluded": "",
+      "hidden_s": 24.8,
+      "explanation": "worker-2 unseen 25 s. Cameras 0, 1, 2, 3 are healthy and saw nobody, so their zones are ruled out. Search area 69 m² instead of 932 m² reachable."
+     },
+     {
+      "t": 24.0,
+      "area": 69,
+      "reach": 932.5,
+      "ratio_pct": "7%",
+      "blind": 69,
+      "healthy_overlap": 0,
+      "zone_overlap": {},
+      "healthy": "0,1,2,3",
+      "silent": "",
+      "occluded": "",
+      "hidden_s": 24.8,
+      "explanation": "worker-2 unseen 25 s. Cameras 0, 1, 2, 3 are healthy and saw nobody, so their zones are ruled out. Search area 69 m² instead of 932 m² reachable."
+     },
+     {
+      "t": 24.9,
+      "area": 69,
+      "reach": 932.5,
+      "ratio_pct": "7%",
+      "blind": 69,
+      "healthy_overlap": 0,
+      "zone_overlap": {},
+      "healthy": "0,1,2,3",
+      "silent": "",
+      "occluded": "",
+      "hidden_s": 25.8,
+      "explanation": "worker-2 unseen 26 s. Cameras 0, 1, 2, 3 are healthy and saw nobody, so their zones are ruled out. Search area 69 m² instead of 932 m² reachable."
+     }
+    ]
    },
-   "what": "A worker walks into the blind aisle; instead of the track vanishing, a shaded 'could be here' region appears and (with attested absence) shrinks; on re-emergence the same identity is restored.",
-   "action": "Observed only: waited for worker-2 to enter the 3 m blind aisle, sampled the candidate-region area from the DOM each ~1 s, and checked its identity after it reappeared."
+   "what": "A worker disappears into the 12x7 m uncovered block for ~27 s. Every exit is watched by a healthy camera that saw nobody leave, so the candidate region must stay inside the block, never include a healthy camera's zone, and be much smaller than plain reachability allows; the same identity is restored on re-emergence.",
+   "action": "Pressed 'Dead zone - healthy exits' (the simulator moves worker-2 from the west door through the block and out through the east zone), then sampled the page (region area, reachable-without-negative-evidence area, healthy-zone overlap, area outside the block) about every second."
+  },
+  "2b": {
+   "title": "Dead zone, occluded exit",
+   "verdict": "PASS",
+   "reason": "region leaked into camera 1's zone (up to 105 m²) and into no other zone; page said 'camera 1 is silent (occluded...): its silence is not counted as evidence' in 30 of 30 samples; same identity on re-emergence",
+   "measures": {
+    "seconds_click_to_region_on_page": 16.2,
+    "identity_measured": "P-014",
+    "identity_after_reemerging": "P-014",
+    "same_identity_after": true,
+    "n_samples": 30,
+    "region_lifetime_s": 26.8,
+    "first_area_m2": 11.1,
+    "max_area_m2": 174,
+    "final_area_m2": 174,
+    "reach_at_end_m2": 932.5,
+    "final_ratio_area_over_reach": 0.187,
+    "max_healthy_zone_overlap_m2": 0,
+    "max_area_outside_blind_block_m2": 105,
+    "samples": [
+     {
+      "t": 0.0,
+      "area": 11.1,
+      "reach": 18.3,
+      "ratio_pct": "60%",
+      "blind": 11.1,
+      "healthy_overlap": 0,
+      "zone_overlap": {},
+      "healthy": "0,2,3",
+      "silent": "1",
+      "occluded": "1",
+      "hidden_s": 1.6,
+      "explanation": "worker-2 unseen 2 s. Cameras 0, 2, 3 are healthy and saw nobody, so their zones are ruled out. camera 1 is silent (occluded, no healthy attestation): its silence is not counted as evidence. Search area 11 m² instead of 18 m² reachable."
+     },
+     {
+      "t": 1.0,
+      "area": 19.1,
+      "reach": 46.2,
+      "ratio_pct": "41%",
+      "blind": 19.1,
+      "healthy_overlap": 0,
+      "zone_overlap": {},
+      "healthy": "0,2,3",
+      "silent": "1",
+      "occluded": "1",
+      "hidden_s": 2.6,
+      "explanation": "worker-2 unseen 3 s. Cameras 0, 2, 3 are healthy and saw nobody, so their zones are ruled out. camera 1 is silent (occluded, no healthy attestation): its silence is not counted as evidence. Search area 19 m² instead of 46 m² reachable."
+     },
+     {
+      "t": 1.9,
+      "area": 29.3,
+      "reach": 84.4,
+      "ratio_pct": "35%",
+      "blind": 28.8,
+      "healthy_overlap": 0,
+      "zone_overlap": {
+       "1": 0.4
+      },
+      "healthy": "0,2,3",
+      "silent": "1",
+      "occluded": "1",
+      "hidden_s": 3.6,
+      "explanation": "worker-2 unseen 4 s. Cameras 0, 2, 3 are healthy and saw nobody, so their zones are ruled out. camera 1 is silent (occluded, no healthy attestation): its silence is not counted as evidence. The region therefore leaks into camera 1's zone. Search area 29 m² instead of 84 m² reachable."
+     },
+     {
+      "t": 2.8,
+      "area": 29.3,
+      "reach": 84.4,
+      "ratio_pct": "35%",
+      "blind": 28.8,
+      "healthy_overlap": 0,
+      "zone_overlap": {
+       "1": 0.4
+      },
+      "healthy": "0,2,3",
+      "silent": "1",
+      "occluded": "1",
+      "hidden_s": 3.6,
+      "explanation": "worker-2 unseen 4 s. Cameras 0, 2, 3 are healthy and saw nobody, so their zones are ruled out. camera 1 is silent (occluded, no healthy attestation): its silence is not counted as evidence. The region therefore leaks into camera 1's zone. Search area 29 m² instead of 84 m² reachable."
+     },
+     {
+      "t": 3.7,
+      "area": 39.7,
+      "reach": 133.7,
+      "ratio_pct": "30%",
+      "blind": 34.5,
+      "healthy_overlap": 0,
+      "zone_overlap": {
+       "1": 5.2
+      },
+      "healthy": "0,2,3",
+      "silent": "1",
+      "occluded": "1",
+      "hidden_s": 4.6,
+      "explanation": "worker-2 unseen 5 s. Cameras 0, 2, 3 are healthy and saw nobody, so their zones are ruled out. camera 1 is silent (occluded, no healthy attestation): its silence is not counted as evidence. The region therefore leaks into camera 1's zone. Search area 40 m² instead of 134 m² reachable."
+     },
+     {
+      "t": 4.6,
+      "area": 55.4,
+      "reach": 192.8,
+      "ratio_pct": "29%",
+      "blind": 42.2,
+      "healthy_overlap": 0,
+      "zone_overlap": {
+       "1": 13.2
+      },
+      "healthy": "0,2,3",
+      "silent": "1",
+      "occluded": "1",
+      "hidden_s": 5.6,
+      "explanation": "worker-2 unseen 6 s. Cameras 0, 2, 3 are healthy and saw nobody, so their zones are ruled out. camera 1 is silent (occluded, no healthy attestation): its silence is not counted as evidence. The region therefore leaks into camera 1's zone. Search area 55 m² instead of 193 m² reachable."
+     },
+     {
+      "t": 5.5,
+      "area": 79.3,
+      "reach": 269.4,
+      "ratio_pct": "29%",
+      "blind": 53.9,
+      "healthy_overlap": 0,
+      "zone_overlap": {
+       "1": 25.3
+      },
+      "healthy": "0,2,3",
+      "silent": "1",
+      "occluded": "1",
+      "hidden_s": 6.6,
+      "explanation": "worker-2 unseen 7 s. Cameras 0, 2, 3 are healthy and saw nobody, so their zones are ruled out. camera 1 is silent (occluded, no healthy attestation): its silence is not counted as evidence. The region therefore leaks into camera 1's zone. Search area 79 m² instead of 269 m² reachable."
+     },
+     {
+      "t": 6.5,
+      "area": 99.4,
+      "reach": 355.8,
+      "ratio_pct": "28%",
+      "blind": 59.8,
+      "healthy_overlap": 0,
+      "zone_overlap": {
+       "1": 39.6
+      },
+      "healthy": "0,2,3",
+      "silent": "1",
+      "occluded": "1",
+      "hidden_s": 7.6,
+      "explanation": "worker-2 unseen 8 s. Cameras 0, 2, 3 are healthy and saw nobody, so their zones are ruled out. camera 1 is silent (occluded, no healthy attestation): its silence is not counted as evidence. The region therefore leaks into camera 1's zone. Search area 99 m² instead of 356 m² reachable."
+     },
+     {
+      "t": 7.5,
+      "area": 122.4,
+      "reach": 430.3,
+      "ratio_pct": "28%",
+      "blind": 65.9,
+      "healthy_overlap": 0,
+      "zone_overlap": {
+       "1": 56.5
+      },
+      "healthy": "0,2,3",
+      "silent": "1",
+      "occluded": "1",
+      "hidden_s": 8.6,
+      "explanation": "worker-2 unseen 9 s. Cameras 0, 2, 3 are healthy and saw nobody, so their zones are ruled out. camera 1 is silent (occluded, no healthy attestation): its silence is not counted as evidence. The region therefore leaks into camera 1's zone. Search area 122 m² instead of 430 m² reachable."
+     },
+     {
+      "t": 8.4,
+      "area": 146.4,
+      "reach": 511.3,
+      "ratio_pct": "29%",
+      "blind": 69,
+      "healthy_overlap": 0,
+      "zone_overlap": {
+       "1": 77.4
+      },
+      "healthy": "0,2,3",
+      "silent": "1",
+      "occluded": "1",
+      "hidden_s": 9.6,
+      "explanation": "worker-2 unseen 10 s. Cameras 0, 2, 3 are healthy and saw nobody, so their zones are ruled out. camera 1 is silent (occluded, no healthy attestation): its silence is not counted as evidence. The region therefore leaks into camera 1's zone. Search area 146 m² instead of 511 m² reachable."
+     },
+     {
+      "t": 9.3,
+      "area": 161.3,
+      "reach": 586.4,
+      "ratio_pct": "28%",
+      "blind": 69,
+      "healthy_overlap": 0,
+      "zone_overlap": {
+       "1": 92.2
+      },
+      "healthy": "0,2,3",
+      "silent": "1",
+      "occluded": "1",
+      "hidden_s": 10.6,
+      "explanation": "worker-2 unseen 11 s. Cameras 0, 2, 3 are healthy and saw nobody, so their zones are ruled out. camera 1 is silent (occluded, no healthy attestation): its silence is not counted as evidence. The region therefore leaks into camera 1's zone. Search area 161 m² instead of 586 m² reachable."
+     },
+     {
+      "t": 10.2,
+      "area": 169.9,
+      "reach": 647.3,
+      "ratio_pct": "26%",
+      "blind": 69,
+      "healthy_overlap": 0,
+      "zone_overlap": {
+       "1": 100.9
+      },
+      "healthy": "0,2,3",
+      "silent": "1",
+      "occluded": "1",
+      "hidden_s": 11.6,
+      "explanation": "worker-2 unseen 12 s. Cameras 0, 2, 3 are healthy and saw nobody, so their zones are ruled out. camera 1 is silent (occluded, no healthy attestation): its silence is not counted as evidence. The region therefore leaks into camera 1's zone. Search area 170 m² instead of 647 m² reachable."
+     },
+     {
+      "t": 11.2,
+      "area": 173.6,
+      "reach": 690.1,
+      "ratio_pct": "25%",
+      "blind": 69,
+      "healthy_overlap": 0,
+      "zone_overlap": {
+       "1": 104.6
+      },
+      "healthy": "0,2,3",
+      "silent": "1",
+      "occluded": "1",
+      "hidden_s": 12.6,
+      "explanation": "worker-2 unseen 13 s. Cameras 0, 2, 3 are healthy and saw nobody, so their zones are ruled out. camera 1 is silent (occluded, no healthy attestation): its silence is not counted as evidence. The region therefore leaks into camera 1's zone. Search area 174 m² instead of 690 m² reachable."
+     },
+     {
+      "t": 12.1,
+      "area": 174,
+      "reach": 730.1,
+      "ratio_pct": "24%",
+      "blind": 69,
+      "healthy_overlap": 0,
+      "zone_overlap": {
+       "1": 105
+      },
+      "healthy": "0,2,3",
+      "silent": "1",
+      "occluded": "1",
+      "hidden_s": 13.6,
+      "explanation": "worker-2 unseen 14 s. Cameras 0, 2, 3 are healthy and saw nobody, so their zones are ruled out. camera 1 is silent (occluded, no healthy attestation): its silence is not counted as evidence. The region therefore leaks into camera 1's zone. Search area 174 m² instead of 730 m² reachable."
+     },
+     {
+      "t": 13.0,
+      "area": 174,
+      "reach": 774.3,
+      "ratio_pct": "23%",
+      "blind": 69,
+      "healthy_overlap": 0,
+      "zone_overlap": {
+       "1": 105
+      },
+      "healthy": "0,2,3",
+      "silent": "1",
+      "occluded": "1",
+      "hidden_s": 14.8,
+      "explanation": "worker-2 unseen 15 s. Cameras 0, 2, 3 are healthy and saw nobody, so their zones are ruled out. camera 1 is silent (occluded, no healthy attestation): its silence is not counted as evidence. The region therefore leaks into camera 1's zone. Search area 174 m² instead of 774 m² reachable."
+     },
+     {
+      "t": 13.9,
+      "area": 174,
+      "reach": 774.3,
+      "ratio_pct": "23%",
+      "blind": 69,
+      "healthy_overlap": 0,
+      "zone_overlap": {
+       "1": 105
+      },
+      "healthy": "0,2,3",
+      "silent": "1",
+      "occluded": "1",
+      "hidden_s": 14.8,
+      "explanation": "worker-2 unseen 15 s. Cameras 0, 2, 3 are healthy and saw nobody, so their zones are ruled out. camera 1 is silent (occluded, no healthy attestation): its silence is not counted as evidence. The region therefore leaks into camera 1's zone. Search area 174 m² instead of 774 m² reachable."
+     },
+     {
+      "t": 14.8,
+      "area": 174,
+      "reach": 774.3,
+      "ratio_pct": "23%",
+      "blind": 69,
+      "healthy_overlap": 0,
+      "zone_overlap": {
+       "1": 105
+      },
+      "healthy": "0,2,3",
+      "silent": "1",
+      "occluded": "1",
+      "hidden_s": 14.8,
+      "explanation": "worker-2 unseen 15 s. Cameras 0, 2, 3 are healthy and saw nobody, so their zones are ruled out. camera 1 is silent (occluded, no healthy attestation): its silence is not counted as evidence. The region therefore leaks into camera 1's zone. Search area 174 m² instead of 774 m² reachable."
+     },
+     {
+      "t": 15.7,
+      "area": 174,
+      "reach": 813.6,
+      "ratio_pct": "21%",
+      "blind": 69,
+      "healthy_overlap": 0,
+      "zone_overlap": {
+       "1": 105
+      },
+      "healthy": "0,2,3",
+      "silent": "1",
+      "occluded": "1",
+      "hidden_s": 15.8,
+      "explanation": "worker-2 unseen 16 s. Cameras 0, 2, 3 are healthy and saw nobody, so their zones are ruled out. camera 1 is silent (occluded, no healthy attestation): its silence is not counted as evidence. The region therefore leaks into camera 1's zone. Search area 174 m² instead of 814 m² reachable."
+     },
+     {
+      "t": 16.6,
+      "area": 174,
+      "reach": 844.3,
+      "ratio_pct": "21%",
+      "blind": 69,
+      "healthy_overlap": 0,
+      "zone_overlap": {
+       "1": 105
+      },
+      "healthy": "0,2,3",
+      "silent": "1",
+      "occluded": "1",
+      "hidden_s": 16.8,
+      "explanation": "worker-2 unseen 17 s. Cameras 0, 2, 3 are healthy and saw nobody, so their zones are ruled out. camera 1 is silent (occluded, no healthy attestation): its silence is not counted as evidence. The region therefore leaks into camera 1's zone. Search area 174 m² instead of 844 m² reachable."
+     },
+     {
+      "t": 17.6,
+      "area": 174,
+      "reach": 871.8,
+      "ratio_pct": "20%",
+      "blind": 69,
+      "healthy_overlap": 0,
+      "zone_overlap": {
+       "1": 105
+      },
+      "healthy": "0,2,3",
+      "silent": "1",
+      "occluded": "1",
+      "hidden_s": 17.8,
+      "explanation": "worker-2 unseen 18 s. Cameras 0, 2, 3 are healthy and saw nobody, so their zones are ruled out. camera 1 is silent (occluded, no healthy attestation): its silence is not counted as evidence. The region therefore leaks into camera 1's zone. Search area 174 m² instead of 872 m² reachable."
+     },
+     {
+      "t": 18.5,
+      "area": 174,
+      "reach": 897.9,
+      "ratio_pct": "19%",
+      "blind": 69,
+      "healthy_overlap": 0,
+      "zone_overlap": {
+       "1": 105
+      },
+      "healthy": "0,2,3",
+      "silent": "1",
+      "occluded": "1",
+      "hidden_s": 18.8,
+      "explanation": "worker-2 unseen 19 s. Cameras 0, 2, 3 are healthy and saw nobody, so their zones are ruled out. camera 1 is silent (occluded, no healthy attestation): its silence is not counted as evidence. The region therefore leaks into camera 1's zone. Search area 174 m² instead of 898 m² reachable."
+     },
+     {
+      "t": 19.4,
+      "area": 174,
+      "reach": 918.7,
+      "ratio_pct": "19%",
+      "blind": 69,
+      "healthy_overlap": 0,
+      "zone_overlap": {
+       "1": 105
+      },
+      "healthy": "0,2,3",
+      "silent": "1",
+      "occluded": "1",
+      "hidden_s": 19.8,
+      "explanation": "worker-2 unseen 20 s. Cameras 0, 2, 3 are healthy and saw nobody, so their zones are ruled out. camera 1 is silent (occluded, no healthy attestation): its silence is not counted as evidence. The region therefore leaks into camera 1's zone. Search area 174 m² instead of 919 m² reachable."
+     },
+     {
+      "t": 20.3,
+      "area": 174,
+      "reach": 930.1,
+      "ratio_pct": "19%",
+      "blind": 69,
+      "healthy_overlap": 0,
+      "zone_overlap": {
+       "1": 105
+      },
+      "healthy": "0,2,3",
+      "silent": "1",
+      "occluded": "1",
+      "hidden_s": 20.8,
+      "explanation": "worker-2 unseen 21 s. Cameras 0, 2, 3 are healthy and saw nobody, so their zones are ruled out. camera 1 is silent (occluded, no healthy attestation): its silence is not counted as evidence. The region therefore leaks into camera 1's zone. Search area 174 m² instead of 930 m² reachable."
+     },
+     {
+      "t": 21.2,
+      "area": 174,
+      "reach": 932.5,
+      "ratio_pct": "19%",
+      "blind": 69,
+      "healthy_overlap": 0,
+      "zone_overlap": {
+       "1": 105
+      },
+      "healthy": "0,2,3",
+      "silent": "1",
+      "occluded": "1",
+      "hidden_s": 21.8,
+      "explanation": "worker-2 unseen 22 s. Cameras 0, 2, 3 are healthy and saw nobody, so their zones are ruled out. camera 1 is silent (occluded, no healthy attestation): its silence is not counted as evidence. The region therefore leaks into camera 1's zone. Search area 174 m² instead of 932 m² reachable."
+     },
+     {
+      "t": 22.2,
+      "area": 174,
+      "reach": 932.5,
+      "ratio_pct": "19%",
+      "blind": 69,
+      "healthy_overlap": 0,
+      "zone_overlap": {
+       "1": 105
+      },
+      "healthy": "0,2,3",
+      "silent": "1",
+      "occluded": "1",
+      "hidden_s": 22.8,
+      "explanation": "worker-2 unseen 23 s. Cameras 0, 2, 3 are healthy and saw nobody, so their zones are ruled out. camera 1 is silent (occluded, no healthy attestation): its silence is not counted as evidence. The region therefore leaks into camera 1's zone. Search area 174 m² instead of 932 m² reachable."
+     },
+     {
+      "t": 23.2,
+      "area": 174,
+      "reach": 932.5,
+      "ratio_pct": "19%",
+      "blind": 69,
+      "healthy_overlap": 0,
+      "zone_overlap": {
+       "1": 105
+      },
+      "healthy": "0,2,3",
+      "silent": "1",
+      "occluded": "1",
+      "hidden_s": 23.8,
+      "explanation": "worker-2 unseen 24 s. Cameras 0, 2, 3 are healthy and saw nobody, so their zones are ruled out. camera 1 is silent (occluded, no healthy attestation): its silence is not counted as evidence. The region therefore leaks into camera 1's zone. Search area 174 m² instead of 932 m² reachable."
+     },
+     {
+      "t": 24.1,
+      "area": 174,
+      "reach": 932.5,
+      "ratio_pct": "19%",
+      "blind": 69,
+      "healthy_overlap": 0,
+      "zone_overlap": {
+       "1": 105
+      },
+      "healthy": "0,2,3",
+      "silent": "1",
+      "occluded": "1",
+      "hidden_s": 24.8,
+      "explanation": "worker-2 unseen 25 s. Cameras 0, 2, 3 are healthy and saw nobody, so their zones are ruled out. camera 1 is silent (occluded, no healthy attestation): its silence is not counted as evidence. The region therefore leaks into camera 1's zone. Search area 174 m² instead of 932 m² reachable."
+     },
+     {
+      "t": 25.0,
+      "area": 174,
+      "reach": 932.5,
+      "ratio_pct": "19%",
+      "blind": 69,
+      "healthy_overlap": 0,
+      "zone_overlap": {
+       "1": 105
+      },
+      "healthy": "0,2,3",
+      "silent": "1",
+      "occluded": "1",
+      "hidden_s": 25.8,
+      "explanation": "worker-2 unseen 26 s. Cameras 0, 2, 3 are healthy and saw nobody, so their zones are ruled out. camera 1 is silent (occluded, no healthy attestation): its silence is not counted as evidence. The region therefore leaks into camera 1's zone. Search area 174 m² instead of 932 m² reachable."
+     },
+     {
+      "t": 25.9,
+      "area": 174,
+      "reach": 932.5,
+      "ratio_pct": "19%",
+      "blind": 69,
+      "healthy_overlap": 0,
+      "zone_overlap": {
+       "1": 105
+      },
+      "healthy": "0,2,3",
+      "silent": "1",
+      "occluded": "1",
+      "hidden_s": 26.8,
+      "explanation": "worker-2 unseen 27 s. Cameras 0, 2, 3 are healthy and saw nobody, so their zones are ruled out. camera 1 is silent (occluded, no healthy attestation): its silence is not counted as evidence. The region therefore leaks into camera 1's zone. Search area 174 m² instead of 932 m² reachable."
+     },
+     {
+      "t": 26.8,
+      "area": 174,
+      "reach": 932.5,
+      "ratio_pct": "19%",
+      "blind": 69,
+      "healthy_overlap": 0,
+      "zone_overlap": {
+       "1": 105
+      },
+      "healthy": "0,2,3",
+      "silent": "1",
+      "occluded": "1",
+      "hidden_s": 26.8,
+      "explanation": "worker-2 unseen 27 s. Cameras 0, 2, 3 are healthy and saw nobody, so their zones are ruled out. camera 1 is silent (occluded, no healthy attestation): its silence is not counted as evidence. The region therefore leaks into camera 1's zone. Search area 174 m² instead of 932 m² reachable."
+     }
+    ],
+    "max_overlap_with_occluded_zone_1_m2": 105,
+    "max_overlap_with_other_zones_m2": 0.0,
+    "samples_where_page_explains_the_silence": 30,
+    "explanation_at_peak_leak": "worker-2 unseen 14 s. Cameras 0, 2, 3 are healthy and saw nobody, so their zones are ruled out. camera 1 is silent (occluded, no healthy attestation): its silence is not counted as evidence. The region therefore leaks into camera 1's zone. Search area 174 m² instead of 730 m² reachable."
+   },
+   "what": "Same walk, but the north exit camera (node 1) is occluded for the whole episode, so it sends no healthy attestation. Its silence must NOT be counted as evidence: the region should leak into that camera's zone, and only that one, and the dashboard should say why.",
+   "action": "Waited for worker-2 to be back at the door, then pressed 'Dead zone - occluded camera 1' (the simulator occludes camera 1 and repeats the walk); sampled the page about every second."
   },
   "3": {
    "title": "Partition and heal",
    "verdict": "PASS",
-   "reason": "partition shown on all nodes, spread grew to 30.0, converged 2.1s after heal with gaps=0; open forks: 0",
+   "reason": "partition shown on all nodes, spread grew to 51.0, converged 1.1s after heal with gaps=0",
    "measures": {
     "before": {
      "claims": [
-      914.0,
-      913.0,
-      908.0,
-      913.0
+      4619.0,
+      4615.0,
+      4619.0,
+      4619.0
      ],
-     "spread": 6.0,
+     "spread": 4.0,
      "convergence": "CONVERGED"
     },
     "partition_state_shown_on_all_4_nodes": true,
     "spread_and_claims_during_partition": [
      [
       0.0,
-      7.0,
+      5.0,
       [
-       963.0,
-       961.0,
-       956.0,
-       961.0
+       4664.0,
+       4661.0,
+       4666.0,
+       4666.0
       ]
      ],
      [
       1.5,
-      19.0,
+      7.0,
       [
-       975.0,
-       975.0,
-       956.0,
-       972.0
+       4676.0,
+       4676.0,
+       4681.0,
+       4683.0
       ]
      ],
      [
       3.0,
-      3.0,
+      15.0,
       [
-       995.0,
-       995.0,
-       992.0,
-       993.0
+       4696.0,
+       4696.0,
+       4710.0,
+       4711.0
       ]
      ],
      [
       4.5,
-      12.0,
+      19.0,
       [
-       1005.0,
-       1005.0,
-       1002.0,
-       993.0
+       4705.0,
+       4706.0,
+       4724.0,
+       4724.0
       ]
      ],
      [
-      6.1,
-      8.0,
+      6.0,
+      29.0,
       [
-       1029.0,
-       1030.0,
-       1022.0,
-       1022.0
+       4725.0,
+       4725.0,
+       4752.0,
+       4754.0
       ]
      ],
      [
       7.6,
-      13.0,
+      35.0,
       [
-       1044.0,
-       1045.0,
-       1033.0,
-       1032.0
+       4734.0,
+       4734.0,
+       4767.0,
+       4769.0
       ]
      ],
      [
       9.1,
-      25.0,
+      45.0,
       [
-       1073.0,
-       1075.0,
-       1050.0,
-       1051.0
+       4753.0,
+       4753.0,
+       4797.0,
+       4798.0
       ]
      ],
      [
       10.6,
-      30.0,
+      51.0,
       [
-       1088.0,
-       1090.0,
-       1060.0,
-       1061.0
+       4763.0,
+       4763.0,
+       4812.0,
+       4814.0
       ]
      ]
     ],
-    "max_spread_during_partition": 30.0,
-    "seconds_from_heal_to_converged": 2.1,
+    "max_spread_during_partition": 51.0,
+    "seconds_from_heal_to_converged": 1.1,
     "after_heal_claims": [
-     1304.0,
-     1306.0,
-     1305.0,
-     1301.0
+     5006.0,
+     5001.0,
+     5005.0,
+     5007.0
     ],
-    "after_heal_gaps": 0.0,
-    "open_forks_during": 0.0,
-    "open_forks_after": 0,
-    "claims_on_sides_pre_heal": [
-     1117.0,
-     1119.0,
-     1080.0,
-     1079.0
-    ]
+    "after_heal_gaps": 0.0
    },
-   "what": "Cut nodes {2,3} from {0,1}; both sides keep working; on heal the replicas reconverge (equal claim counts, no gaps); any genuine conflict shows as an open fork.",
+   "what": "Cut nodes {2,3} from {0,1}; both sides keep working; on heal the replicas reconverge (equal claim counts, no gaps).",
    "action": "Pressed 'Partition {2,3} from {0,1}', waited, pressed 'Heal', and timed how long until the convergence badge read CONVERGED."
   },
   "4": {
    "title": "Lying node",
    "verdict": "PASS",
-   "reason": "liar's reputation < 0.7 after 3.6s (51.0 claims rejected), honest nodes stayed >= 1.0, recovered > 0.9 8.1s after stopping",
+   "reason": "liar's reputation < 0.7 after 12.8s (72.0 claims rejected), honest nodes stayed >= 1.0 (their rejected counters grew by [7.0, 0, 0.0] during the test), recovered > 0.9 8.1s after stopping",
    "measures": {
     "liar_node": 2,
     "reputation_before": [
@@ -254,7 +1081,13 @@
      1.0,
      1.0
     ],
-    "reputation_and_rejected_samples_while_lying": [
+    "rejected_before": [
+     17.0,
+     0.0,
+     1.0,
+     1.0
+    ],
+    "samples_while_lying": [
      {
       "t": 0.0,
       "reputation": [
@@ -264,10 +1097,10 @@
        1.0
       ],
       "rejected": [
+       17.0,
        0.0,
        1.0,
-       0.0,
-       0.0
+       1.0
       ]
      },
      {
@@ -275,14 +1108,14 @@
       "reputation": [
        1.0,
        1.0,
-       0.87,
+       1.0,
        1.0
       ],
       "rejected": [
+       17.0,
        0.0,
        1.0,
-       4.0,
-       0.0
+       1.0
       ]
      },
      {
@@ -290,59 +1123,59 @@
       "reputation": [
        1.0,
        1.0,
-       0.65,
+       1.0,
        1.0
       ],
       "rejected": [
+       17.0,
        0.0,
        1.0,
-       15.0,
-       0.0
+       1.0
       ]
      },
      {
-      "t": 5.5,
+      "t": 5.4,
       "reputation": [
        1.0,
        1.0,
-       0.58,
+       1.0,
        1.0
       ],
       "rejected": [
+       17.0,
        0.0,
        1.0,
-       24.0,
-       0.0
+       1.0
       ]
      },
      {
-      "t": 7.4,
+      "t": 7.3,
       "reputation": [
        1.0,
        1.0,
-       0.51,
+       0.85,
        1.0
       ],
       "rejected": [
+       17.0,
        0.0,
-       1.0,
-       32.0,
-       0.0
+       5.0,
+       1.0
       ]
      },
      {
-      "t": 9.2,
+      "t": 9.1,
       "reputation": [
        1.0,
        1.0,
-       0.52,
+       0.72,
        1.0
       ],
       "rejected": [
+       17.0,
        0.0,
-       1.0,
-       38.0,
-       0.0
+       14.0,
+       1.0
       ]
      },
      {
@@ -350,42 +1183,122 @@
       "reputation": [
        1.0,
        1.0,
-       0.52,
+       0.7,
        1.0
       ],
       "rejected": [
+       17.0,
        0.0,
-       1.0,
-       47.0,
-       0.0
+       24.0,
+       1.0
       ]
      },
      {
-      "t": 12.9,
+      "t": 12.8,
       "reputation": [
        1.0,
        1.0,
-       0.57,
+       0.68,
        1.0
       ],
       "rejected": [
+       17.0,
        0.0,
+       33.0,
+       1.0
+      ]
+     },
+     {
+      "t": 14.6,
+      "reputation": [
        1.0,
+       1.0,
+       0.68,
+       1.0
+      ],
+      "rejected": [
+       17.0,
+       0.0,
+       42.0,
+       1.0
+      ]
+     },
+     {
+      "t": 16.4,
+      "reputation": [
+       1.0,
+       1.0,
+       0.67,
+       1.0
+      ],
+      "rejected": [
+       17.0,
+       0.0,
        51.0,
-       0.0
+       1.0
+      ]
+     },
+     {
+      "t": 18.2,
+      "reputation": [
+       1.0,
+       1.0,
+       0.69,
+       1.0
+      ],
+      "rejected": [
+       17.0,
+       0.0,
+       56.0,
+       1.0
+      ]
+     },
+     {
+      "t": 20.0,
+      "reputation": [
+       1.0,
+       1.0,
+       0.68,
+       1.0
+      ],
+      "rejected": [
+       17.0,
+       0.0,
+       64.0,
+       1.0
+      ]
+     },
+     {
+      "t": 21.8,
+      "reputation": [
+       1.0,
+       1.0,
+       0.6,
+       1.0
+      ],
+      "rejected": [
+       17.0,
+       0.0,
+       72.0,
+       1.0
       ]
      }
     ],
-    "seconds_until_liar_reputation_below_0.7": 3.6,
-    "liar_rejected_claims_at_end": 51.0,
-    "lowest_honest_node_reputation_while_lying": 1.0,
-    "recovery_samples_after_stop": [
+    "seconds_until_liar_reputation_below_0.7": 12.8,
+    "liar_rejected_claims_at_end_of_lying": 72.0,
+    "lowest_honest_reputation_while_lying": 1.0,
+    "honest_nodes_rejected_claims_added_during_test": [
+     7.0,
+     0,
+     0.0
+    ],
+    "recovery_samples": [
      {
       "t": 0.0,
       "reputation": [
        1.0,
        1.0,
-       0.54,
+       0.62,
        1.0
       ]
      },
@@ -394,7 +1307,7 @@
       "reputation": [
        1.0,
        1.0,
-       0.71,
+       0.75,
        1.0
       ]
      },
@@ -403,7 +1316,7 @@
       "reputation": [
        1.0,
        1.0,
-       0.79,
+       0.82,
        1.0
       ]
      },
@@ -412,39 +1325,38 @@
       "reputation": [
        1.0,
        1.0,
-       0.86,
+       0.89,
        1.0
       ]
      },
      {
       "t": 8.1,
       "reputation": [
+       0.83,
        1.0,
-       1.0,
-       0.92,
+       0.93,
        1.0
       ]
      }
     ],
     "seconds_until_liar_reputation_above_0.9_after_stop": 8.1
    },
-   "what": "A node fabricates sightings; peers reject implausible claims and its reputation, as seen by peers, drops; it recovers when it stops.",
+   "what": "A node fabricates sightings; peers reject implausible claims and its reputation, as seen by peers, drops; it recovers when it stops. Honest nodes must not lose reputation.",
    "action": "Selected node 2, pressed 'Make node lie', sampled reputation and rejected-claim counters every ~2 s for up to 40 s, then pressed 'Stop lying' and sampled recovery for up to 60 s."
   },
   "5": {
    "title": "Query and refusal",
    "verdict": "PASS",
-   "reason": "valid query answered with confirmed/inferred/unreachable; unknown worker and productivity purpose refused with reasons; partition edge case gave: refused — Reason: 'P-002' was only observed by node 2, which is/are unreachable for the entire requested window — a partitioned wing, not an absence",
+   "reason": "valid query answered (confirmed/inferred/unreachable); unknown worker and productivity purpose refused with reasons; partition edge case: refused; blind-block query reported: Inferred: currently unseen — could be anywhere in a 69.0 m² candidate region · last position is appearance-matched, not anchored — treat as a hypothes",
    "measures": {
     "valid_query": {
      "status": "answered",
      "verdict": "ANSWER",
      "reason": null,
-     "confirmed": "Confirmed: last seen at (7.9, 11.9) m by node 0, 0.4s ago, confidence 0.75",
+     "confirmed": "Confirmed: last seen at (26.9, 7.8) m by node 3, 0s ago, confidence 0.90",
      "inferred": "Inferred: currently seen — no inference needed · last position is appearance-matched, not anchored — treat as a hypothesis",
      "unreachable": "Unreachable nodes: none · 4 of 4 nodes responded",
-     "text": "Subject:          P-004\nLast confirmed:   (7.9, 11.9) m, t=79.8, confidence 0.75, node 0\nAnchor:           none recorded\nInferred:         last position is appearance-matched, not anchored — treat as a hypothesis\nCompleteness:     4 of 4 nodes responded",
-     "note": "ANSWER — where is worker 2 [safety]'worker 2' → resolved identity P-004 (display mapping from the simulator's ground truth)Confirmed: last seen at (7.9, 11.9) m by node 0, 0.4s ago, confidence 0.75Inferred: currently seen — no inference needed · last position is appearance-matched, not anchored — treat as a hypothesisUnreachable nodes: none · 4 of 4 nodes respondedSubject:          P-004\nLast confirmed:   (7.9, 11.9) m, t=79.8, confidence 0.75, node 0\nAnchor:           none recorded\nInferred:         last position is appearance-matched, not anchored — treat as a hypothesis\nCompleteness:     4 "
+     "text": "Subject:          P-004\nLast confirmed:   (26.9, 7.8) m, t=255.8, confidence 0.90, node 3\nAnchor:           none recorded\nInferred:         last position is appearance-matched, not anchored — treat as a hypothesis\nCompleteness:     4 of 4 nodes responded"
     },
     "unknown_worker": {
      "status": "refused",
@@ -453,18 +1365,16 @@
      "confirmed": null,
      "inferred": null,
      "unreachable": null,
-     "text": "subject 'worker 9' was never enrolled — no claims found for this identity",
-     "note": "REFUSED — where is worker 9 [safety]Reason: subject 'worker 9' was never enrolled — no claims found for this identitysubject 'worker 9' was never enrolled — no claims found for this identity"
+     "text": "subject 'worker 9' was never enrolled — no claims found for this identity"
     },
     "during_partition": {
      "status": "refused",
      "verdict": "REFUSED",
-     "reason": "Reason: 'P-002' was only observed by node 2, which is/are unreachable for the entire requested window — a partitioned wing, not an absence",
+     "reason": "Reason: 'P-004' was only observed by node 3, which is/are unreachable for the entire requested window — a partitioned wing, not an absence",
      "confirmed": null,
      "inferred": null,
      "unreachable": null,
-     "text": "'P-002' was only observed by node 2, which is/are unreachable for the entire requested window — a partitioned wing, not an absence",
-     "note": "REFUSED — where is worker 3 [safety]'worker 3' → resolved identity P-002 (display mapping from the simulator's ground truth)Reason: 'P-002' was only observed by node 2, which is/are unreachable for the entire requested window — a partitioned wing, not an absence'P-002' was only observed by node 2, which is/are unreachable for the entire requested window — a partitioned wing, not an absence"
+     "text": "'P-004' was only observed by node 3, which is/are unreachable for the entire requested window — a partitioned wing, not an absence"
     },
     "productivity_token": {
      "status": "refused",
@@ -473,26 +1383,162 @@
      "confirmed": null,
      "inferred": null,
      "unreachable": null,
-     "text": "purpose 'productivity' is not authorised for querying (allowed: ['audit', 'incident', 'safety'])",
-     "note": "REFUSED — where is worker 2 [productivity]'worker 2' → resolved identity P-004 (display mapping from the simulator's ground truth)Reason: purpose 'productivity' is not authorised for querying (allowed: ['audit', 'incident', 'safety'])purpose 'productivity' is not authorised for querying (allowed: ['audit', 'incident', 'safety'])"
+     "text": "purpose 'productivity' is not authorised for querying (allowed: ['audit', 'incident', 'safety'])"
+    },
+    "worker_in_blind_block": {
+     "status": "answered",
+     "verdict": "ANSWER",
+     "reason": null,
+     "confirmed": "Confirmed: last seen at (14.0, 14.5) m by node 0, 10.6s ago, confidence 0.96",
+     "inferred": "Inferred: currently unseen — could be anywhere in a 69.0 m² candidate region · last position is appearance-matched, not anchored — treat as a hypothesis",
+     "unreachable": "Unreachable nodes: none · 4 of 4 nodes responded",
+     "text": "Subject:          P-005\nLast confirmed:   (14.0, 14.5) m, t=45.0, confidence 0.96, node 0\nAnchor:           none recorded\nInferred:         last position is appearance-matched, not anchored — treat as a hypothesis\nCandidate region: 69.0 m²\nCompleteness:     4 of 4 nodes responded"
     }
    },
-   "what": "A text query (with a `safety` capability token) returns a structured answer that separates confirmed from inferred and names unreachable nodes; unanswerable queries are refused with a reason.",
-   "action": "Typed queries into the query box and read the rendered result from the DOM: a valid one, an unknown worker, a query during a partition, and one under a `productivity` token."
+   "what": "A text query (with a `safety` capability token) returns a structured answer separating confirmed from inferred and naming unreachable nodes; unanswerable queries are refused with a reason; a query about a worker in the blind block reports the candidate region, not a made-up position.",
+   "action": "Typed queries into the query box and read the rendered result from the DOM: a valid one, an unknown worker, a query during a partition, one under a `productivity` token, and (during moment 2a) one about the worker hidden in the uncovered block."
   },
   "6": {
    "title": "Robustness",
    "verdict": "PASS",
-   "reason": "reload recovered in 0.1s; killed node OFFLINE after 5.0s; LIVE again 2.1s after restart; converged 5.0s after restart",
+   "reason": "reload recovered in 0.1s; killed node OFFLINE after 4.9s (its camera zone: silent); LIVE again 4.1s after restart; converged 5.8s after restart",
    "measures": {
     "seconds_to_recover_after_reload": 0.1,
-    "seconds_until_killed_node_shown_offline": 5.0,
+    "seconds_until_killed_node_shown_offline": 4.9,
+    "killed_node_camera_zone_state": "silent",
     "other_nodes_stayed_live_while_node1_down": true,
-    "seconds_until_restarted_node_live": 2.1,
-    "seconds_from_restart_to_converged": 5.0
+    "seconds_until_restarted_node_live": 4.1,
+    "seconds_from_restart_to_converged": 5.8
    },
-   "what": "The dashboard survives a page reload; a node process that actually dies is shown as OFFLINE, and shown live again when restarted.",
-   "action": "Reloaded the browser page; then hard-killed node 1's OS process (not via any dashboard control), watched the card, restarted the process, and watched it return."
+   "what": "The dashboard survives a page reload; a node process that actually dies is shown as OFFLINE (and its camera zone as silent), and shown live again when restarted.",
+   "action": "Reloaded the browser page; hard-killed node 1's OS process (not via any dashboard control), watched its card and zone, restarted the process, and watched it return."
+  },
+  "7a": {
+   "title": "Conflict, resolvable",
+   "verdict": "PASS",
+   "reason": "no fork while partitioned (389 far-side claims held back); after healing the fork appeared and was resolved by reachability: Resolved by reachability: branch 0 kept. Rejected: branch 1 requires 6.7 m/s over 4.2 s, exceeds v_max 1.6 m/s.",
+   "measures": {
+    "variant": "resolvable",
+    "forks_visible_while_partitioned": 0,
+    "far_side_claims_held_back_max": 389,
+    "seconds_to_fork_after_start": 40.0,
+    "fork_status": "RESOLVED_REACHABILITY",
+    "fork_status_8s_later": "RESOLVED_REACHABILITY",
+    "fork_explanation": "Resolved by reachability: branch 0 kept. Rejected: branch 1 requires 6.7 m/s over 4.2 s, exceeds v_max 1.6 m/s.",
+    "fork_branch_rows": [
+     [
+      "0",
+      "9.66, 12.46",
+      "156",
+      "0",
+      "KEPT"
+     ],
+     [
+      "1",
+      "33.27, 12.61",
+      "1",
+      "3",
+      "rejected"
+     ]
+    ],
+    "fork_markers_on_map": [
+     {
+      "id": "fork-branch-P_100_312s-0",
+      "x": 9.66,
+      "y": 12.46,
+      "text": "kept A"
+     },
+     {
+      "id": "fork-branch-P_100_312s-1",
+      "x": 33.27,
+      "y": 12.61,
+      "text": "rejected B"
+     }
+    ],
+    "forks_open_counter": "0",
+    "event_log_head": [
+     "321.8s FORK RESOLVED on P-006 by reachability: branch 1 requires 6.7 m/s over 4.2 s, exceeds v_max 1.6 m/s",
+     "321.8s FORK OPENED on P-006 (face id P-100): 2 claim chains bind it to incompatible positions (9.66, 12.46) vs (33.27, 12.61)",
+     "320.6s CONFLICT (resolvable): network healed; the two sides now merge their claims",
+     "320.6s HEAL all links (ok={0: True, 1: True, 2: True, 3: True})",
+     "316.8s new identity P-007",
+     "284.1s new identity P-006",
+     "282.2s SCRIPT conflict_resolvable: started",
+     "282.1s PARTITION [0, 1] | [2, 3] (ok={0: True, 1: True, 2: True, 3: True})"
+    ]
+   },
+   "what": "Both halves of a split network face-anchor a look-alike as the SAME identity; one trajectory is physically impossible from the identity's last confirmed anchor. After the network heals the fork appears and is resolved by reachability, with the reason shown.",
+   "action": "Pressed 'Conflict - resolvable': the dashboard partitions the network, the simulator sends the two face-twins in (A anchored at the west gate twice, B at the east gate ~2 s after A's last anchor), then heals; the real resolver runs on the merged claims."
+  },
+  "7b": {
+   "title": "Conflict, ambiguous",
+   "verdict": "FAIL",
+   "reason": "no fork appeared after healing; no fork line in the event log",
+   "measures": {
+    "variant": "ambiguous",
+    "forks_visible_while_partitioned": 0,
+    "far_side_claims_held_back_max": 420,
+    "seconds_to_fork_after_start": null,
+    "fork_status": null,
+    "fork_status_8s_later": null,
+    "fork_explanation": null,
+    "fork_branch_rows": null,
+    "fork_markers_on_map": [],
+    "forks_open_counter": "0",
+    "event_log_head": [
+     "425s worker-6 went UNSEEN at (36.1, 9.09) — candidate region opened",
+     "417.5s worker-6 RE-SEEN as the same identity after 8.4s (region peaked/ended at 12.4 m²)",
+     "412.4s worker-5 went UNSEEN at (5.77, 22.02) — candidate region opened",
+     "411.4s worker-6 went UNSEEN at (30.38, 4.98) — candidate region opened",
+     "393s worker-6 RE-SEEN as the same identity after 7.6s (region peaked/ended at 43.0 m²)",
+     "393s worker-3 RE-SEEN as the same identity after 14.8s (region peaked/ended at 69.0 m²)",
+     "391s worker-6 went UNSEEN at (38.02, 18.15) — candidate region opened",
+     "389.9s worker-3 went UNSEEN at (32.77, 23.58) — candidate region opened"
+    ]
+   },
+   "what": "Same set-up, but both trajectories are physically possible. After the network heals the fork appears and STAYS OPEN, shown as an ambiguity for a human with both candidate positions drawn on the map; the system never picks a winner.",
+   "action": "Pressed 'Conflict - ambiguous' (twin A anchored at the west gate once, twin B anchored as the same identity at the east gate 25 s later), waited for the heal and the fork, and checked it 8 s later."
+  },
+  "8": {
+   "title": "Centralized comparison",
+   "verdict": "PARTIAL",
+   "reason": "under partition centralized tracked 3 vs Starling 5 of 5 present",
+   "measures": {
+    "healthy": {
+     "status": "HEALTHY",
+     "tracked_now": "5",
+     "starling_now": "5",
+     "truth": "5",
+     "detail": "6 identities in the shared table; 10430 observations delivered."
+    },
+    "partitioned": {
+     "status": "PARTIAL",
+     "tracked_now": "3",
+     "starling_now": "5",
+     "truth": "5",
+     "detail": "Cameras 2, 3 cannot reach the server: their workers are lost (1340 observations never delivered)."
+    },
+    "killed": {
+     "status": "DOWN",
+     "tracked_now": "0",
+     "starling_now": "5",
+     "truth": "5",
+     "detail": "The central server process is not running: nothing is tracked."
+    },
+    "restarted": {
+     "status": "HEALTHY",
+     "tracked_now": "5",
+     "starling_now": "5",
+     "truth": "5",
+     "detail": "5 identities in the shared table; 24 observations delivered."
+    },
+    "starling_claims_before_kill": 4408.0,
+    "starling_claims_6s_after_kill": 4653.0,
+    "nodes_live_after_kill": "4",
+    "convergence_after_kill": "CONVERGED"
+   },
+   "what": "A centralized single-server system (the original project's matcher; NOT Starling) runs beside Starling on the same input. Under a partition it must lose the cut-off cameras' workers while Starling keeps tracking all of them; with the server killed it must be DOWN while Starling is unaffected; restarted, it recovers (from empty state).",
+   "action": "Pressed Partition, read both panels, healed; pressed 'Kill central server' (the server process exits), read both panels and Starling's claim counter over 8 s; pressed 'Restart central server'."
   }
  }
 }
