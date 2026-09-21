@@ -172,7 +172,11 @@ class CandidateBelief:
                     heapq.heappush(heap, (nd, ni, nj))
         return dist
 
-    def apply_attestation(self, att: Optional["starling_pb2.CoverageAttestation"]) -> None:
+    def apply_attestation(
+        self,
+        att: Optional["starling_pb2.CoverageAttestation"],
+        reference_xy: Optional[tuple[float, float]] = None,
+    ) -> None:
         """`for each admissible attestation a (attest_conf >= tau_attest,
         crossing_observed == False): B[cells beyond boundary(a)] <- 0`.
 
@@ -195,8 +199,13 @@ class CandidateBelief:
         if self._origin_xy is None:
             return
 
+        # `reference_xy` (default: the confirmed origin) picks which side of
+        # the boundary counts as "near". A caller that has learned the
+        # identity already CROSSED that boundary passes a point on the far
+        # side, so a later "no crossing since" rules out the ORIGIN side.
+        reference = self._origin_xy if reference_xy is None else reference_xy
         for boundary_id in att.region_ids:
-            beyond = self.navmesh.cells_beyond(boundary_id, self._origin_xy)
+            beyond = self.navmesh.cells_beyond(boundary_id, reference)
             self._B[beyond] = 0.0
 
     def apply_observation(self, obs: Any) -> None:

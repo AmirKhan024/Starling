@@ -590,11 +590,19 @@ class DashboardEngine:
             regions = set(att.region_ids)
             if att.crossing_observed:
                 # Someone crossed that boundary after we last saw the
-                # identity: from then on a "no crossing" attestation for it
-                # no longer bounds THIS identity, so stop applying them.
+                # identity. Assume it was this identity (the only one near
+                # that boundary): it is now on the FAR side, so later "no
+                # crossing" attestations must rule out the ORIGIN side
+                # instead (applied below with a far-side reference point).
                 b.crossed |= regions
                 continue
-            if regions & b.crossed:
+            crossed_here = regions & b.crossed
+            if crossed_here:
+                for boundary_id in crossed_here:
+                    far = np.argwhere(self.navmesh.cells_beyond(boundary_id, b.origin))
+                    if len(far):
+                        far_xy = self.navmesh.cell_to_world(int(far[0][1]), int(far[0][0]))
+                        b.belief.apply_attestation(att, reference_xy=far_xy)
                 continue
             b.belief.apply_attestation(att)
         b.belief.normalise()

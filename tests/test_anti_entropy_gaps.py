@@ -197,3 +197,78 @@ def test_attack_injector_fabricates_embeddings_of_the_deployments_dimension():
     inj = AttackInjector(node_id=2, attack="fabricate", intensity=1.0, seed=1, embed_dim=64)
     out = inj.apply_to_claims([], 1.0, nm)
     assert len(out) == 1 and len(np.frombuffer(out[0]["embedding"], dtype=np.float32)) == 64
+
+
+def test_concurrent_publish_from_two_threads_does_not_crash(tmp_path):
+    """Regression: GossipNode.publish is called from a node's main thread and
+    from its gossip-receive thread; an unlocked shared PUB socket crashed the
+    whole process with a libzmq assertion under heavy anti-entropy."""
+    import socket
+    import threading
+
+    from starling_net.gossip import GossipNode
+    from starling_net.keys import generate_keypair, load_keys
+    from starling_proto.generated import starling_pb2
+
+    def free_port() -> int:
+        with socket.socket() as s:
+            s.bind(("127.0.0.1", 0))
+            return s.getsockname()[1]
+
+    generate_keypair(0, keys_dir=tmp_path)
+    keys = load_keys(0, keys_dir=tmp_path)
+    node = GossipNode(0, free_port(), [f"127.0.0.1:{free_port()}"], keys, on_message=lambda e: None)
+    node.start()
+    errors: list[BaseException] = []
+
+    def spam() -> None:
+        try:
+            for _ in range(400):
+                env = starling_pb2.Envelope(sender_node_id=0)
+                env.vv_digest.seq_by_node[0] = 1
+                node.publish(env)
+        except BaseException as exc:  # noqa: BLE001
+            errors.append(exc)
+
+    threads = [threading.Thread(target=spam) for _ in range(4)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join(timeout=30)
+    node.stop()
+    assert not errors
+    assert node.stats()["vv_digest"]["sent"] == 1600
+
+
+def test_resolver_gate_extra_slack_keeps_one_identity_across_a_noisy_small_step():
+    """Regression for the duplicate-identity lock: two consecutive claims 0.2 s
+    apart whose noisy positions are 0.53 m apart (3 grid cells = 0.75 m after
+    quantisation, radius 0.73 m) used to fail the gate and spawn a second
+    identity. With gate_extra_slack_m the claim continues the SAME identity."""
+    from pathlib import Path
+
+    from starling_crdt.resolver import resolve
+    from starling_geometry.navmesh import NavMesh
+    from starling_geometry.reachability import ReachabilityModel
+    from starling_node.config import MatchConfig
+
+    nm = NavMesh.from_geojson(Path(__file__).resolve().parent.parent / "data/floorplan/warehouse_demo.geojson")
+    geo = ReachabilityModel(nm)
+    emb = (np.ones(64, dtype=np.float32) / 8.0).tobytes()
+
+    def claim(i: int, t: float, y: float) -> dict:
+        return {
+            "claim_id": f"c{i:03d}", "node_id": 1, "seq": i, "hlc_physical_ms": int(t * 1000), "hlc_logical": 0,
+            "local_track_id": 1, "t_media": t, "embedding": emb, "embed_scale": 1.0, "world_x": 18.01, "world_y": y,
+            "pos_sigma": 0.08, "anchor_type": "UNANCHORED", "identity_ref": None, "last_anchor_t": None,
+            "confidence": 0.85, "quality": 0.85, "signature": None,
+        }
+
+    class _Set:
+        def ordered(self):
+            return [claim(0, 29.0, 19.24), claim(1, 29.2, 19.77), claim(2, 29.4, 19.72)]
+
+    a0, _ = resolve(_Set(), geo, None, None, MatchConfig())
+    assert len(a0.trajectories) > 1, "premise: without slack the noisy step spawns a duplicate identity"
+    a1, _ = resolve(_Set(), geo, None, None, MatchConfig(gate_extra_slack_m=0.5))
+    assert len(a1.trajectories) == 1 and all(v is not None for v in a1.identity_of.values())

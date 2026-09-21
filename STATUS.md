@@ -625,6 +625,28 @@ curl -X POST http://127.0.0.1:6557/attack -d "{\"attack\": \"fabricate\", \"inte
   quality must clear `sim_threshold` 0.60), worker-2 speed 1.3 -> 0.6 m/s so the
   blind aisle stays dark ~5s.
 
+- **Found by the automated review (session 2, Part D)** — details in
+  `review/first_run_findings.md`. (1) The resolver's reachability gate
+  (`v_max*dt + 2*pos_sigma + one cell`) failed on noisy small steps because of
+  grid quantisation, spawning a 1-claim duplicate identity that then tied with
+  the real one forever; new `MatchConfig.gate_extra_slack_m` (default 0 =
+  unchanged; the demo sets 0.5), passed to `ReachabilityModel.is_reachable(...,
+  extra_slack_m=)` only when non-zero. (2) `GossipNode.publish` used one PUB
+  socket from two threads without a lock and could crash a node with a libzmq
+  assertion; now serialised by a lock. (3) The dashboard ignored "no crossing"
+  attestations after an attested crossing, so candidate regions never shrank;
+  after a crossing the identity is now assumed to be on the far side and later
+  "nobody crossed" attestations rule out the ORIGIN side
+  (`CandidateBelief.apply_attestation(att, reference_xy=)`).
+- **Review harness rules** (`scripts/review_demo.py`): verdicts are computed
+  from explicit criteria applied to values read from the page DOM; a moment
+  needs its stated evidence (for example moment 1 needs exactly 5 workers as 5
+  identities at the end; moment 2 follows worker-2's OWN region through up to 3
+  dark episodes and requires the same identity after each and a visible shrink
+  in at least one); a process found dead after a moment downgrades it; the
+  first run's results are kept in `review/first_run_results.json` and
+  `review/first_run_findings.md`.
+
 ## 9. Known issues and limitations
 
 - The video/YOLO path (`apps/node.py` with a real `source:` video file) has

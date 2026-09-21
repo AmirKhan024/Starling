@@ -72,6 +72,11 @@ class GossipNode:
         self._stop_event = threading.Event()
         self._stats: dict[str, _TypeStats] = {}
         self._stats_lock = threading.Lock()
+        # A ZeroMQ socket must never be used from two threads at once. publish()
+        # is called from a node's main loop AND from its gossip-receive thread
+        # (anti-entropy replies), so sends are serialised; without this, heavy
+        # anti-entropy traffic crashed a node with a libzmq assertion.
+        self._pub_lock = threading.Lock()
         self._dropped = 0
         self._start_time: Optional[float] = None
 
@@ -128,7 +133,8 @@ class GossipNode:
 
         assert_wire_safe(envelope)
         raw = envelope.SerializeToString()
-        self._pub.send(raw)
+        with self._pub_lock:
+            self._pub.send(raw)
         self._record(payload_kind, len(raw), sent=True)
 
     def stats(self) -> dict:

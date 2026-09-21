@@ -56,6 +56,15 @@ class MatchConfig(BaseModel):
     # mean cannot express anchor -> propagate -> decay -> re-anchor and
     # cannot be merged — you cannot recover what was averaged).
     gallery_size: int = 5
+    # Extra metres of reachability slack added in the resolver's hard gate
+    # (`starling_crdt.resolver._gate_pass`), on top of 2*pos_sigma + one grid
+    # cell. 0 = original behaviour. Two consecutive noisy detections a few
+    # tenths of a second apart can land 3 grid cells apart (0.75m) after
+    # position noise and cell quantisation even though the person moved
+    # 0.2m; the gate then failed, a one-claim duplicate identity was
+    # spawned, and it tied with the real identity forever (ambiguity is
+    # never broken on a thin margin). The simulator demo sets ~0.5.
+    gate_extra_slack_m: float = 0.0
 
 
 class NetConfig(BaseModel):

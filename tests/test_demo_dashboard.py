@@ -119,7 +119,12 @@ def test_inadmissible_attestation_does_not_shrink_the_region(engine):
     assert b.belief.area_m2() == pytest.approx(before)  # silence / low confidence is not evidence
 
 
-def test_no_crossing_attestation_is_not_applied_after_a_crossing_was_seen(engine):
+def test_after_a_crossing_a_no_crossing_attestation_rules_out_the_origin_side(engine):
+    """Origin (9.5, 12) is east of boundary 1 (x=8). Once a crossing of
+    boundary 1 is attested, the identity is on the WEST side; a later
+    "nobody crossed since" must remove the origin (east) side, not the west."""
+    import numpy as np
+
     b = _belief(engine)
     engine._advance_belief(b, now_t=3.0, attestations=[])
     before = b.belief.area_m2()
@@ -127,7 +132,11 @@ def test_no_crossing_attestation_is_not_applied_after_a_crossing_was_seen(engine
         b, now_t=3.0, attestations=[_att(0, 1, 0.5, crossing=True), _att(0, 1, 2.0, crossing=False)]
     )
     assert 1 in b.crossed
-    assert b.belief.area_m2() == pytest.approx(before)  # a crossed boundary no longer bounds the identity
+    assert b.belief.area_m2() < before
+    ys, xs = np.nonzero(b.belief.mask())
+    cs = engine.navmesh.cell_size
+    assert xs.max() * cs <= 8.0 + 2 * cs  # nothing left east of the crossed boundary
+    assert xs.min() * cs < 7.0  # the far (west) side survives
 
 
 def test_mask_runs_round_trip(engine):

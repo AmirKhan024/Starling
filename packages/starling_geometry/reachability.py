@@ -164,9 +164,12 @@ class ReachabilityModel:
         target_xy: tuple[float, float],
         dt_s: float,
         pos_sigma: float = 0.0,
+        extra_slack_m: float = 0.0,
     ) -> bool:
-        """Permissive by design: slack = 2*pos_sigma + one grid cell."""
-        slack = 2.0 * pos_sigma + self.navmesh.cell_size
+        """Permissive by design: slack = 2*pos_sigma + one grid cell (+ an
+        optional `extra_slack_m`, default 0, for callers that need to absorb
+        the ORIGIN's own position noise and grid quantisation at very small dt)."""
+        slack = 2.0 * pos_sigma + self.navmesh.cell_size + extra_slack_m
         radius = self.v_max_m_s * dt_s + slack
 
         ti, tj = self.navmesh.world_to_cell(*target_xy)

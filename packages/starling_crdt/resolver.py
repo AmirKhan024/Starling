@@ -193,6 +193,7 @@ def _gate_pass(
     claim: dict[str, Any],
     claim_pos: Optional[tuple[float, float]],
     geometry: ReachabilityModel,
+    extra_slack_m: float = 0.0,
 ) -> bool:
     """C3's hard reachability gate (STARLING_BUILD_STATE.md §4/Appendix
     A.2): reject a candidate outright if it is not reachable, regardless
@@ -203,6 +204,8 @@ def _gate_pass(
         return False
     dt_s = max(0.0, claim["t_media"] - branch.last_t_media)
     pos_sigma = claim.get("pos_sigma") or 0.0
+    if extra_slack_m:
+        return geometry.is_reachable(branch.last_position, claim_pos, dt_s, pos_sigma, extra_slack_m=extra_slack_m)
     return geometry.is_reachable(branch.last_position, claim_pos, dt_s, pos_sigma)
 
 
@@ -399,7 +402,7 @@ def resolve(
             candidates = sorted(
                 ref
                 for ref, hyp in state.items()
-                if _gate_pass(_live_branch(hyp), claim, claim_pos, geometry)
+                if _gate_pass(_live_branch(hyp), claim, claim_pos, geometry, cfg.gate_extra_slack_m)
             )
 
         if not candidates:
