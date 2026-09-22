@@ -33,8 +33,11 @@ import subprocess
 import sys
 import time
 from importlib import metadata
+from io import BytesIO
 from pathlib import Path
 from typing import Any, Callable, Optional
+
+from PIL import Image
 
 REPO = Path(__file__).resolve().parents[1]
 for _p in (REPO, REPO / "packages"):
@@ -46,7 +49,8 @@ from scripts.run_demo import DemoLauncher  # noqa: E402
 REVIEW_DIR = REPO / "review"
 SHOT_DIR = REVIEW_DIR / "screenshots"
 VIEWPORT = {"width": 1440, "height": 900}
-JPEG_QUALITY = 70
+JPEG_QUALITY = 62
+MAX_SHOT_WIDTH = 900  # full-page shots are tall; downscale from 1440 to keep the review under budget
 LIAR = 2
 ORDER = ["0", "1", "2a", "2b", "3", "4", "5", "6", "7a", "7b", "8"]
 TITLES = {
@@ -168,7 +172,15 @@ class Review:
         name = f"{moment}{order}_{slug}"
         SHOT_DIR.mkdir(parents=True, exist_ok=True)
         path = SHOT_DIR / f"{name}.jpg"
-        self.page.screenshot(path=str(path), full_page=True, type="jpeg", quality=JPEG_QUALITY)
+        raw = self.page.screenshot(full_page=True, type="png")
+        # The dashboard is a tall, text-heavy page; a full-resolution 1440px-wide
+        # JPEG of it runs 300KB+ each and blows the ~15MB review budget across ~50
+        # shots. Downscale (still legible for a reviewer zooming in) before encoding.
+        img = Image.open(BytesIO(raw)).convert("RGB")
+        target_w = min(img.width, MAX_SHOT_WIDTH)
+        if img.width > target_w:
+            img = img.resize((target_w, round(img.height * target_w / img.width)), Image.LANCZOS)
+        img.save(path, "JPEG", quality=JPEG_QUALITY, optimize=True)
         d = values if values is not None else self.dom()
         rec = {"moment": moment, "name": name, "file": f"screenshots/{name}.jpg", "caption": caption,
                "t_s": round(self.now(), 1), "dom": summarise_dom(d), "bytes": path.stat().st_size}

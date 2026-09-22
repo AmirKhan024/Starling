@@ -271,148 +271,160 @@ complete acceptance criteria.
 - [x] **Automated visual review (session 2, Part D)** — `scripts/review_demo.py`
       -> `review/review.html` (+ `review_summary.md`, `screenshots/`, `results.json`,
       `first_run_results.json`, `first_run_findings.md`, `final_run_console.log`)
+      — superseded by session 3's review; archived at `review/session2/`.
+- [x] **Session 3 — convincing demo** (external-judge feedback response)
+  - [x] Part A: C4 dead zone actually excludes healthy camera zones and stays
+        confined to a real uncovered block; leaks only through an occluded
+        camera with the reason stated
+  - [x] Part B: scripted identity conflicts through the real resolver
+        (resolvable + ambiguous), fork panel + map markers
+  - [x] Part C: side-by-side centralized comparison (`apps/central_server_sim.py`)
+        with partition/kill/restart, clearly labelled as not part of Starling
+  - [x] Part D: fixed 3 real false-rejection bugs in honest-node plausibility
+        checking; demo-script panel + `--presenter`
+  - [x] Part E: `scripts/review_demo.py` rewritten for 11 moments; first run
+        recorded, 2 real review-harness bugs found and fixed, final run all PASS
+  - [x] Part F: full suite green, merged to `main`, both branches pushed,
+        `review/SUMMARY_FOR_JUDGE.md` written
 - [ ] **Step 7 — Polish** — not started (only after 1–6)
 
 ## 6. Current status
 
 **What works right now**: the whole demo, end to end, with one command
 (`python scripts/run_demo.py`): a simulator process, four sim-mode node
-processes (own SQLite replica, own gossip socket, ring topology) and the
-dashboard at http://127.0.0.1:8765. All five demo moments work live (normal
-walk with stable identities; dead zone with a candidate region; partition and
-heal with equal, gap-free replicas ~2-3 s after healing; a lying node whose
-peer-reported reputation falls to ~0.5-0.6 with ~50 claims rejected and
-recovers after it stops; capability-scoped queries with structured answers
-and refusals). The old Streamlit `apps/dashboard/` is unchanged (its
-`GossipObserver` is reused by the new dashboard).
+processes (own SQLite replica, own gossip socket, ring topology), a
+deliberately-centralized comparison server (`apps/central_server_sim.py`, NOT
+part of Starling), and the dashboard at http://127.0.0.1:8765. All nine demo
+moments work live and are independently verified by the Playwright review
+(§ below): normal walk with stable identities; a dead-zone candidate region
+that stays confined inside the uncovered block when every exit camera is
+healthy (~7% of the plain-reachable area) and visibly leaks into exactly one
+camera's zone when that camera is occluded, with the dashboard naming the
+reason ("its silence is not counted as evidence"); partition and heal with
+equal, gap-free replicas a few seconds after healing; a lying node whose
+peer-reported reputation falls below 0.7 with dozens of claims rejected and
+recovers after it stops, with honest nodes staying trusted; capability-scoped
+queries with structured answers, refusals, and a correct candidate-region
+answer for a worker currently hidden; a scripted identity conflict that stays
+open (ambiguous twins) or is resolved by reachability with a stated
+implausible speed (resolvable twins) — never by score, and never before the
+network heals; and a side-by-side centralized system that loses the
+partitioned-off cameras' workers and goes fully DOWN when killed, while
+Starling is unaffected either way. The old Streamlit `apps/dashboard/` is
+unchanged (its `GossipObserver` is reused by the new dashboard).
+`apps/baseline.py` is unmodified.
 
-**What's half-done**: nothing mid-flight; everything is committed and pushed.
+**What's half-done**: nothing mid-flight; everything is committed and pushed
+to both `sim-demo` and `main`.
 
-**Session 2 is complete: Parts A, B, C and D are all DONE and pushed to `main`
-and `sim-demo`** (github.com/AmirKhan024/Starling). Part A: gap-aware
-anti-entropy. Part B: dashboard (`apps/demo_dashboard/`). Part C: launcher,
-README, headless integration test, clean-venv install verified. Part D:
-automated Playwright review of the real running system. Full non-torch suite:
-369 passed; integration: 3 passed (`tests/test_demo_integration.py`).
+**Session 2 (Parts A–D) and Session 3 (Parts A–F) are both complete.**
+Session 3 fixed the three problems an external judge flagged in session 2's
+review: the dead-zone region leaking into healthy camera zones (root cause:
+attestations never said WHICH area a camera covered, so nothing could ever
+subtract it — see Decisions), no identity conflict ever being demonstrated
+(the resolver could fork but nothing in the demo ever produced two
+face-anchors of one identity), and no centralized baseline to compare
+against. Full non-torch suite: **380 passed**; integration: **8 passed**
+across
+`tests/test_demo_integration.py` (3), `tests/test_demo_conflicts.py` (2),
+`tests/test_demo_central.py` (3).
 
-**Review result (final run; first run and its findings are kept separately in
-`review/first_run_results.json` / `review/first_run_findings.md`):**
+**Session 3 Playwright review result (final run; first run and its findings
+are kept separately in `review/first_run_results.json` /
+`review/first_run_findings.md`; exact commit hash in `review/results.json`'s
+`env.commit` and in this file's §7 "Git" note below):**
 
-| # | Moment | Verdict | Reason (shortened; full text in review/review_summary.md) |
+| # | Moment | Verdict | Key measured numbers |
 |---|---|---|---|
-| 0 | Startup | PASS | all 4 nodes live 4.1s after launch (page loaded, claims flowing) |
-| 1 | Normal walk | PASS | 5 identities tracked, worker-2 kept P-003 across nodes [0, 1], mean error 0.32 m vs ground truth |
-| 2 | Dead zone | PARTIAL | the region shrank in only 1 of 3 dark episodes (a majority is required for PASS; in the others it only grew until the worker re-emerged). ep1 (sim t=45.2 s): 9 samples, p... |
-| 3 | Partition and heal | PASS | partition shown on all nodes, spread grew to 51.0, converged 2.4s after heal with gaps=0; open forks: 0 |
-| 4 | Lying node | PASS | liar's reputation < 0.7 after 3.6s (48.0 claims rejected), honest nodes stayed >= 1.0, recovered > 0.9 8.1s after stopping |
-| 5 | Query and refusal | PASS | valid query answered with confirmed/inferred/unreachable; unknown worker and productivity purpose refused with reasons; partition edge case gave: refused — Reason: 'P-002... |
-| 6 | Robustness | PASS | reload recovered in 0.0s; killed node OFFLINE after 5.3s; LIVE again 2.5s after restart; converged 3.8s after restart |
+| 0 | Startup | PASS | all live after 6.6 s; 4 healthy camera zones; 9-step demo script panel |
+| 1 | Normal walk | PASS | 4 identities, labels unchanged for 25 s, mean error 0.21 m |
+| 2a | Dead zone, healthy exits | PASS | region 69 m² vs 932.5 m² reachable (ratio 0.074); 0 m² in any healthy zone; confined 26.0 s |
+| 2b | Dead zone, occluded exit | PASS | leaks into occluded zone 1 only (105 m²), 0 m² into any other zone; reason shown in 25/25 samples |
+| 3 | Partition and heal | PASS | heal→converged 4.2 s, spread grew to 56 before healing |
+| 4 | Lying node | PASS | liar <0.7 after 13.3 s (79 claims rejected), honest nodes stayed ≥1.0, recovered >0.9 after 8.3 s |
+| 5 | Query and refusal | PASS | 5 queries: answer, unknown-worker refusal, partitioned edge case, productivity refusal, blind-block answer |
+| 6 | Robustness | PASS | reload 0.1 s; node OFFLINE 4.9 s after kill; LIVE 2.9 s after restart; converged 4.8 s later |
+| 7a | Conflict, resolvable | PASS | fork appears after heal only, RESOLVED_REACHABILITY, reason: "requires 6.7 m/s ... exceeds v_max 1.6 m/s" |
+| 7b | Conflict, ambiguous | PASS | fork appears after heal only, stays OPEN 8 s later, 2 branch markers ~28 m apart |
+| 8 | Centralized comparison | PASS | partition: central tracks 3 vs Starling 5 of 5; killed: central DOWN/0 vs Starling 5 of 5 (+227 claims in 8s); restarted: HEALTHY |
 
-Moment 2 is PARTIAL on purpose: the dead-zone region appears, follows the right
-identity and the identity is restored every time, but it shrank in only 1 of 3
-dark episodes (growth dominates; see Known issues and the review's limitations).
+No console errors, no Python tracebacks, no process crashes in this final run.
+Full detail (every screenshot + DOM values + all measured numbers) is in
+`review/review.html` / `review/review_summary.md`.
 
-**Exact next action: Await external review of `review/review.html`** (give the
-reviewer `review/review.html`, `review/review_summary.md` and the
-`review/screenshots/` folder). Regenerate with `python scripts/review_demo.py`
-(needs `pip install -r requirements-review.txt` and `playwright install chromium`).
-Then Step 7 (polish: mypy on `starling_crdt`/`starling_consensus`, ruff).
+**First-run findings (this session's review, before the fixes below — full
+text in `review/first_run_findings.md`):** the first run of the new 11-moment
+harness scored 9 PASS / 1 FAIL (7b) / 1 PARTIAL (8). 7b failed because the
+ambiguous scenario reused the SAME twin workers as the resolvable scenario
+that had just run, so the old identity competed with the new one and no fork
+formed — fixed by giving the ambiguous scenario its own twin pair (workers
+7/8, face id P-101) and a per-variant cooldown. 8 was PARTIAL only because the
+review's own pass criterion was wrong (it expected the centralized server to
+track ≤2 workers under partition, but the stage actor is a 3rd worker
+correctly on the server's side) — fixed by comparing against Starling's own
+count instead of a hardcoded number. A second, more subtle timing issue
+surfaced after that fix (a previous variant's still-walking twins could
+briefly leave an unrelated fork in the panel, and the review picked
+`forks[0]` instead of the fork belonging to the variant it had just run) —
+fixed by matching the fork by its own face identity (P-100 / P-101) instead
+of list position; verified live that running resolvable then ambiguous
+back-to-back now shows the right fork regardless of what the other one is
+doing. See Decisions for the dead-zone/conflict/centralized design notes.
 
-(Historical Step-5 plan, kept for reference — now implemented differently,
-see Decisions:)
-1. `apps/dashboard/config.py`'s `DashboardConfig.peers` already points
-   at gossip addresses — point it at the 4 sim node configs'
-   `net.listen_port`s (`configs/nodes/sim/node-0{0..3}.yaml`, ports
-   5555-5558) instead of (or alongside) the video-path ones. No change
-   needed to `GossipObserver` itself — it's SUB-only against real
-   `GossipNode` PUB sockets, which sim-mode nodes still run unchanged.
-2. New: a ground-truth SUB client for the simulator's OWN
-   `starling_sim.messages.GROUND_TRUTH_TOPIC` (`starling_sim.transport
-   .SimSubscriber` — already exists, built in Step 3) so the dashboard
-   can render faint "true position" markers alongside the network's
-   resolved belief. This is new code the dashboard doesn't have any
-   equivalent of today.
-3. Floor plan tab: switch from `demo_site.geojson` to
-   `warehouse_demo.geojson` (or make it configurable); render the 4
-   zones, 7 obstacles, blind aisle; overlay resolved identities (from
-   `GossipObserver.claims` + `starling_crdt.resolver.resolve`, which the
-   dashboard already calls) in one colour per identity; overlay a
-   `CandidateBelief` region (`starling_attest.negative_evidence`,
-   already used elsewhere per the Appendix) for any identity currently
-   unseen, fed by `GossipObserver.attestations`.
-4. Controls tab: add "Partition {2,3} vs {0,1}" / "Heal" buttons — each
-   is 4 `requests.post(f"http://127.0.0.1:{control_port}/partition",
-   json={"drop_node_ids": [...]})` calls (`control_port = gossip_port +
-   1000`, per node — see `AttackConfig`/`ControlServer`). Remember:
-   partition control is receive-side only (Decisions) — both sides of
-   the intended split must be told to drop the other for it to actually
-   behave like a cut.
-5. Node panel: reputation is no longer only the dashboard's own
-   locally-computed opinion — nodes now gossip `ReputationUpdate`s
-   themselves (Step 4), so `GossipObserver.reputation` (already a
-   `ReputationTable`, already fed via `ingest_gossiped` per the
-   Appendix) should already reflect this once pointed at sim-mode node
-   addresses; verify it rather than assuming.
-6. Query box: wire up `starling_query.cli.run_query` (or the lower-level
-   `answer_query`) against the sim node mesh — needs a capability token
-   (`starling_query.capability.issue`, purpose `"safety"`) and a peers
-   config pointing at the sim ports.
-7. Streamlit vs. FastAPI+HTML: try Streamlit first (existing dashboard
-   is already Streamlit); only fall back per the task brief's own
-   allowance if the live map proves too clunky. Record the choice here
-   either way.
-
-See §11/Appendix for exact signatures (`GossipObserver`, `DashboardConfig`,
-`CandidateBelief`, `resolve`, `starling_query`) and the new
-`starling_sim.transport`/`starling_sim.messages` API from Step 3.
+**Exact next action: Await external review of `review/review.html`** (give
+the reviewer `review/review.html`, `review/review_summary.md`, and the
+`review/screenshots/` folder — see `review/SUMMARY_FOR_JUDGE.md` for a plain-
+English summary written for them). Regenerate with
+`python scripts/review_demo.py` (needs `pip install -r
+requirements-review.txt` and `playwright install chromium`). After that:
+Step 7 (polish: mypy on `starling_crdt`/`starling_consensus`, ruff — not
+started; every other step is done).
 
 ## 7. How to run
 
-Install (this dev environment has the full `requirements.txt` —
-torch/ultralytics included — installed; a from-scratch sim-only machine
-would use `pip install -r requirements-sim.txt` plus `pip install -e .
---no-deps` or equivalent, not yet actually verified on a clean machine —
-that verification is part of Step 6):
+**See `README.md` for the up-to-date install/run/demo-script instructions —
+it is the maintained source of truth for this.** Quick reference, current as
+of session 3:
 
 ```
-pip install -e ".[dev]"
+pip install -r requirements-sim.txt        # demo only, no torch
+python scripts/run_demo.py                 # opens the dashboard in your browser
+python scripts/run_demo.py --headless --presenter  # no browser, no auto episodes (used by the review)
+python scripts/review_demo.py              # regenerate review/review.html (needs requirements-review.txt + `playwright install chromium`)
 ```
 
-Run tests (exact command, exact result as of this session):
+Run tests (exact commands, exact result as of session 3):
 
 ```
 python -m pytest -q -m "not integration"
-# 367 passed, 8 deselected
-python -m pytest -q -m integration tests/test_demo_integration.py   # ~20s, needs free ports 5555-5560 and 8765
+# 380 passed, 13 deselected
+python -m pytest -q -m integration tests/test_demo_integration.py tests/test_demo_conflicts.py tests/test_demo_central.py
+# 8 passed (needs free ports 5555-5560, 6560, 7000, 8765; ~2-3 min total)
 ```
 
-Generate keys (once; `configs/keys/` is gitignored):
+Generate keys (once; `configs/keys/` is gitignored — `scripts/run_demo.py`
+does this automatically if missing):
 
 ```
 python -m starling_net.keys --generate 4
 ```
 
-Manually run the sim demo mesh (no launcher script yet — that's Step 6),
-each in its own terminal from the repo root:
+**Git**: work branch `sim-demo`, merged into `main` and both pushed to
+`origin` (`https://github.com/AmirKhan024/Starling.git`) at the end of every
+session. Latest commit on `main` as of session 3: see `git log -1 main`
+(also recorded in `review/results.json`'s `env.commit` for the commit the
+final review was actually run against).
+
+For manual, one-process-at-a-time control (debugging, not the normal way to
+run the demo — the control port is gossip port + 1000):
 
 ```
 python -m starling_sim.runner --config configs/sim/warehouse.yaml
-python apps/node.py --config configs/nodes/sim/node-00.yaml
-python apps/node.py --config configs/nodes/sim/node-01.yaml
-python apps/node.py --config configs/nodes/sim/node-02.yaml
-python apps/node.py --config configs/nodes/sim/node-03.yaml
-```
-
-Try the partition/lie controls by hand while that's running (control port
-= gossip port + 1000, e.g. node 0's gossip port 5555 -> control port
-6555):
-
-```
-curl -X POST http://127.0.0.1:6557/partition -d "{\"drop_node_ids\": [0,1]}"
+python apps/node.py --config configs/nodes/sim/node-00.yaml   # repeat for 01/02/03
+python apps/central_server_sim.py --sim-endpoint tcp://127.0.0.1:5560 --port 7000
+curl -X POST http://127.0.0.1:6555/partition -d "{\"drop_node_ids\": [2,3]}"
 curl -X POST http://127.0.0.1:6557/attack -d "{\"attack\": \"fabricate\", \"intensity\": 0.9}"
 ```
-
-`apps/dashboard/` is unchanged and not yet wired to any of this — Step 5.
 
 ## 8. Decisions
 
@@ -760,6 +772,26 @@ curl -X POST http://127.0.0.1:6557/attack -d "{\"attack\": \"fabricate\", \"inte
   seconds). The 2 rejections on node 1 in the last review were this family.
 - **Demo script panel + `--presenter`** (D2): nine ordered steps, each with what to
   watch and one button. README demo section rewritten for the new moments.
+- **Session 3, Part E: rewrote `scripts/review_demo.py` for the 11 new moments**
+  (0, 1, 2a, 2b, 3, 4, 5, 6, 7a, 7b, 8) and archived session 2's review under
+  `review/session2/`. Honesty rules kept: real system only, explicit
+  pass/partial/fail criteria over DOM values (never "no exception = pass"),
+  first-run results/findings recorded before any fix. Screenshots are
+  captured full-page as PNG then downscaled to 900px wide before JPEG
+  encoding (quality 62) — a 1440px full-page shot of this text-heavy
+  dashboard ran 300KB+ each and blew the ~15MB budget across ~50 shots;
+  downscaled they run ~110KB each, review.html + screenshots + summary now
+  total ~12.7MB (session2's older archive is kept separately and not part of
+  that budget). Bugs the review itself had, found and fixed before the final
+  run (both fixes are in `scripts/review_demo.py`, not the product): (1) the
+  moment-8 pass criterion hardcoded "centralized tracks <=2 under partition",
+  which is wrong once the stage actor is a 3rd worker on the server's own
+  side — fixed to compare against Starling's own live count instead; (2) the
+  conflict check picked `forks[0]` (list position) rather than the fork the
+  variant just created, so a still-walking previous variant's twin (its
+  route outlives `conflict_heal_after_s`) could leave an unrelated fork in
+  the panel's 150s memory window and get picked by mistake — fixed to match
+  by the variant's own face identity (P-100 resolvable / P-101 ambiguous).
 
 ## 9. Known issues and limitations
 
@@ -785,13 +817,12 @@ curl -X POST http://127.0.0.1:6557/attack -d "{\"attack\": \"fabricate\", \"inte
   "broken," not to claim this is perfectly tuned. Worth another pass in
   Step 7 if the demo's reputation bars look noisier than desired for an
   UNATTACKED node.
-- **Dead-zone region rarely shrinks.** With `v_max` 1.6 m/s against a 0.6 m/s
-  worker and a 25 m long, 3 m wide blind aisle the candidate region mostly
-  grows until the worker re-emerges; attestations cut it (a shrink was observed
-  in 1 of 3 review episodes, e.g. 42.6 -> 32.2 m2) but a camera that sees nothing
-  in its own zone is not modelled as negative evidence (only boundary
-  attestations are), and an occluded node is silent by design. Review moment 2
-  is therefore PARTIAL.
+- ~~Dead-zone region rarely shrinks~~ — **superseded by session 3, Part A**
+  (see Decisions): the floor plan, negative-evidence logic and review criteria
+  were all reworked; the region now stays confined to the uncovered block
+  whenever every exit camera is healthy (verified: 0 m² ever inside a healthy
+  zone) and leaks only into a specific occluded camera's zone with the reason
+  stated on the page. Review moments 2a/2b are both PASS.
 - **The claim-count "converged" badge is tolerance-based** (30 claims, about a
   second of production) plus gaps == 0, because the simulator keeps producing
   ~25 claims/s; byte-identical sets are asserted only in unit tests.
