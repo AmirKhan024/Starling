@@ -36,7 +36,7 @@ from nacl.signing import SigningKey
 from apps.dashboard.observer import GossipObserver
 from apps.demo_dashboard.config import DemoDashboardConfig
 from apps.node import _ReputationLoop
-from starling_attest.negative_evidence import CandidateBelief
+from starling_attest.negative_evidence import CandidateBelief, healthy_zone_mask
 from starling_consensus.reputation import ReputationTable
 from starling_crdt.claims import claim_order_key
 from starling_crdt.resolver import resolve
@@ -64,17 +64,19 @@ class _Windowed:
 
 
 class _Belief:
-    """One unseen identity's candidate-region state."""
+    """One unseen identity's candidate-region state: `belief` uses negative
+    evidence (healthy attested zones removed); `reach` is the SAME dilation with
+    negative evidence switched off (what plain reachability alone would allow)."""
 
-    def __init__(self, belief: CandidateBelief, last_seen_t: float, origin: tuple[float, float]) -> None:
+    def __init__(self, belief: CandidateBelief, reach: CandidateBelief, last_seen_t: float, origin: tuple[float, float]) -> None:
         self.belief = belief
+        self.reach = reach
         self.last_seen_t = last_seen_t
         self.last_step_t = last_seen_t
         self.origin = origin
         self.started_t = last_seen_t
-        self.seen_attestations: set[tuple[int, int]] = set()
-        self.crossed: set[int] = set()
-        self.area_history: deque[tuple[float, float]] = deque(maxlen=200)  # (media t, m^2)
+        self.healthy_nodes: list[int] = []
+        self.area_history: deque[tuple[float, float, float]] = deque(maxlen=400)  # (media t, region m2, reachable m2)
 
 
 class DashboardEngine:
@@ -84,6 +86,8 @@ class DashboardEngine:
         self.navmesh = NavMesh.from_geojson(Path(cfg.navmesh_path), cell_size_m=cfg.geometry.cell_size_m)
         self.reachability = ReachabilityModel(self.navmesh)
         self.floorplan = json.loads(Path(cfg.navmesh_path).read_text(encoding="utf-8"))
+        self.zone_masks = self.navmesh.zone_masks(cfg.navmesh_path)
+        self.blind_mask = self.navmesh.grid & ~np.any(list(self.zone_masks.values()), axis=0)
 
         self._lock = threading.RLock()
         self._stop = threading.Event()
@@ -95,6 +99,7 @@ class DashboardEngine:
         self._gt_wall = 0.0
         self._gt_history: deque[tuple[float, dict[int, tuple[float, float]]]] = deque(maxlen=600)
         self._control: dict[int, dict[str, Any]] = {}
+        self._central: Optional[dict[str, Any]] = None  # None = unreachable (DOWN)
 
         self._colour_of: dict[str, int] = {}
         self._name_votes: dict[str, dict[int, int]] = {}
@@ -108,6 +113,12 @@ class DashboardEngine:
         self._resolved_count = -1
         self._resolved_wall = 0.0
         self._loop_wall = 0.0
+        self._held: set[str] = set()  # far-side claims not yet visible from the vantage node's side
+        self._seen_ids: set[str] = set()
+        self._fork_memory: dict[str, dict[str, Any]] = {}
+        self._conflict: dict[str, Any] = {}
+        self._conflict_started: dict[str, float] = {}
+        self._conflict_thread: Optional[threading.Thread] = None
         self._max_t = 0.0
         self._claim_label: dict[str, str] = {}
         self._label_seq = 0
@@ -122,7 +133,7 @@ class DashboardEngine:
         return GossipObserver(peers, Path(self.cfg.keys_dir))
 
     def _new_reputation_loop(self) -> _ReputationLoop:
-        return _ReputationLoop(
+        loop = _ReputationLoop(
             node_id=_OBSERVER_ID,
             store=self.observer.store,
             geometry=self.reachability,
@@ -130,6 +141,8 @@ class DashboardEngine:
             reputation_table=ReputationTable(node_id=_OBSERVER_ID, cfg=ReputationConfig()),
             lookback_s=self.cfg.resolve_window_s,
         )
+        loop.catchup_ids = self.observer.catchup_ids
+        return loop
 
     def start(self) -> None:
         self.observer.start()
@@ -183,6 +196,12 @@ class DashboardEngine:
                     status = {"reachable": False}
                 with self._lock:
                     self._control[n] = status
+            try:
+                central = requests.get(self.cfg.central_url + "/state", timeout=self.cfg.control_timeout_s).json()
+            except Exception:
+                central = None
+            with self._lock:
+                self._central = central
             self._stop.wait(self.cfg.control_poll_interval_s)
 
     def _post(self, node_id: int, path: str, body: dict[str, Any]) -> bool:
@@ -196,17 +215,103 @@ class DashboardEngine:
         with self._lock:
             self._events.append({"wall_s": round(time.monotonic() - self._started_wall, 1), "kind": kind, "text": text})
 
+    def sim_post(self, path: str, body: dict[str, Any]) -> bool:
+        try:
+            return requests.post(self.cfg.sim_control_url + path, json=body, timeout=1.5).ok
+        except Exception:
+            return False
+
+    def _central_post(self, path: str, body: dict[str, Any]) -> bool:
+        try:
+            return requests.post(self.cfg.central_url + path, json=body, timeout=1.0).ok
+        except Exception:
+            return False
+
+    def kill_central(self) -> dict[str, Any]:
+        """Terminate the centralised server PROCESS (it exits). Starling is untouched."""
+        ok = self._central_post("/shutdown", {})
+        self._log_event("central", f"CENTRAL SERVER killed ({'ok' if ok else 'it was already down'})")
+        return {"ok": True}
+
+    def restart_central(self) -> dict[str, Any]:
+        if self._central is not None:
+            return {"ok": True, "note": "already running"}
+        import subprocess
+        import sys
+
+        repo = Path(__file__).resolve().parents[2]
+        log = open(repo / "data" / "demo" / "logs" / "central.log", "ab", buffering=0)
+        kwargs: dict[str, Any] = {}
+        if sys.platform == "win32":
+            kwargs["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP
+        else:
+            kwargs["start_new_session"] = True
+        env = dict(__import__("os").environ, PYTHONPATH=f"{repo}{__import__('os').pathsep}{repo / 'packages'}", PYTHONUNBUFFERED="1")
+        subprocess.Popen(
+            [sys.executable, str(repo / "apps" / "central_server_sim.py"), "--sim-endpoint", self.cfg.sim_endpoint, "--port", str(self.cfg.central_port)],
+            cwd=repo, stdout=log, stderr=subprocess.STDOUT, env=env, **kwargs,
+        )
+        self._log_event("central", "CENTRAL SERVER restarted (it starts with EMPTY state)")
+        return {"ok": True}
+
+    def run_script(self, name: str) -> dict[str, Any]:
+        """Start a scripted scenario in the simulator (an actor walks in, a
+        camera is occluded, ...). The world does everything; nothing is drawn
+        by the dashboard itself."""
+        ok = self.sim_post("/script", {"name": name})
+        self._log_event("script", f"SCRIPT {name}: {'started' if ok else 'FAILED (simulator unreachable?)'}")
+        return {"ok": ok, "name": name}
+
+    def run_conflict(self, variant: str) -> dict[str, Any]:
+        """Scripted conflict: partition the network, spawn the two face-twins (one
+        on each side; both are reported as the same identity by a face gate), then
+        heal after `conflict_heal_after_s`. Everything is done by the real nodes,
+        simulator and resolver; this thread only presses the same buttons."""
+        script = {"resolvable": "conflict_resolvable", "ambiguous": "conflict_ambiguous"}.get(variant)
+        if script is None:
+            return {"ok": False, "error": "unknown variant"}
+        if self._conflict_thread is not None and self._conflict_thread.is_alive():
+            return {"ok": False, "error": "a conflict scenario is already running"}
+        since = time.monotonic() - self._conflict_started.get(variant, -1e9)
+        if since < self.cfg.conflict_cooldown_s:
+            # The twins of the previous run are still walking and their identities are
+            # still in the resolver window: a second run now would compete with them.
+            return {"ok": False, "error": f"'{variant}' ran {since:.0f}s ago; wait {self.cfg.conflict_cooldown_s - since:.0f}s (its actors are still walking)"}
+        self._conflict_started[variant] = time.monotonic()
+
+        def run() -> None:
+            t0 = time.monotonic()
+            self._conflict = {"variant": variant, "phase": "starting"}
+            self.heal()
+            self._log_event("conflict", f"CONFLICT ({variant}): partitioning the network and sending the two face-twins in")
+            self.partition()
+            self.run_script(script)
+            self._conflict = {"variant": variant, "phase": "partitioned", "since_s": 0}
+            while time.monotonic() - t0 < self.cfg.conflict_heal_after_s and not self._stop.is_set():
+                self._conflict = {"variant": variant, "phase": "partitioned", "since_s": round(time.monotonic() - t0)}
+                self._stop.wait(1.0)
+            self.heal()
+            self._log_event("conflict", f"CONFLICT ({variant}): network healed; the two sides now merge their claims")
+            self._conflict = {"variant": variant, "phase": "healed", "since_s": round(time.monotonic() - t0)}
+
+        self._conflict_thread = threading.Thread(target=run, daemon=True, name="demo-conflict")
+        self._conflict_thread.start()
+        return {"ok": True, "variant": variant}
+
     def partition(self) -> dict[str, Any]:
         """Cut group A from group B. Receive-side drop on BOTH sides, since
         `POST /partition` only filters inbound traffic (see STATUS.md)."""
         a, b = self.cfg.partition_groups[0], self.cfg.partition_groups[1]
         ok = {n: self._post(n, "/partition", {"drop_node_ids": b}) for n in a}
         ok.update({n: self._post(n, "/partition", {"drop_node_ids": a}) for n in b})
+        # The centralised server sits with group A: cameras on the far side cannot reach it.
+        self._central_post("/partition", {"cut_cameras": b})
         self._log_event("partition", f"PARTITION {a} | {b} (ok={ok})")
         return {"ok": all(ok.values()), "nodes": ok}
 
     def heal(self) -> dict[str, Any]:
         ok = {n: self._post(n, "/partition", {"drop_node_ids": []}) for n in self.node_ids}
+        self._central_post("/partition", {"cut_cameras": []})
         self._log_event("heal", f"HEAL all links (ok={ok})")
         return {"ok": all(ok.values()), "nodes": ok}
 
@@ -227,6 +332,9 @@ class DashboardEngine:
         recover on their own as honest claims arrive)."""
         self.heal()
         self.stop_lying()
+        self._fork_memory.clear()
+        self._held.clear()
+        self._conflict = {}
         with self._lock:
             old = self.observer
             self.observer = self._new_observer()
@@ -272,6 +380,12 @@ class DashboardEngine:
         vals = list(self.observer.reputation.gossiped_opinions(node_id).values())
         return statistics.median(vals) if vals else None
 
+    def _cut_nodes(self) -> set[int]:
+        """Nodes the vantage node currently ignores (application-level partition)."""
+        with self._lock:
+            st = self._control.get(self.cfg.query_vantage_node, {})
+        return set(st.get("partition", {}).get("dropped_node_ids", [])) if st.get("reachable") else set()
+
     def _resolve(self) -> dict[str, Any]:
         """Deterministic resolve over the last `resolve_window_s` of the merged
         claim set (a pure function of that set), recomputed only when the set
@@ -296,6 +410,23 @@ class DashboardEngine:
             r = self._peer_reputation(n)
             rep_map[n] = 1.0 if r is None else r
         assignment, forks = resolve(_Windowed(records), self.reachability, rep_map, None, self.cfg.match)
+
+        # Fork view = what the VANTAGE node's side can see. While the vantage
+        # node ignores some peers, claims those peers made are held back and only
+        # released when the link heals: a conflict between the two halves of a
+        # split network therefore appears on RECONNECTION, not before.
+        cut = self._cut_nodes()
+        if not cut:
+            self._held.clear()
+        else:
+            for r in records:
+                if r["claim_id"] not in self._seen_ids and r["node_id"] in cut:
+                    self._held.add(r["claim_id"])
+        self._seen_ids = {r["claim_id"] for r in records}
+        forks_view = forks
+        if self._held:
+            visible = [r for r in records if r["claim_id"] not in self._held]
+            _, forks_view = resolve(_Windowed(visible), self.reachability, rep_map, None, self.cfg.match)
 
         # Stable labels: each window identity takes the label most of its
         # claims already carried; otherwise it gets a fresh one.
@@ -322,6 +453,8 @@ class DashboardEngine:
         self._resolved = {
             "assignment": assignment,
             "forks": forks,
+            "forks_view": forks_view,
+            "held": len(self._held),
             "claims_by_id": {r["claim_id"]: r for r in records},
             "max_t": max_t,
             "label_of_ref": label_of_ref,
@@ -330,6 +463,15 @@ class DashboardEngine:
         self._resolved_count = count
         self._resolved_wall = now
         return self._resolved
+
+    def _central_view(self, identities: list, gt: Optional[dict]) -> dict[str, Any]:
+        with self._lock:
+            c = self._central
+        starling_now = sum(1 for i in identities if i["status"] == "seen")
+        truth = len(gt["workers"]) if gt else None
+        if c is None:
+            return {"status": "DOWN", "tracked_now": 0, "tracked": [], "cut_cameras": [], "starling_tracked_now": starling_now, "truth_workers": truth}
+        return {**c, "starling_tracked_now": starling_now, "truth_workers": truth}
 
     def _snap_to_free(self, xy: tuple[float, float]) -> Optional[tuple[float, float]]:
         i, j = self.navmesh.world_to_cell(*xy)
@@ -446,31 +588,68 @@ class DashboardEngine:
         identities.sort(key=lambda d: d["colour"])
 
         # ── candidate regions for unseen identities ───────────────────
+        occluded_now = set(gt.get("occluded_nodes", [])) if gt else set()
+        # An identity with an OPEN fork has no single last position (two branches
+        # claim it), so it gets no candidate region until the conflict is settled.
+        forked = {m["identity"] for m in self._fork_memory.values() if m.get("status") == "OPEN"}
         regions = []
         for ident in identities:
             ref = ident["id"]
             b = self._beliefs.get(ref)
+            if ref in forked:
+                self._beliefs.pop(ref, None)
+                ident["status"] = "forked"
+                continue
             if ident["status"] == "unseen":
                 if b is None:
                     origin = self._snap_to_free((ident["x"], ident["y"]))
                     if origin is not None:
-                        cb = CandidateBelief(self.navmesh, self.reachability, cfg.negative_evidence)
+                        ne_cfg = cfg.negative_evidence
+                        cb = CandidateBelief(self.navmesh, self.reachability, ne_cfg)
                         cb.initialise(origin)
-                        b = self._beliefs[ref] = _Belief(cb, ident["t_media"], origin)
+                        rb = CandidateBelief(self.navmesh, self.reachability, ne_cfg.model_copy(update={"negative_evidence_enabled": False}))
+                        rb.initialise(origin)
+                        b = self._beliefs[ref] = _Belief(cb, rb, ident["t_media"], origin)
                         self._log_event("unseen", f"{ident['name'] or ident['short']} went UNSEEN at ({ident['x']}, {ident['y']}) — candidate region opened")
                 if b is not None:
                     self._advance_belief(b, now_t, attestations)
-                    area = b.belief.area_m2()
-                    b.area_history.append((now_t, area))
+                    area, reach_area = b.belief.area_m2(), b.reach.area_m2()
+                    b.area_history.append((now_t, area, reach_area))
+                    mask = b.belief.mask()
+                    healthy = sorted(b.healthy_nodes)
+                    silent = [n for n in self.node_ids if n not in healthy]
+                    leak = {n: round(self.navmesh.area_m2(mask & z), 1) for n, z in self.zone_masks.items() if (mask & z).any()}
+                    blind_m2 = round(self.navmesh.area_m2(mask & self.blind_mask), 1)
+                    hidden_s = now_t - b.started_t
+                    name = ident["name"] or ident["short"]
+                    why = []
+                    for n in silent:
+                        why.append(f"camera {n} is silent ({'occluded, ' if n in occluded_now else ''}no healthy attestation): its silence is not counted as evidence")
+                    text = f"{name} unseen {hidden_s:.0f} s. "
+                    text += (f"Cameras {', '.join(map(str, healthy))} are healthy and saw nobody, so their zones are ruled out. " if healthy else "No camera has a healthy attestation. ")
+                    text += ("; ".join(why) + ". " if why else "")
+                    if leak and silent:
+                        text += f"The region therefore leaks into camera {', '.join(str(n) for n in leak if n in silent)}'s zone. " if any(n in silent for n in leak) else ""
+                    text += f"Search area {area:.0f} m² instead of {reach_area:.0f} m² reachable."
                     regions.append(
                         {
                             "id": ref,
                             "colour": ident["colour"],
                             "area_m2": round(area, 2),
+                            "reachable_area_m2": round(reach_area, 2),
+                            "ratio": round(area / reach_area, 3) if reach_area > 0 else None,
                             "origin": [round(b.origin[0], 2), round(b.origin[1], 2)],
-                            "unseen_for_s": round(now_t - b.started_t, 1),
-                            "runs": self._mask_runs(b.belief.mask()),
-                            "history": [[round(t - b.started_t, 1), round(a, 1)] for t, a in list(b.area_history)[-40:]],
+                            "unseen_for_s": round(hidden_s, 1),
+                            "runs": self._mask_runs(mask),
+                            "reach_runs": self._mask_runs(b.reach.mask()),
+                            "healthy_nodes": healthy,
+                            "silent_nodes": silent,
+                            "occluded_nodes": sorted(n for n in silent if n in occluded_now),
+                            "zone_overlap_m2": {str(n): a2 for n, a2 in leak.items()},
+                            "healthy_zone_overlap_m2": round(sum(a2 for n, a2 in leak.items() if n in healthy), 2),
+                            "blind_block_area_m2": blind_m2,
+                            "explanation": text,
+                            "history": [[round(t - b.started_t, 1), round(a3, 1), round(r3, 1)] for t, a3, r3 in list(b.area_history)[-120:]],
                         }
                     )
             elif b is not None:
@@ -486,22 +665,54 @@ class DashboardEngine:
                 self._log_event("identity", f"new identity {ident['short']}")
 
         # ── forks ─────────────────────────────────────────────────────
-        fork_list = []
-        for f in forks.open_forks():
-            fork_list.append(
-                {
-                    "id": f.fork_id,
-                    "short": str(f.fork_id)[:10],
-                    "identity": label_of_ref.get(f.identity_ref, f.identity_ref),
-                    "branches": len(f.branches),
-                    "opened_ms": f.opened_at.physical_ms,
-                }
-            )
-            if f.fork_id not in self._known_forks:
-                self._known_forks.add(f.fork_id)
-                self._log_event("fork", f"OPEN FORK {str(f.fork_id)[:10]} on {label_of_ref.get(f.identity_ref, f.identity_ref)} ({len(f.branches)} branches)")
+        wall = time.monotonic()
+        for f in resolved["forks_view"].all_forks():
+            key = f"{f.identity_ref}@{f.opened_at.physical_ms}"
+            branches = []
+            for i, br in enumerate(f.branches):
+                last = by_id.get(br.claim_ids[-1]) if br.claim_ids else None
+                branches.append({
+                    "index": i, "n_claims": len(br.claim_ids),
+                    "x": None if br.last_position is None else round(br.last_position[0], 2),
+                    "y": None if br.last_position is None else round(br.last_position[1], 2),
+                    "node": None if last is None else last["node_id"],
+                    "t_last": None if last is None else round(last["t_media"], 1),
+                })
+            status = str(f.status.name if hasattr(f.status, "name") else f.status)
+            label = label_of_ref.get(f.identity_ref, f.identity_ref)
+            mem = self._fork_memory.get(key)
+            if mem is None:
+                self._log_event("fork", f"FORK OPENED on {label} (face id {f.identity_ref}): {len(branches)} claim chains bind it to incompatible positions "
+                                + " vs ".join(f"({b['x']}, {b['y']})" for b in branches))
+                mem = {"first_wall": wall, "status": None}
+                self._fork_memory[key] = mem
+            if mem["status"] != status:
+                if status != "OPEN":
+                    self._log_event("fork", f"FORK RESOLVED on {label} by {status.replace('RESOLVED_', '').lower()}: {f.resolution_reason}")
+                mem["status"] = status
+            if status == "OPEN":
+                expl = ("Both trajectories are physically possible from the identity's last confirmed anchor, so the system does NOT pick one "
+                        "(never by score). It is an ambiguity for a human: " + " OR ".join(f"branch {b['index']} at ({b['x']}, {b['y']})" for b in branches) + ".")
+            else:
+                win = f.resolved_branch
+                expl = (f"Resolved by {status.replace('RESOLVED_', '').lower()}: branch {win} kept. Rejected: {f.resolution_reason}.")
+            mem.update({
+                "key": key, "short": key.split("@")[0] + "@" + str(f.opened_at.physical_ms // 1000) + "s", "identity": label, "face_identity": f.identity_ref,
+                "status": status, "reason": f.resolution_reason, "resolved_branch": f.resolved_branch, "branches": branches,
+                "opened_media_s": round(f.opened_at.physical_ms / 1000.0, 1), "explanation": expl, "last_wall": wall, "in_window": True,
+            })
+        for key, mem in list(self._fork_memory.items()):
+            if wall - mem.get("last_wall", wall) > cfg.fork_memory_s:
+                del self._fork_memory[key]
+            elif mem.get("last_wall") != wall:
+                mem["in_window"] = False
+        fork_list = [
+            {k: v for k, v in m.items() if k not in ("first_wall", "last_wall")} for m in sorted(self._fork_memory.values(), key=lambda m: m["first_wall"])
+        ]
 
         # ── nodes ─────────────────────────────────────────────────────
+        healthy_all = healthy_zone_mask(attestations, self.zone_masks, now_t, cfg.negative_evidence.tau_attest, cfg.attest_validity_s, self.navmesh.grid.shape)
+        coverage_ok = {n: bool((self.zone_masks[n] & healthy_all).any()) for n in self.zone_masks}
         live = obs.liveness(cfg.stale_after_s)
         counts = obs.node_claim_counts()
         holes = obs.node_holes()
@@ -518,6 +729,8 @@ class DashboardEngine:
                     "live": bool(live.get(n, False)),
                     "control_reachable": bool(st.get("reachable")),
                     "partitioned": bool(part),
+                    "coverage_healthy": coverage_ok.get(n, False),
+                    "occluded": bool(n in occluded_now),
                     "dropped": part,
                     "attack": st.get("attack", "unknown") if st.get("reachable") else "unknown",
                     "intensity": st.get("intensity", 0.0) if st.get("reachable") else 0.0,
@@ -558,6 +771,9 @@ class DashboardEngine:
             "identities": identities,
             "regions": regions,
             "forks": fork_list,
+            "forks_open": sum(1 for f in fork_list if f["status"] == "OPEN"),
+            "held_back_claims": resolved.get("held", 0),
+            "conflict": dict(self._conflict),
             "nodes": nodes,
             "convergence": {
                 "spread": spread,
@@ -566,6 +782,7 @@ class DashboardEngine:
                 "converged": bool(converged),
                 "tolerance": cfg.converge_tolerance_claims,
             },
+            "central": self._central_view(identities, gt),
             "nodes_live": sum(1 for nd in nodes if nd["live"]),
             "mean_error_m": None if not errs else round(float(np.mean(errs)), 2),
             "events": list(self._events)[-25:],
@@ -573,38 +790,21 @@ class DashboardEngine:
         }
 
     def _advance_belief(self, b: _Belief, now_t: float, attestations: list) -> None:
-        """One `CandidateBelief` tick: dilate by elapsed media time, then
-        apply attestations gossiped since the identity was last seen."""
+        """One tick: recompute which cameras are CURRENTLY healthy (gossiped,
+        recent, confident zone attestations), forbid their zones, then dilate
+        by the elapsed media time. A silent or unhealthy camera forbids nothing
+        (silence is never evidence). Uses gossiped attestations only."""
+        ne = self.cfg.negative_evidence
+        forbidden = healthy_zone_mask(
+            attestations, self.zone_masks, now_t, ne.tau_attest, self.cfg.attest_validity_s, self.navmesh.grid.shape
+        )
+        b.healthy_nodes = [n for n, z in self.zone_masks.items() if (forbidden & z).any() and (z & forbidden).sum() == z.sum()]
+        b.belief.set_forbidden(forbidden)
         dt = now_t - b.last_step_t
         if dt > 0:
             b.belief.step(dt)
+            b.reach.step(dt)
             b.last_step_t = now_t
-        fresh = []
-        for att in attestations:
-            key = (att.node_id, att.t_start.physical_ms)
-            if key in b.seen_attestations or att.t_end.physical_ms / 1000.0 < b.last_seen_t:
-                continue
-            b.seen_attestations.add(key)
-            fresh.append(att)
-        for att in sorted(fresh, key=lambda a: a.t_start.physical_ms):
-            regions = set(att.region_ids)
-            if att.crossing_observed:
-                # Someone crossed that boundary after we last saw the
-                # identity. Assume it was this identity (the only one near
-                # that boundary): it is now on the FAR side, so later "no
-                # crossing" attestations must rule out the ORIGIN side
-                # instead (applied below with a far-side reference point).
-                b.crossed |= regions
-                continue
-            crossed_here = regions & b.crossed
-            if crossed_here:
-                for boundary_id in crossed_here:
-                    far = np.argwhere(self.navmesh.cells_beyond(boundary_id, b.origin))
-                    if len(far):
-                        far_xy = self.navmesh.cell_to_world(int(far[0][1]), int(far[0][0]))
-                        b.belief.apply_attestation(att, reference_xy=far_xy)
-                continue
-            b.belief.apply_attestation(att)
         b.belief.normalise()
 
     # ── query ──────────────────────────────────────────────────────────

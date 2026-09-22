@@ -105,6 +105,13 @@ def _hlc_proto(t_media: float, node_id: int) -> "starling_pb2.HLC":
     return starling_pb2.HLC(physical_ms=hlc.physical_ms, logical=hlc.logical, node_id=hlc.node_id)
 
 
+# An attestation's `region_ids` may name the ATTESTING NODE'S OWN CAMERA ZONE as
+# ZONE_REGION_BASE + node_id: "my zone is covered and healthy for this interval".
+# That, not a boundary crossing, is what lets a reader subtract the whole zone
+# from a missing person's candidate region (starling_attest.negative_evidence).
+ZONE_REGION_BASE = 1000
+
+
 class SimAttestor:
     """A sim-mode node's attestation-emission loop — the counterpart of
     `starling_attest.attestation.Attestor`, driven by simulated
@@ -167,7 +174,7 @@ class SimAttestor:
 
         att = starling_pb2.CoverageAttestation(
             node_id=self.node_id,
-            region_ids=list(self.watched_boundary_ids),
+            region_ids=[*self.watched_boundary_ids, ZONE_REGION_BASE + self.node_id],
             occlusion_ratio=coverage.occlusion_ratio,
             illumination_score=coverage.illumination_score,
             detector_health=coverage.detector_health,

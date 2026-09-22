@@ -12,7 +12,9 @@ import pytest
 
 from apps.demo_dashboard.config import DemoDashboardConfig
 from apps.demo_dashboard.engine import DashboardEngine, _Belief
-from starling_attest.negative_evidence import CandidateBelief
+import numpy as np
+
+from starling_attest.negative_evidence import ZONE_REGION_BASE, CandidateBelief
 from starling_net.keys import generate_keypair
 from starling_proto.generated import starling_pb2
 
@@ -85,58 +87,41 @@ def engine(tmp_path):
     return DashboardEngine(cfg)  # constructed, never started: no sockets
 
 
-def _att(node: int, boundary: int, t_s: float, crossing: bool, conf: float = 0.9):
+def _att(node: int, end_s: float, conf: float = 0.9):
     a = starling_pb2.CoverageAttestation(
-        node_id=node, region_ids=[boundary], crossing_observed=crossing, attest_confidence=conf
+        node_id=node, region_ids=[ZONE_REGION_BASE + node], crossing_observed=False, attest_confidence=conf
     )
-    a.t_start.physical_ms = int(t_s * 1000)
-    a.t_end.physical_ms = int((t_s + 2.0) * 1000)
+    a.t_start.physical_ms = int((end_s - 2.0) * 1000)
+    a.t_end.physical_ms = int(end_s * 1000)
     return a
 
 
-def _belief(engine, origin=(9.5, 12.0)):
-    cb = CandidateBelief(engine.navmesh, engine.reachability, engine.cfg.negative_evidence)
+def _belief(engine, origin=(19.0, 12.7)):
+    ne = engine.cfg.negative_evidence
+    cb = CandidateBelief(engine.navmesh, engine.reachability, ne)
     cb.initialise(origin)
-    return _Belief(cb, last_seen_t=0.0, origin=origin)
+    rb = CandidateBelief(engine.navmesh, engine.reachability, ne.model_copy(update={"negative_evidence_enabled": False}))
+    rb.initialise(origin)
+    return _Belief(cb, rb, last_seen_t=0.0, origin=origin)
 
 
-def test_candidate_region_grows_then_shrinks_when_a_boundary_is_attested_uncrossed(engine):
+def test_healthy_cameras_shrink_the_region_below_plain_reachability(engine):
     b = _belief(engine)
-    engine._advance_belief(b, now_t=3.0, attestations=[])
-    before = b.belief.area_m2()
-    assert before > 5.0
-    # Node 0 (watching the blind aisle's west boundary, id 1) attests, with
-    # confidence, that nobody crossed it: the region loses the far side.
-    engine._advance_belief(b, now_t=3.0, attestations=[_att(0, 1, 1.0, crossing=False)])
-    assert b.belief.area_m2() < before
+    atts = [_att(n, 9.0) for n in range(4)]
+    engine._advance_belief(b, now_t=9.0, attestations=atts)
+    assert sorted(b.healthy_nodes) == [0, 1, 2, 3]
+    assert b.belief.area_m2() < 0.4 * b.reach.area_m2()  # negative evidence removed most of the reachable floor
+    covered = np.any(list(engine.zone_masks.values()), axis=0)
+    assert not (b.belief.mask() & covered).any()
 
 
-def test_inadmissible_attestation_does_not_shrink_the_region(engine):
+def test_silent_camera_is_not_subtracted_and_the_region_leaks_into_its_zone(engine):
     b = _belief(engine)
-    engine._advance_belief(b, now_t=3.0, attestations=[])
-    before = b.belief.area_m2()
-    engine._advance_belief(b, now_t=3.0, attestations=[_att(0, 1, 1.0, crossing=False, conf=0.2)])
-    assert b.belief.area_m2() == pytest.approx(before)  # silence / low confidence is not evidence
-
-
-def test_after_a_crossing_a_no_crossing_attestation_rules_out_the_origin_side(engine):
-    """Origin (9.5, 12) is east of boundary 1 (x=8). Once a crossing of
-    boundary 1 is attested, the identity is on the WEST side; a later
-    "nobody crossed since" must remove the origin (east) side, not the west."""
-    import numpy as np
-
-    b = _belief(engine)
-    engine._advance_belief(b, now_t=3.0, attestations=[])
-    before = b.belief.area_m2()
-    engine._advance_belief(
-        b, now_t=3.0, attestations=[_att(0, 1, 0.5, crossing=True), _att(0, 1, 2.0, crossing=False)]
-    )
-    assert 1 in b.crossed
-    assert b.belief.area_m2() < before
-    ys, xs = np.nonzero(b.belief.mask())
-    cs = engine.navmesh.cell_size
-    assert xs.max() * cs <= 8.0 + 2 * cs  # nothing left east of the crossed boundary
-    assert xs.min() * cs < 7.0  # the far (west) side survives
+    engine._advance_belief(b, now_t=9.0, attestations=[_att(0, 9.0), _att(2, 9.0), _att(3, 9.0)])  # node 1 silent
+    assert 1 not in b.healthy_nodes
+    assert (b.belief.mask() & engine.zone_masks[1]).any()
+    for n in (0, 2, 3):
+        assert not (b.belief.mask() & engine.zone_masks[n]).any()
 
 
 def test_mask_runs_round_trip(engine):

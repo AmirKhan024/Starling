@@ -193,7 +193,7 @@ def _two_worker_claims(store: LocalStore, injector: AttackInjector, navmesh, n_t
     tick by tick (what a real zone with two people looks like)."""
     seq, t = seq0, t0
     for k in range(n_ticks):
-        for track, base in ((10, (29.0, 5.0)), (11, (29.0, 20.0))):
+        for track, base in ((10, (33.0, 5.0)), (11, (33.0, 20.0))):
             seq += 1
             claim = _honest_claim(seq, t, (base[0] + 0.2 * k * 0.2, base[1]), rng)
             claim["local_track_id"] = track
@@ -240,3 +240,73 @@ def test_fabrication_is_still_caught_while_two_workers_are_tracked():
         loop.run_pass(t)
     assert table.local_opinion(2) < before - 0.2
     assert loop.rejected_by_node[2] > 10
+
+
+def _loop_and_store():
+    navmesh = _navmesh()
+    store = LocalStore(db_path=":memory:", node_id=1)
+    table = ReputationTable(node_id=1, cfg=ReputationConfig())
+    loop = node_app._ReputationLoop(1, store, ReachabilityModel(navmesh, v_max_m_s=1.6), PlausibilityConfig(), table)
+    return loop, store, table
+
+
+def _stream(store, origin, t0, n, pos0=(33.0, 5.0), rng=None, seq0=0):
+    rng = rng or np.random.default_rng(5)
+    ids = []
+    for k in range(n):
+        c = _honest_claim(seq0 + k, t0 + 0.2 * k, (pos0[0], pos0[1] + 0.2 * 0.2 * k), rng)
+        c["node_id"], c["claim_id"], c["local_track_id"] = origin, f"o{origin}-{seq0 + k}", 7
+        store.append_remote_claims([c])
+        ids.append(c["claim_id"])
+    return ids
+
+
+def test_honest_claims_delivered_late_by_catchup_are_not_penalised():
+    loop, store, table = _loop_and_store()
+    ids = _stream(store, origin=2, t0=0.0, n=40)  # ~8 s of an honest worker, made long ago
+    loop.catchup_ids.update(ids)
+    loop.run_pass(now_t_media=60.0)  # ...delivered 52 s later (after a partition heal)
+    assert loop.rejected_by_node[2] == 0
+    assert table.local_opinion(2) > 0.95
+
+
+def test_the_same_late_claims_over_the_live_channel_would_look_like_a_replay():
+    loop, store, table = _loop_and_store()
+    _stream(store, origin=2, t0=0.0, n=40)
+    loop.run_pass(now_t_media=60.0)  # not marked as catch-up: age 52 s > replay window
+    assert loop.rejected_by_node[2] > 0
+
+
+def test_a_replay_delivered_through_catchup_is_still_caught():
+    """Old timestamp on a NEW sequence number breaks the origin's HLC monotonicity."""
+    loop, store, table = _loop_and_store()
+    honest = _stream(store, origin=2, t0=50.0, n=30, seq0=0)
+    replay = _stream(store, origin=2, t0=0.0, n=10, seq0=30)  # seq 30.. but HLC of ~50 s ago
+    loop.catchup_ids.update(honest + replay)
+    loop.run_pass(now_t_media=60.0)
+    assert loop.rejected_by_node[2] >= 5
+
+
+def test_claims_of_nodes_watching_elsewhere_do_not_count_as_uncorroborated():
+    loop, store, table = _loop_and_store()
+    _stream(store, origin=2, t0=0.0, n=30, pos0=(33.0, 5.0))
+    _stream(store, origin=3, t0=0.0, n=30, pos0=(5.0, 20.0), seq0=100)  # another person, far away
+    loop.run_pass(now_t_media=6.0)
+    assert loop.rejected_by_node[2] == 0 and loop.rejected_by_node[3] == 0
+
+
+def test_a_new_track_delivered_in_one_burst_is_graded_against_its_own_first_claim():
+    """After a catch-up burst every claim of a NEW track used to be compared with
+    an unrelated worker of the same node (no baseline until the pass ended)."""
+    loop, store, table = _loop_and_store()
+    est = _stream(store, origin=2, t0=0.0, n=30, pos0=(33.0, 5.0))  # established track 7
+    loop.run_pass(now_t_media=6.0)
+    rng = np.random.default_rng(9)
+    for k in range(60):  # a different person, 20 m away, delivered all at once
+        c = _honest_claim(500 + k, 8.0 + 0.2 * k, (29.0, 20.0 + 0.2 * 0.2 * k), rng)
+        c["node_id"], c["claim_id"], c["local_track_id"] = 2, f"new-{k}", 8
+        store.append_remote_claims([c])
+        loop.catchup_ids.add(c["claim_id"])
+    loop.run_pass(now_t_media=21.0)
+    assert loop.rejected_by_node[2] <= 1  # at most the new track's very first claim
+    assert est

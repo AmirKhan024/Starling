@@ -45,20 +45,9 @@ def test_coverage_state_degraded_during_a_scripted_occlusion():
     assert state.detector_health == 0.3
 
 
-def test_compute_boundary_crossings_true_when_a_worker_crosses_the_gap_exit():
+def test_floor_plan_has_no_boundary_lines_so_no_crossings_are_computed():
     world = _world()
-    navmesh = world.navmesh
-    # worker starts left of boundary 1 (x=8) and ends right of it
-    crossings = compute_boundary_crossings(navmesh, {0: (4.0, 12.0)}, {0: (9.0, 12.0)})
-    assert crossings[1] is True
-    assert crossings[2] is False  # never reached x=11
-
-
-def test_compute_boundary_crossings_false_when_no_movement_crosses_it():
-    world = _world()
-    crossings = compute_boundary_crossings(world.navmesh, {0: (4.0, 12.0)}, {0: (4.5, 12.0)})
-    assert crossings[1] is False
-    assert crossings[2] is False
+    assert compute_boundary_crossings(world.navmesh, {0: (4.0, 12.0)}, {0: (9.0, 12.0)}) == {}
 
 
 def test_sim_attestor_emits_nothing_before_tick_interval_elapses():

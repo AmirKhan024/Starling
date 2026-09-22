@@ -77,6 +77,41 @@ def _field_or(obj: Any, name: str, default: Any = None) -> Any:
     return getattr(obj, name, default)
 
 
+# Mirror of starling_sim.coverage.ZONE_REGION_BASE (duplicated on purpose: the
+# simulator package must not import this one). An attestation whose region_ids
+# contain ZONE_REGION_BASE + node_id says "node_id's whole camera zone was
+# covered and healthy for this interval".
+ZONE_REGION_BASE = 1000
+
+
+def healthy_zone_mask(
+    attestations,
+    zone_masks: dict,
+    now_t_s: float,
+    tau_attest: float,
+    validity_s: float,
+    grid_shape: tuple,
+) -> np.ndarray:
+    """Union of the camera zones whose node has GOSSIPED a healthy zone-coverage
+    attestation recently: attest_confidence >= tau_attest and its interval ended
+    no more than `validity_s` before `now_t_s`. A node with no attestation, a
+    low-confidence one (occluded / unhealthy) or a stale one contributes
+    NOTHING: silence is never evidence of absence (CLAUDE.md rule 7). Uses
+    gossiped attestations only, never simulator ground truth."""
+    latest: dict = {}
+    for att in attestations:
+        if ZONE_REGION_BASE + att.node_id not in att.region_ids:
+            continue
+        end_s = att.t_end.physical_ms / 1000.0
+        if att.node_id not in latest or end_s > latest[att.node_id][0]:
+            latest[att.node_id] = (end_s, att)
+    out = np.zeros(grid_shape, dtype=bool)
+    for node_id, (end_s, att) in latest.items():
+        if att.attest_confidence >= tau_attest and now_t_s - end_s <= validity_s and node_id in zone_masks:
+            out |= zone_masks[node_id]
+    return out
+
+
 class CandidateBelief:
     """A soft candidate-location mask for ONE currently-unlocated identity,
     over one shared `NavMesh`. Not thread-safe; not shared across
@@ -91,6 +126,9 @@ class CandidateBelief:
         self._B = np.zeros(navmesh.grid.shape, dtype=np.float64)
         self._origin_xy: Optional[tuple[float, float]] = None
         self._origin_pos_sigma = 0.0
+        # Cells a healthy attested camera currently covers: the person is not
+        # there, and cannot get past them unseen.
+        self._forbidden: Optional[np.ndarray] = None
 
     def initialise(self, last_confirmed_xy: tuple[float, float], pos_sigma: float = 0.0) -> None:
         """`B_0 = delta(last_confirmed_xy)`. `pos_sigma` is stored (not
@@ -109,6 +147,24 @@ class CandidateBelief:
         self._origin_xy = last_confirmed_xy
         self._origin_pos_sigma = pos_sigma
 
+    def set_forbidden(self, forbidden: Optional[np.ndarray]) -> None:
+        """Remove `forbidden` cells (healthy attested coverage) from the belief.
+        If that leaves nothing (the last sighting was inside a covered zone: the
+        person has left it), re-seed at the nearest uncovered cells."""
+        if not self.cfg.negative_evidence_enabled:
+            return
+        self._forbidden = forbidden
+        if forbidden is None or not forbidden.any():
+            return
+        self._B[forbidden] = 0.0
+        if (self._B > self.cfg.eps).any() or self._origin_xy is None:
+            return
+        dist = self.reachability.distance_field(self._origin_xy)
+        allowed = self.navmesh.grid & ~forbidden & np.isfinite(dist)
+        if allowed.any():
+            near = dist[allowed].min() + 2 * self.navmesh.cell_size
+            self._B[allowed & (dist <= near)] = 1.0
+
     def step(self, dt_s: float) -> None:
         """`B <- geodesic_dilate(B, v_max * dt_s)` — see module docstring
         note 2 for what "dilate" means for this soft-indicator `B`. A
@@ -123,6 +179,8 @@ class CandidateBelief:
         radius = self.cfg.v_max_m_s * dt_s
         dist = self._multi_source_distance_fast(support, radius)
         new_support = dist <= radius
+        if self._forbidden is not None:
+            new_support &= ~self._forbidden
 
         new_B = np.zeros_like(self._B)
         new_B[new_support] = 1.0
@@ -139,9 +197,8 @@ class CandidateBelief:
         flat = np.flatnonzero(support & grid)
         if flat.size == 0:
             return np.full((height, width), np.inf, dtype=np.float64)
-        dist = _sp_dijkstra(
-            self.reachability._graph(), directed=True, indices=flat, min_only=True, limit=limit
-        )
+        graph = self.reachability._graph() if self._forbidden is None else self.reachability.graph_without(self._forbidden)
+        dist = _sp_dijkstra(graph, directed=True, indices=flat, min_only=True, limit=limit)
         return dist.reshape(height, width)
 
     def _multi_source_distance(self, support: np.ndarray) -> np.ndarray:

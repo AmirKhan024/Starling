@@ -1,37 +1,64 @@
 starting the demo ...
-  [    5.0s] 0a_startup_loaded: Dashboard fully loaded with all four nodes live.
-  => moment 0 PASS: all 4 nodes live 4.1s after launch (page loaded, claims flowing)
-  [    5.1s] 1a_walk_start: Five workers, five identities; solid dots = believed, dashed rings = ground truth.
-  [   11.2s] 1b_walk_6s_later: Six seconds later: the same identities at new positions.
-  [   33.4s] 1c_zone_boundary_crossed: worker-2 is now seen by a different node's camera and still carries identity P-003 (was P-003).
-  => moment 1 PASS: 5 identities tracked, worker-2 kept P-003 across nodes [0, 1], mean error 0.32 m vs ground truth
-  [   33.4s] 2a_approaching_aisle: worker-2 (P-003) approaches the blind aisle and is still seen.
-  [   47.0s] 2b_region_appears: worker-2 (P-003) is unseen: its candidate region appears with its area in m².
-  [   49.4s] 2c_region_mid: Region P-003 after 2.4 s unseen: 35.94 m².
-  [   49.5s] 2e_region_shrinks: Region P-003 SHRANK from 63.31 to 35.94 m² after 2.4 s unseen (sim t = 47.2 s).
-  [   51.4s] 2d_reemerged: worker-2 re-emerges; identity now P-003 (before: P-003).
-  => moment 2 PARTIAL: the region shrank in only 1 of 3 dark episodes (a majority is required for PASS; in the others it only grew until the worker re-emerged). ep1 (sim t=45.2 s): 9 samples, peak 84.56 m², final 84.56 m², shrank, same identity after; ep2 (sim t=63.2 s): 9 samples, peak 116.5 m², final 116.5 m², no shrink, same identity after; ep3 (sim t=81.4 s): 11 samples, peak 86.56 m², final 86.56 m², no shrink, same identity after
-  [   89.7s] 3a_before_partition: Before: all nodes hold (almost) the same number of claims.
-  [   91.0s] 3b_partition_during: Partition applied: every node card reports 'partitioned: yes'.
-  [  103.2s] 3c_partition_later: 12 s into the partition: the two sides' claim counts have drifted apart.
-  [  106.1s] 3d_after_heal: After heal: convergence badge CONVERGED, spread 6, gaps 0 (2.4s after pressing Heal).
-  => moment 3 PASS: partition shown on all nodes, spread grew to 51.0, converged 2.4s after heal with gaps=0; open forks: 0
-  [  106.2s] 4a_before_lie: Before: reputation of all nodes = [1.0, 1.0, 1.0, 1.0].
-  [  112.1s] 4b_lying_early: 5.4s after 'Make node 2 lie': reputation [1.0, 1.0, 0.6, 1.0], rejected [0.0, 2.0, 23.0, 0.0].
-  [  119.4s] 4c_lying_dropped: Node 2's reputation has dropped: [1.0, 1.0, 0.57, 1.0], rejected [0.0, 2.0, 48.0, 0.0].
-  [  125.9s] 4d_recovering: 6.0s after 'Stop lying': reputation [1.0, 1.0, 0.83, 1.0].
-  [  128.0s] 4e_after_stop: End of recovery window: reputation [1.0, 1.0, 0.93, 1.0].
-  => moment 4 PASS: liar's reputation < 0.7 after 3.6s (48.0 claims rejected), honest nodes stayed >= 1.0, recovered > 0.9 8.1s after stopping
-  [  128.5s] 5a_answer_worker2: Valid query 'where is worker 2' (purpose safety).
-  [  129.0s] 5b_refusal_unknown: Unanswerable query 'where is worker 9': refused with its reason.
-  [  133.8s] 5c_query_while_partitioned: Edge case: 'where is worker 3' while {2,3} is cut off from the querying side.
-  [  137.7s] 5d_refusal_productivity: Same query under a `productivity` token: refused (purpose limitation).
-  => moment 5 PASS: valid query answered with confirmed/inferred/unreachable; unknown worker and productivity purpose refused with reasons; partition edge case gave: refused — Reason: 'P-002' was only observed by node 2, which is/are unreachable for the entire requested window — a partitioned wing, not an absence
-  [  137.8s] 6a_after_reload: Page reloaded mid-run; dashboard recovered in 0.0s with 4 nodes live.
-  [  143.2s] 6b_node1_killed: Node 1's process was killed; its card reads OFFLINE after 5.3s; nodes live: 3.
-  [  145.8s] 6c_node1_restarted: Node 1 restarted; card reads LIVE after 2.5s.
-  [  147.1s] 6d_after_recovery: After recovery: CONVERGED, gaps 0, claims [3277.0, 3290.0, 3270.0, 3279.0].
-  => moment 6 PASS: reload recovered in 0.0s; killed node OFFLINE after 5.3s; LIVE again 2.5s after restart; converged 3.8s after restart
+  [    6.8s] 0a_startup_loaded: Dashboard loaded: 4 nodes live, all four camera zones outlined green (healthy), Demo script panel present.
+  => moment 0 PASS: all 4 nodes live and central server healthy 6.6s after launch; all camera zones healthy; demo-script panel lists 9 steps
+  [    7.0s] 1a_walk_start: Four workers, four identities (P-00x) with ground-truth rings.
+  [   15.2s] 1b_walk_later: Same identities at new positions a few seconds later.
+  [   32.7s] 1c_walk_25s: 25 s in: identities unchanged.
+  => moment 1 PASS: 4 identities tracked, labels unchanged for 25 s, max displacement 21.7 m, mean error 0.21 m vs ground truth
+  [   32.9s] 2a1_before: Before the episode: cameras all healthy (green); worker-2 is not in the building yet.
+  [   51.2s] 2a2_hidden_0s: P-005 hidden 2.4 s: search area 18.3 m² vs 40.9 m² reachable without negative evidence (45%); overlap with healthy cameras' zones 0 m²; zone overlap {}.
+  [   56.3s] 2a3_hidden_5s: P-005 hidden 6.2 s: search area 49.3 m² vs 240.5 m² reachable without negative evidence (21%); overlap with healthy cameras' zones 0 m²; zone overlap {}.
+  [   60.6s] 5e_query_worker_in_blind_block: Query 'where is worker 2' while worker-2 is hidden in the uncovered block: the answer reports the last confirmed position and the candidate region, not a made-up position.
+  [   61.9s] 2a4_hidden_10s: P-005 hidden 12.6 s: search area 69 m² vs 695.6 m² reachable without negative evidence (10%); overlap with healthy cameras' zones 0 m²; zone overlap {}.
+  [   67.9s] 2a5_hidden_16s: P-005 hidden 17.4 s: search area 69 m² vs 862.3 m² reachable without negative evidence (8%); overlap with healthy cameras' zones 0 m²; zone overlap {}.
+  [   74.0s] 2a6_hidden_22s: P-005 hidden 23.4 s: search area 69 m² vs 932.5 m² reachable without negative evidence (7%); overlap with healthy cameras' zones 0 m²; zone overlap {}.
+  [   78.2s] 2a7_reemerged: worker-2 re-emerges from the block; identity now P-005 (before: P-005).
+  => moment 2a PASS: region confined to the block for 26.0 s (0 m² in healthy zones, at most 0.5 m² outside the block), final 69 m² vs 932.5 m² reachable (ratio 0.074), same identity P-005 on re-emergence
+  [  175.4s] 2b1_before: Before the episode: cameras all healthy (green); worker-2 waits at the door.
+  [  195.3s] 2b2_hidden_0s: P-014 hidden 2.2 s: search area 13.4 m² vs 34.8 m² reachable without negative evidence (39%); overlap with healthy cameras' zones 0 m²; zone overlap {}.
+  [  200.4s] 2b3_hidden_5s: P-014 hidden 7.4 s: search area 90.8 m² vs 346.4 m² reachable without negative evidence (26%); overlap with healthy cameras' zones 0 m²; zone overlap {'1': 33.3}.
+  [  205.8s] 2b4_hidden_10s: P-014 hidden 12.4 s: search area 172.7 m² vs 689.4 m² reachable without negative evidence (25%); overlap with healthy cameras' zones 0 m²; zone overlap {'1': 103.7}.
+  [  212.1s] 2b5_hidden_16s: P-014 hidden 18 s: search area 174 m² vs 885.9 m² reachable without negative evidence (20%); overlap with healthy cameras' zones 0 m²; zone overlap {'1': 105}.
+  [  217.3s] 2b6_hidden_22s: P-014 hidden 23 s: search area 174 m² vs 932.5 m² reachable without negative evidence (19%); overlap with healthy cameras' zones 0 m²; zone overlap {'1': 105}.
+  [  221.6s] 2b7_reemerged: worker-2 re-emerges from the block; identity now P-014 (before: P-014).
+  => moment 2b PASS: region leaked into camera 1's zone (up to 105 m²) and into no other zone; page said 'camera 1 is silent (occluded...): its silence is not counted as evidence' in 25 of 25 samples; same identity on re-emergence
+  [  222.1s] 3a_before_partition: Before: all nodes hold (almost) the same number of claims.
+  [  225.3s] 3b_partition_during: Partition applied: every node card reports 'partitioned: yes'.
+  [  238.0s] 3c_partition_later: 12 s into the partition: the two sides' claim counts have drifted apart.
+  [  243.3s] 3d_after_heal: After heal: CONVERGED, spread 3, gaps 0 (4.2s after pressing Heal).
+  => moment 3 PASS: partition shown on all nodes, spread grew to 56.0, converged 4.2s after heal with gaps=0
+  [  243.9s] 4a_before_lie: Before: reputation [1.0, 1.0, 1.0, 1.0], rejected [17.0, 0.0, 1.0, 0.0].
+  [  250.3s] 4b_lying_early: 5.5s after 'Make node 2 lie': reputation [1.0, 1.0, 0.72, 1.0], rejected [17.0, 0.0, 19.0, 0.0].
+  [  266.9s] 4c_lying_dropped: Node 2's reputation has dropped: [1.0, 1.0, 0.78, 1.0], rejected [17.0, 0.0, 79.0, 0.0].
+  [  273.7s] 4d_recovering: 6.0s after 'Stop lying': reputation [0.74, 1.0, 0.89, 1.0].
+  [  276.0s] 4e_after_stop: End of recovery window: reputation [0.94, 1.0, 0.95, 1.0].
+  => moment 4 PASS: liar's reputation < 0.7 after 13.3s (79.0 claims rejected), honest nodes stayed >= 1.0 (their rejected counters grew by [16.0, 0, 0] during the test), recovered > 0.9 8.3s after stopping
+  [  276.7s] 5a_answer_worker3: Valid query 'where is worker 3' (purpose safety).
+  [  277.4s] 5b_refusal_unknown: Unanswerable query 'where is worker 9': refused with its reason.
+  [  283.2s] 5c_query_while_partitioned: Edge case: 'where is worker 3' while {2,3} is cut off from the querying side.
+  [  286.3s] 5d_refusal_productivity: Same query under a `productivity` token: refused (purpose limitation).
+  => moment 5 PASS: valid query answered (confirmed/inferred/unreachable); unknown worker and productivity purpose refused with reasons; partition edge case: refused; blind-block query reported: Inferred: currently unseen — could be anywhere in a 69.0 m² candidate region · last position is appearance-matched, not anchored — treat as a hypothes
+  [  286.6s] 6a_after_reload: Page reloaded mid-run; recovered in 0.1s with 4 nodes live.
+  [  291.8s] 6b_node1_killed: Node 1's process killed; card reads OFFLINE after 4.9s, its camera zone is 'silent'; nodes live 3.
+  [  295.0s] 6c_node1_restarted: Node 1 restarted; LIVE after 2.9s.
+  [  296.9s] 6d_after_recovery: After recovery: CONVERGED, gaps 0, claims [6478.0, 6471.0, 6471.0, 6476.0].
+  => moment 6 PASS: reload recovered in 0.1s; killed node OFFLINE after 4.9s (its camera zone: silent); LIVE again 2.9s after restart; converged 4.8s after restart
+  [  301.0s] 7a1_before: Clean start: healed network, no forks.
+  [  323.3s] 7a2_partitioned_twins: Partitioned: twin A on side {0,1}, twin B on side {2,3}; this variant's fork visible: 0 (conflict (resolvable): partitioned 20 s · 190 far-side claims held back).
+  [  340.7s] 7a3_after_heal_fork: After the network healed: 1 fork(s) shown, open=0.
+  [  348.9s] 7a4_8s_later: 8 s later: fork status unchanged (['RESOLVED_REACHABILITY']).
+  => moment 7a PASS: no fork while partitioned (363 far-side claims held back); after healing the fork appeared and was resolved by reachability: Resolved by reachability: branch 0 kept. Rejected: branch 1 requires 6.7 m/s over 4.2 s, exceeds v_max 1.6 m/s.
+  [  353.0s] 7b1_before: Clean start: healed network, no forks.
+  [  375.3s] 7b2_partitioned_twins: Partitioned: twin A on side {0,1}, twin B on side {2,3}; this variant's fork visible: 0 (conflict (ambiguous): partitioned 20 s · 282 far-side claims held back).
+  [  394.1s] 7b3_after_heal_fork: After the network healed: 1 fork(s) shown, open=1.
+  [  402.7s] 7b4_8s_later: 8 s later: fork status unchanged (['OPEN']).
+  => moment 7b PASS: no fork while partitioned; after healing one fork appeared and stayed OPEN 8 s later; 2 branch markers drawn at [(5.02, 21.49), (33.37, 12.58)]; explanation: Both trajectories are physically possible from the identity's last confirmed anchor, so the system does NOT pick one (never by score). It is
+  [  448.9s] 8a_healthy: Healthy: centralized tracks 6, Starling tracks 5, actually present 5.
+  [  457.7s] 8b_partition_central_loses_side: Partitioned: centralized PARTIAL tracks 3; Starling tracks 5 of 5 present. Cameras 2, 3 cannot reach the server: their workers are lost (1330 observations never delivered).
+  [  464.9s] 8c_central_killed: Central server killed: status DOWN, tracks 0; Starling tracks 5 of 5 present, 4 nodes live.
+  [  471.1s] 8d_starling_unaffected: 6 s later, central still DOWN; Starling claims 3901.0 (was 3674.0), convergence CONVERGED.
+  [  473.8s] 8e_central_restarted: Central server restarted: HEALTHY, tracks 5.
+  => moment 8 PASS: partition: centralized tracks 3 (PARTIAL) vs Starling 5 of 5; killed: centralized DOWN/0 while Starling kept 5 of 5 and 227 new claims in 8 s; restarted: HEALTHY
 
-VERDICTS: {0: 'PASS', 1: 'PASS', 2: 'PARTIAL', 3: 'PASS', 4: 'PASS', 5: 'PASS', 6: 'PASS'}
-wrote C:\Users\Amir Khan\Documents\starling\review\review.html (5.9 MB)
+VERDICTS: {'0': 'PASS', '1': 'PASS', '2a': 'PASS', '2b': 'PASS', '3': 'PASS', '4': 'PASS', '5': 'PASS', '6': 'PASS', '7a': 'PASS', '7b': 'PASS', '8': 'PASS'}
+wrote C:\Users\Amir Khan\Documents\starling\review\review.html (7.4 MB)

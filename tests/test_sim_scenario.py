@@ -13,24 +13,22 @@ DEFAULT_SCENARIO = (
 )
 
 
-def test_default_scenario_loads_five_workers_and_at_least_one_occlusion():
+def test_default_scenario_loads_nine_workers_actors_and_scripts():
     scenario = load_scenario(DEFAULT_SCENARIO)
 
     assert scenario.name == "warehouse_demo"
-    assert len(scenario.workers) == 5
-    assert {w.worker_id for w in scenario.workers} == {0, 1, 2, 3, 4}
-    assert len(scenario.occlusions) >= 1
+    assert {w.worker_id for w in scenario.workers} == {0, 1, 2, 3, 4, 5, 6, 7, 8}
+    assert {w.worker_id for w in scenario.workers if not w.active} == {2, 5, 6, 7, 8}
+    assert {"dead_zone_healthy", "dead_zone_occluded", "conflict_ambiguous", "conflict_resolvable"} <= set(scenario.scripts)
+    assert scenario.auto and len(scenario.anchors) == 2
 
 
-def test_default_scenario_has_a_worker_whose_route_crosses_the_blind_aisle():
+def test_dead_zone_script_route_goes_through_the_blind_block():
     scenario = load_scenario(DEFAULT_SCENARIO)
-    # The blind aisle is x in [8, 11] (data/floorplan/warehouse_demo.geojson).
-    # At least one worker's route must have waypoints on both sides of it.
-    crosses = any(
-        any(x < 8.0 for x, _ in w.route) and any(x > 11.0 for x, _ in w.route)
-        for w in scenario.workers
-    )
-    assert crosses
+    route = scenario.scripts["dead_zone_healthy"][0]["assign"]["route"]
+    assert any(14.5 < x < 25.5 and 9.5 < y < 15.5 for x, y in route)
+    assert route[0][0] < 14.0 and any(x > 26.0 for x, _ in route)  # in from the west door, out to the east
+    assert route[0] == route[-1]  # a closed circuit: a re-run continues the same person
 
 
 def test_scenario_round_trips_worker_fields(tmp_path):

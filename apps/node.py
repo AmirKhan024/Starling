@@ -42,10 +42,11 @@ from __future__ import annotations
 
 import argparse
 import bisect
+import math
 import signal
 import time
 from collections import Counter, deque
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, Optional
 
@@ -89,6 +90,11 @@ _SIM_RECV_TIMEOUT_MS = 500
 # and still count as candidate corroborators of each other in the
 # in-node plausibility pass (_ReputationLoop) below.
 _CORROBORATION_WINDOW_S = 5.0
+# Only another node's claim within this many metres of a claim can be a
+# corroborator OF it (two cameras seeing the same person). Camera zones need not
+# overlap, and a claim from a node watching somewhere else is just another
+# person: offering those made every claim look uncorroborated.
+_CORROBORATION_RADIUS_M = 4.0
 # A track counts as ESTABLISHED (usable as a reference for a new track's
 # first claims) once this many of its claims were accepted.
 _MIN_ESTABLISHED_CLAIMS = 3
@@ -153,6 +159,9 @@ def _load_navmesh(cfg, log) -> Optional[NavMesh]:
     return None
 
 
+_plausibility_log = get_logger("starling.plausibility")
+
+
 class _ReputationLoop:
     """Periodic in-node plausibility + reputation pass over this node's
     own merged claim set (STATUS.md Step 4). Before this existed, only
@@ -206,6 +215,12 @@ class _ReputationLoop:
         # Per source node: claims graded / claims that failed plausibility
         # (surfaced by the demo dashboard).
         self.evaluated_by_node: Counter[int] = Counter()
+        # Claims that reached this replica through anti-entropy catch-up (after a
+        # partition, a restart, ...): historical BY CONSTRUCTION, so their age is
+        # not evidence of a replay. They still get the physics checks, and a
+        # replay (an old timestamp on a NEW sequence number) is still caught by
+        # the per-origin HLC monotonicity test below.
+        self.catchup_ids: set[str] = set()
         self.rejected_by_node: Counter[int] = Counter()
 
     def run_pass(self, now_t_media: float) -> None:
@@ -243,6 +258,16 @@ class _ReputationLoop:
         # anti-entropy catch-up delivered a large backlog at once).
         by_time = sorted(range(len(claims)), key=lambda i: claims[i]["t_media"])
         times = [claims[i]["t_media"] for i in by_time]
+        hlc_monotone: set[str] = set()
+        by_origin: dict[int, list] = {}
+        for c in claims:
+            by_origin.setdefault(c["node_id"], []).append(c)
+        for origin_claims in by_origin.values():
+            running = float("-inf")
+            for c in sorted(origin_claims, key=lambda c: c["seq"]):
+                if c["hlc_physical_ms"] >= running:
+                    hlc_monotone.add(c["claim_id"])
+                running = max(running, c["hlc_physical_ms"])
         pending_baseline: dict[tuple[int, Any], tuple[tuple[float, float], float]] = {}
         pending_provisional: dict[tuple[int, Any], tuple[tuple[float, float], float]] = {}
         newly_accepted: Counter[tuple[int, Any]] = Counter()
@@ -256,11 +281,18 @@ class _ReputationLoop:
 
             lo = bisect.bisect_left(times, claim["t_media"] - _CORROBORATION_WINDOW_S)
             hi = bisect.bisect_right(times, claim["t_media"] + _CORROBORATION_WINDOW_S)
+            cx, cy = claim.get("world_x"), claim.get("world_y")
             corroborators = [
                 claims[i]
                 for i in sorted(by_time[lo:hi])  # keep the canonical claim order
                 if claims[i]["node_id"] != source_node
+                and (
+                    cx is None
+                    or claims[i].get("world_x") is None
+                    or math.hypot(claims[i]["world_x"] - cx, claims[i]["world_y"] - cy) <= _CORROBORATION_RADIUS_M
+                )
             ]
+            historical = claim_id in self.catchup_ids and claim_id in hlc_monotone
             track = (source_node, claim.get("local_track_id"))
 
             # Baseline candidates, all fixed as of the START of this pass.
@@ -276,6 +308,14 @@ class _ReputationLoop:
             own_t = self._last_t_media.get(track)
             if own_t is not None:
                 candidates = [(self._last_position[track], own_t)] if claim["t_media"] > own_t else []
+            elif track in pending_provisional:
+                # A new track already seen EARLIER IN THIS PASS (e.g. a catch-up
+                # burst): its own first claim is its baseline, not an unrelated
+                # worker's position. Only once it is old enough to grade reliably
+                # (same reason as min_baseline_refresh_s); before that there is
+                # nothing comparable, so the physics checks are skipped.
+                prov_pos, prov_t = pending_provisional[track]
+                candidates = [(prov_pos, prov_t)] if claim["t_media"] - prov_t >= self.min_baseline_refresh_s else []
             else:
                 candidates = [
                     (self._last_position[k], self._last_t_media[k])
@@ -291,7 +331,7 @@ class _ReputationLoop:
                     last_position=position,
                     last_t_media=t_baseline,
                     corroborating_claims=corroborators,
-                    now_physical_ms=int(now_t_media * 1000),
+                    now_physical_ms=None if historical else int(now_t_media * 1000),
                 )
                 attempt = plausibility_check(claim, state, self.geometry, self.cfg)
                 if result is None or attempt.passed:
@@ -299,10 +339,24 @@ class _ReputationLoop:
                 if attempt.passed:
                     break
             assert result is not None
+            if result.passed and "freshness" in result.failures:
+                # A claim older than the replay window that is NOT a legitimate
+                # catch-up delivery is a replay candidate: reject it on that alone
+                # (the graded score would otherwise let a physically consistent
+                # replay through).
+                result = replace(result, passed=False)
             self.reputation_table.observe(source_node, result)
             self.evaluated_by_node[source_node] += 1
             if not result.passed:
                 self.rejected_by_node[source_node] += 1
+                _plausibility_log.info(
+                    "plausibility_rejected", about_node=source_node, track=claim.get("local_track_id"),
+                    failures=result.failures, t_media=round(claim["t_media"], 2),
+                    pos=[round(cx, 2), round(cy, 2)] if cx is not None else None,
+                    baseline=[[round(p[0][0], 2), round(p[0][1], 2)] if p[0] else None for p in candidates][:2],
+                    catchup=claim_id in self.catchup_ids,
+                    details={k: (round(v, 2) if isinstance(v, float) else v) for k, v in result.details.items() if k != "claim_id"},
+                )
 
             has_pos = claim.get("world_x") is not None and claim.get("world_y") is not None
             if result.passed:
@@ -485,7 +539,7 @@ def _run_sim(ctx: _RunContext, keys: Optional[NodeKeys]) -> int:
     cfg = ctx.cfg
 
     sim_attestor: Optional[SimAttestor] = None
-    if ctx.navmesh is not None and cfg.coverage.watched_boundary_ids:
+    if ctx.navmesh is not None:  # every sim node attests its own zone's coverage (ZONE_REGION_BASE)
         sim_attestor = SimAttestor(
             node_id=cfg.node_id,
             watched_boundary_ids=cfg.coverage.watched_boundary_ids,
@@ -621,6 +675,7 @@ def run(
         elif kind == "vv_delta":
             claims = [claim_proto_to_record(c) for c in envelope.vv_delta.claims]
             anti_entropy.on_delta(claims)
+            reputation_loop.catchup_ids.update(c["claim_id"] for c in claims)
         log.info("gossip_received", kind=kind, sender=envelope.sender_node_id)
 
     # Loaded once, independent of whether gossip itself can start, so a

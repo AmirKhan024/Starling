@@ -45,11 +45,16 @@ KEYS_DIR = REPO / "configs" / "keys"
 NODE_DB_DIR = REPO / "data" / "nodes" / "sim"
 DEFAULT_LOG_DIR = REPO / "data" / "demo" / "logs"
 STOP_GRACE_S = 4.0
+CENTRAL_PORT = 7000
+CENTRAL_PIDFILE = REPO / "data" / "demo" / "central.pid"
 
 
 class DemoLauncher:
-    def __init__(self, speed: Optional[float] = None, port: Optional[int] = None, log_dir: Path = DEFAULT_LOG_DIR) -> None:
+    def __init__(
+        self, speed: Optional[float] = None, port: Optional[int] = None, log_dir: Path = DEFAULT_LOG_DIR, auto: bool = True
+    ) -> None:
         self.speed = speed
+        self.auto = auto  # False = presenter mode: no automatic dead-zone episodes
         self.dash_cfg = load_demo_config(DASHBOARD_CONFIG)
         if port is not None:
             self.dash_cfg.http_port = port
@@ -95,6 +100,22 @@ class DemoLauncher:
             [sys.executable, *args], cwd=REPO, stdout=log, stderr=subprocess.STDOUT, env=env, **kwargs
         )
 
+    def _central_args(self) -> list:
+        return [str(REPO / "apps" / "central_server_sim.py"), "--sim-endpoint", "tcp://127.0.0.1:5560", "--port", str(CENTRAL_PORT)]
+
+    def kill_central(self) -> None:
+        """Hard-terminate the centralised comparison server."""
+        p = self.procs.get("central")
+        if p is not None and p.poll() is None:
+            p.kill()
+            p.wait(timeout=5)
+
+    def restart_central(self) -> None:
+        old = self._logs.get("central")
+        if old:
+            old.close()  # type: ignore[attr-defined]
+        self._spawn("central", self._central_args())
+
     def _node_args(self, n: int) -> list:
         return [str(REPO / "apps" / "node.py"), "--config", str(Path(str(NODE_CONFIG).format(n)))]
 
@@ -103,7 +124,10 @@ class DemoLauncher:
         sim_args = ["-m", "starling_sim.runner", "--config", str(SIM_CONFIG)]
         if self.speed is not None:
             sim_args += ["--speed", str(self.speed)]
+        if not self.auto:
+            sim_args.append("--no-auto")
         self._spawn("simulator", sim_args)
+        self._spawn("central", self._central_args())
         for n in NODE_IDS:
             self._spawn(f"node-{n}", self._node_args(n))
         self._spawn(
@@ -159,10 +183,23 @@ class DemoLauncher:
     def stop(self) -> dict:
         """Stop everything (dashboard first, simulator last) and record each
         process's exit status."""
-        order = ["dashboard"] + [f"node-{n}" for n in NODE_IDS] + ["simulator"]
+        order = ["dashboard", "central"] + [f"node-{n}" for n in NODE_IDS] + ["simulator"]
         for name in order:
             if name in self.procs:
                 self.exit_status[name] = self._stop_one(name, self.procs[name])
+        # A central server restarted from the dashboard is not our child: stop it by pid.
+        try:
+            pid = int(CENTRAL_PIDFILE.read_text())
+            mine = self.procs.get("central")
+            if mine is None or mine.pid != pid:
+                import subprocess as sp
+
+                if os.name == "nt":
+                    sp.run(["taskkill", "/PID", str(pid), "/F"], capture_output=True)
+                else:
+                    os.kill(pid, signal.SIGTERM)
+        except (OSError, ValueError):
+            pass
         for f in self._logs.values():
             try:
                 f.close()  # type: ignore[attr-defined]
@@ -176,9 +213,10 @@ def main(argv: Optional[list] = None) -> int:
     ap.add_argument("--headless", action="store_true", help="do not open a browser")
     ap.add_argument("--speed", type=float, default=None, help="simulator speed multiplier (1.0 = real time)")
     ap.add_argument("--port", type=int, default=None, help="dashboard HTTP port (default from configs/demo_dashboard.yaml)")
+    ap.add_argument("--presenter", action="store_true", help="no automatic episodes: trigger every moment from the dashboard's demo-script panel")
     args = ap.parse_args(argv)
 
-    launcher = DemoLauncher(speed=args.speed, port=args.port)
+    launcher = DemoLauncher(speed=args.speed, port=args.port, auto=not args.presenter)
     launcher.prepare()
     print("starting simulator, 4 nodes and the dashboard ...", flush=True)
     launcher.start()

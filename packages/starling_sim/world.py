@@ -52,6 +52,9 @@ class Worker:
     pause_prob_per_tick: float = 0.0
     pause_duration_s: tuple[float, float] = (1.0, 3.0)
     loop: bool = True
+    active: bool = True
+    face_identity: Optional[str] = None
+    on_done: Optional[str] = None  # when a non-looping route ends: "deactivate"
     pos: tuple[float, float] = field(init=False)
     _dist_traveled: float = field(default=0.0, init=False, repr=False)
     _pause_remaining_s: float = field(default=0.0, init=False, repr=False)
@@ -60,6 +63,9 @@ class Worker:
     _path_length: float = field(init=False, repr=False)
 
     def __post_init__(self) -> None:
+        self._build_path()
+
+    def _build_path(self) -> None:
         if not self.route:
             raise ValueError(f"worker {self.worker_id}: route must have at least one waypoint")
         path = list(self.route)
@@ -79,7 +85,25 @@ class Worker:
         self._path_length = cum[-1] if len(cum) > 1 else 0.0
         self.pos = path[0]
 
+    def assign_route(
+        self, route: list, speed_m_s: Optional[float] = None, loop: bool = False, on_done: Optional[str] = "deactivate"
+    ) -> None:
+        """Script hook: start a fresh route now (the worker appears at its first
+        waypoint, so an actor 'enters the building' rather than teleporting)."""
+        self.route = [tuple(p) for p in route]
+        if speed_m_s is not None:
+            self.speed_m_s = speed_m_s
+        self.loop = loop
+        self.on_done = on_done
+        self._dist_traveled = 0.0
+        self._pause_remaining_s = 0.0
+        self.pause_prob_per_tick = 0.0
+        self._build_path()
+        self.active = True
+
     def tick(self, dt_s: float, rng: np.random.Generator) -> None:
+        if not self.active:
+            return
         if self._pause_remaining_s > 0:
             self._pause_remaining_s = max(0.0, self._pause_remaining_s - dt_s)
             return
@@ -94,6 +118,8 @@ class Worker:
             self._dist_traveled %= self._path_length
         else:
             self._dist_traveled = min(self._dist_traveled, self._path_length)
+            if self._dist_traveled >= self._path_length and self.on_done == "deactivate":
+                self.active = False
         self.pos = self._position_at(self._dist_traveled)
 
     def _position_at(self, dist: float) -> tuple[float, float]:
@@ -159,24 +185,76 @@ class World:
             )
             for i, sw in enumerate(scenario.workers)
         ]
+        # Twins: a near-copy of another worker's appearance (cosine ~0.98).
+        by_id = {w.worker_id: w for w in self.workers}
+        for sw in scenario.workers:
+            if sw.twin_of is not None and sw.twin_of in by_id:
+                w, base = by_id[sw.worker_id], by_id[sw.twin_of]
+                v = base.identity_vector + 0.05 * self._rng.normal(size=base.identity_vector.shape)
+                w.identity_vector = (v / np.linalg.norm(v)).astype(base.identity_vector.dtype)
+        for sw in scenario.workers:
+            w = by_id[sw.worker_id]
+            w.active = sw.active
+            w.face_identity = sw.face_identity
+        self.anchors = list(scenario.anchors)
+        self.last_anchor_t: dict[tuple[int, int], float] = {}
+        self.scripts = dict(scenario.scripts)
+        self._pending: list[tuple[float, dict]] = []  # (due t_media, step)
         self.occlusions = [
             OcclusionEvent(o.node_id, o.start_s, o.duration_s, o.occlusion_ratio, o.detector_health)
             for o in scenario.occlusions
         ]
 
+    # -- scripting (called by the simulator's control endpoint) ---------
+
+    def run_script(self, name: str) -> bool:
+        steps = self.scripts.get(name)
+        if steps is None:
+            return False
+        for step in steps:
+            delay = step.get("delay_s", (step.get("assign") or step.get("occlude") or {}).get("delay_s", 0.0))
+            self._pending.append((self.t_media + float(delay), step))
+        return True
+
+    def occlude(self, node_id: int, duration_s: float, occlusion_ratio: float = 0.9, detector_health: float = 0.3) -> None:
+        self.occlusions.append(OcclusionEvent(node_id, self.t_media, duration_s, occlusion_ratio, detector_health))
+
+    def clear_occlusions(self) -> None:
+        self.occlusions = [o for o in self.occlusions if o.start_s + o.duration_s <= self.t_media]
+
+    def _run_due_steps(self) -> None:
+        due = [s for s in self._pending if s[0] <= self.t_media]
+        self._pending = [s for s in self._pending if s[0] > self.t_media]
+        by_id = {w.worker_id: w for w in self.workers}
+        for _, step in due:
+            if "assign" in step:
+                a = step["assign"]
+                w = by_id.get(a["worker_id"])
+                if w is not None:
+                    self.last_anchor_t = {k: v for k, v in self.last_anchor_t.items() if k[0] != w.worker_id}
+                    w.assign_route(a["route"], a.get("speed"), a.get("loop", False), a.get("on_done", "deactivate"))
+            if "occlude" in step:
+                o = step["occlude"]
+                self.occlude(o["node_id"], o["duration_s"], o.get("occlusion_ratio", 0.9), o.get("detector_health", 0.3))
+            if "deactivate" in step:
+                w = by_id.get(step["deactivate"])
+                if w is not None:
+                    w.active = False
+
     def tick(self, dt_s: float) -> None:
         self.t_media += dt_s
+        self._run_due_steps()
         for worker in self.workers:
             worker.tick(dt_s, self._rng)
 
     def positions(self) -> dict[int, tuple[float, float]]:
-        return {w.worker_id: w.pos for w in self.workers}
+        return {w.worker_id: w.pos for w in self.workers if w.active}
 
     def workers_in_zone(self, node_id: int) -> list[Worker]:
         polygon = self.zones.get(node_id)
         if polygon is None:
             return []
-        return [w for w in self.workers if polygon.contains(Point(*w.pos))]
+        return [w for w in self.workers if w.active and polygon.contains(Point(*w.pos))]
 
     def active_occlusion(self, node_id: int) -> Optional[OcclusionEvent]:
         for event in self.occlusions:

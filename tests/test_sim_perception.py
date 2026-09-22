@@ -31,7 +31,7 @@ def _world_with_workers(routes: dict[int, list[tuple[float, float]]]) -> World:
 
 
 def test_observe_zone_only_returns_workers_physically_inside_that_zone():
-    world = _world_with_workers({0: [(4.0, 12.0)], 1: [(15.0, 12.0)]})
+    world = _world_with_workers({0: [(4.0, 12.0)], 1: [(15.0, 5.0)]})
     cfg = PerceptionSimConfig(detection_miss_prob=0.0)
     rng = np.random.default_rng(0)
 
@@ -43,7 +43,7 @@ def test_observe_zone_only_returns_workers_physically_inside_that_zone():
 
 
 def test_observe_zone_worker_in_the_blind_gap_is_seen_by_no_zone():
-    world = _world_with_workers({2: [(9.5, 12.5)]})  # inside the blind aisle
+    world = _world_with_workers({2: [(19.0, 14.5)]})  # inside the blind block
     cfg = PerceptionSimConfig(detection_miss_prob=0.0)
     rng = np.random.default_rng(0)
 

@@ -49,6 +49,7 @@ automatically on first run (`configs/keys/`, git-ignored).
 python scripts/run_demo.py            # opens the dashboard in your browser
 python scripts/run_demo.py --headless # print the URL only (no browser)
 python scripts/run_demo.py --speed 2  # simulator at 2x real time
+python scripts/run_demo.py --presenter # no automatic episodes: drive it from the Demo script panel
 ```
 
 The launcher starts, each as a separate OS process: the simulator, four sim-mode
@@ -56,37 +57,44 @@ camera nodes, and the dashboard (default `http://127.0.0.1:8765`). It waits
 until the dashboard answers, prints the URL, and stops everything cleanly on
 **Ctrl+C**. Per-process logs are written to `data/demo/logs/`.
 
-## Demo script — the five moments
+## Demo script — the moments
 
-Open the dashboard. The top-left map is the warehouse floor: **solid coloured
-dots** are where the network *believes* each worker is (one colour per resolved
-identity); **faint dashed rings** are the simulator's ground truth, for
-comparison only.
+Open the dashboard. The map is the warehouse floor: **solid coloured dots** are
+where the network *believes* each worker is (one colour per resolved identity);
+**faint dashed rings** are the simulator's ground truth, for comparison only. Four
+camera zones (green outline = the camera is sending healthy coverage attestations,
+amber = silent) surround a 12x7 m **uncovered block** in the middle. The **"Demo
+script"** panel at the top right lists every moment in order with one button each
+(start the demo with `--presenter` to stop the automatic dead-zone episodes and
+drive everything by hand).
 
-1. **Normal walk.** Just watch. Five workers walk their routes; each keeps the
-   same colour and label (`P-001`…) as they cross camera zones. The header shows
-   the mean position error against ground truth.
-2. **Dead zone.** One worker (worker-2) shuttles through the 3 m *blind aisle*
-   between node 0's and node 1's zones. While it is unseen, a shaded **"could be
-   here: N m²"** region appears around the aisle; the area is shown as a number
-   next to it and in the *Candidate regions* line. Gossiped attestations
-   ("nobody crossed this boundary") trim it; when the worker reappears it is
-   re-associated with the **same identity**.
-3. **Partition and heal.** Press **Partition {2,3} from {0,1}**. The node cards
-   show `partitioned: yes` and the claim counts of the two sides drift apart.
-   Press **Heal**: within a few seconds the counts equalise, *gaps* return to 0
-   and the convergence badge turns **CONVERGED**. Any genuine identity conflict
-   would appear in the **Open identity forks** panel and stays open.
-4. **Lying node.** Pick a node in the dropdown and press **Make node lie**. Its
-   reputation bar (the median of the *other* nodes' opinions) falls and its
-   **rejected** counter climbs. Press **Stop lying** and it recovers. **Reset**
-   heals every link, stops every lie and clears the dashboard's view.
-5. **Query and refusal.** In the query box (purpose `safety`) ask
-   `where is worker 2` → a structured answer with *Confirmed* (last position,
-   which node, how long ago) and *Inferred* (candidate region) parts and the
-   unreachable nodes. Ask `where is worker 9` → a **refusal with its reason**.
-   Switch the purpose to `productivity` → refused: purpose limitation is
-   enforced by the capability token, not by policy.
+1. **Normal walk.** Watch: four workers patrol; identities keep their colour.
+2. **Dead zone — healthy exits.** Worker-2 walks into the uncovered block and stays
+   hidden ~27 s. A "could be here: N m²" region appears and stays **inside the
+   block**; the faint grey area is what plain reachability would allow without
+   negative evidence (typically 8-10x larger). Every camera around the block is
+   healthy and saw nobody leave, so their zones are ruled out.
+3. **Dead zone — occluded camera.** Same walk, but camera 1 (north) is occluded and
+   sends no healthy attestation. Its silence is *not* counted as evidence, so the
+   region visibly leaks into that camera's zone — and only that one. The card under
+   the map says why, in plain English.
+4. **Partition and heal.** Cut {2,3} from {0,1}: both halves keep tracking (and the
+   centralized panel loses the cut-off side). Heal: claim counts equalise, gaps 0.
+5. **Lying node.** Make node 2 lie: its reputation (as its peers see it) falls and
+   its rejected-claims counter climbs; stop it and it recovers.
+6. **Query and refusal.** `where is worker 2` (safety token) gives a structured
+   answer with *Confirmed*, *Inferred* (candidate region while hidden) and
+   unreachable nodes; `where is worker 9` and the `productivity` purpose are refused
+   with their reasons.
+7. **Conflict — resolvable.** The network splits and each side face-anchors a
+   look-alike as the *same* identity. After healing a fork appears and is resolved by
+   reachability ("branch 1 requires 7.4 m/s over 3.8 s, exceeds v_max 1.6 m/s").
+8. **Conflict — ambiguous.** Same set-up but both branches are physically possible:
+   the fork stays **open** with both candidate positions drawn. Nobody guesses.
+9. **Centralized comparison.** The panel beside the map is an ordinary
+   single-server system (the original project's matcher; *not* Starling). Under a
+   partition it loses the cut-off cameras; **Kill central server** and it is DOWN
+   while Starling carries on.
 
 ## How it is built
 
@@ -104,6 +112,7 @@ comparison only.
 * `packages/starling_query` — capability tokens and the query layer
 * `packages/starling_sim` — the simulator (workers, noisy per-zone perception)
 * `apps/node.py` — one node process; `apps/demo_dashboard/` — the dashboard
+* `apps/central_server_sim.py` — the deliberately centralized comparison server (not part of Starling)
 
 Architectural rules (see `CLAUDE.md`): a node is an OS process and never shares a
 database; raw video never crosses the wire; gossip goes to a configured

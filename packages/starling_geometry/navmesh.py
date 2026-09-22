@@ -200,6 +200,37 @@ class NavMesh:
             return np.zeros_like(self.grid, dtype=bool)
         return (components != near_label) & (components != 0)
 
+    def zone_masks(self, geojson_path) -> dict:
+        """`{node_id: bool grid}` of the cells inside each `camera_zone` polygon
+        of a floor-plan GeoJSON (cell CENTRES tested). Static site geometry:
+        reading it is not access to any node's state."""
+        import json
+
+        from shapely.geometry import Point, shape
+        from shapely.prepared import prep
+
+        with open(geojson_path, encoding="utf-8") as f:
+            feats = json.load(f)["features"]
+        height, width = self.grid.shape
+        out: dict = {}
+        for feat in feats:
+            props = feat.get("properties") or {}
+            if props.get("role") != "camera_zone" or "node_id" not in props:
+                continue
+            poly = prep(shape(feat["geometry"]))
+            mask = np.zeros((height, width), dtype=bool)
+            minx, miny, maxx, maxy = shape(feat["geometry"]).bounds
+            for j in range(height):
+                y = self.origin[1] + (j + 0.5) * self.cell_size
+                if not (miny <= y <= maxy):
+                    continue
+                for i in range(width):
+                    x = self.origin[0] + (i + 0.5) * self.cell_size
+                    if minx <= x <= maxx and poly.contains(Point(x, y)):
+                        mask[j, i] = True
+            out[int(props["node_id"])] = mask & self.grid
+        return out
+
     def render(self, mask: Optional[np.ndarray] = None):
         """Renders the free-space grid as a PIL image (dashboard + docs
         use this — e.g. scripts/render_reachability.py). White = free,
