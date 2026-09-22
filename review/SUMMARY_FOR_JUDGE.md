@@ -235,8 +235,12 @@ anything was changed in response to it:
 
 - Branches pushed: `sim-demo` and `main`, both to
   `https://github.com/AmirKhan024/Starling.git`
-- Latest commit on main: `4fc15c8` — "review: document the second
-  (review-harness) fork-matching bug in first-run findings"
+- Latest commit on main as of the automated review evidence above: `4fc15c8`
+  — "review: document the second (review-harness) fork-matching bug in
+  first-run findings". This file itself is committed one commit after that
+  (adding a file necessarily post-dates the hash it would reference) — run
+  `git log -1 main` for the true tip; the only change since `4fc15c8` is this
+  summary file, nothing in the demo or its evidence.
 
 ## Files to give the judge
 
