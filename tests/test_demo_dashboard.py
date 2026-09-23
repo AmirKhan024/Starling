@@ -6,6 +6,7 @@ mesh.
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import pytest
@@ -70,7 +71,7 @@ REQUIRED_TEST_IDS = [
 
 @pytest.mark.parametrize("test_id", REQUIRED_TEST_IDS)
 def test_index_html_exposes_stable_test_id(test_id):
-    html = (DASH_DIR / "static" / "index.html").read_text(encoding="utf-8")
+    html = (DASH_DIR / "static" / "engineer.html").read_text(encoding="utf-8")
     assert f'data-testid="{test_id}' in html
 
 
@@ -132,3 +133,42 @@ def test_mask_runs_round_trip(engine):
     mask[3, 0:2] = True
     mask[3, 7:10] = True
     assert engine._mask_runs(mask) == [[1, 2, 4], [3, 0, 1], [3, 7, 9]]
+
+
+# ── the operator (manager) view ───────────────────────────────────────────
+
+MANAGER_TEST_IDS = [
+    "sys-status", "kpi-people", "kpi-cameras", "alerts", "people-list", "camera-list",
+    "find-input", "find-go", "clear-spotlight", "zoom-in", "zoom-out", "zoom-fit",
+    "map", "engineer-link", "last-update",
+]
+
+
+@pytest.mark.parametrize("test_id", MANAGER_TEST_IDS)
+def test_operator_view_exposes_stable_test_id(test_id):
+    html = (DASH_DIR / "static" / "index.html").read_text(encoding="utf-8")
+    assert f'data-testid="{test_id}' in html
+
+
+def test_operator_view_hides_the_technical_vocabulary():
+    """A warehouse manager reads this screen. Words that only mean something to
+    an engineer belong in the technical view or the browser console, not here."""
+    html = (DASH_DIR / "static" / "index.html").read_text(encoding="utf-8")
+    # strip the <script> block: console.debug() legitimately names these fields
+    body = re.sub(r"<script>.*?</script>", "", html, flags=re.S)
+    for jargon in [
+        "claim", "CRDT", "gossip", "anti-entropy", "reputation", "plausibility",
+        "convergence", "partition", "fork", "attestation", "node-", "quorum", "replica",
+    ]:
+        assert jargon.lower() not in body.lower(), f"operator view shows engineer jargon: {jargon!r}"
+
+
+def test_operator_view_links_to_the_technical_view():
+    html = (DASH_DIR / "static" / "index.html").read_text(encoding="utf-8")
+    assert 'href="/engineer"' in html
+
+
+def test_server_serves_both_views():
+    server = (DASH_DIR / "server.py").read_text(encoding="utf-8")
+    assert '"index.html"' in server and '"engineer.html"' in server
+    assert '@app.get("/engineer")' in server

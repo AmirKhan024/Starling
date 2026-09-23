@@ -64,7 +64,14 @@ def create_app(cfg: DemoDashboardConfig) -> FastAPI:
 
     @app.get("/")
     def index() -> FileResponse:
+        """The operator view: what a warehouse manager needs, in plain words."""
         return FileResponse(_STATIC / "index.html", headers={"Cache-Control": "no-store"})
+
+    @app.get("/engineer")
+    def engineer() -> FileResponse:
+        """The full technical view: claim counts, gaps, reputation, forks,
+        convergence, partition state. This is what the automated review reads."""
+        return FileResponse(_STATIC / "engineer.html", headers={"Cache-Control": "no-store"})
 
     @app.get("/api/health")
     def health() -> dict:

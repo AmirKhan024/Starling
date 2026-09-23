@@ -227,7 +227,10 @@ class Review:
         m = "0"
         self.set_moment(m, what="The dashboard loads and all four node processes, the simulator and the centralized comparison server are up.",
                         action="Launched the demo in presenter mode (`scripts/run_demo.py --presenter`, launched here via `DemoLauncher`) and opened the dashboard in headless Chromium.")
-        self.page.goto(self.launcher.url)
+        # The review reads the TECHNICAL view: the operator view at "/" is written
+        # for a warehouse manager and deliberately hides claim counts, gaps,
+        # reputation and fork internals, which are exactly what the evidence needs.
+        self.page.goto(self.launcher.url + "/engineer")
         self.page.wait_for_selector('[data-testid="node-card-3"]', timeout=60000)
         ok, _ = self.wait(lambda d: num(d["nodes_live"]) == 4 and (num(d["claims_total"]) or 0) > 50 and d["central"]["status"] == "HEALTHY", 90, "4 nodes live + central healthy")
         t_live = self.now()
