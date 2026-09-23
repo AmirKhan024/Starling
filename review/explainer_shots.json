@@ -1,0 +1,6479 @@
+{
+  "shots": [
+    {
+      "slug": "01_fullpage",
+      "panel": "full",
+      "file": "explainer_shots/01_fullpage.png",
+      "caption": "The whole technical view at rest.",
+      "note": "",
+      "t_s": 12.6,
+      "bytes": 755605,
+      "live": {
+        "sim_t": 11.2,
+        "claims_total": 210,
+        "nodes_live": 4,
+        "mean_error_m": 0.3,
+        "convergence": {
+          "spread": 17,
+          "holes_total": 0,
+          "any_partitioned": false,
+          "converged": true,
+          "tolerance": 30
+        },
+        "forks_open": 0,
+        "forks": [],
+        "nodes": [
+          {
+            "id": 0,
+            "live": true,
+            "claims": 203,
+            "holes": 0,
+            "partitioned": false,
+            "lying": false,
+            "attack": "none",
+            "rejected": 0,
+            "evaluated": 52,
+            "reputation": 1.0,
+            "coverage_healthy": true
+          },
+          {
+            "id": 1,
+            "live": true,
+            "claims": 203,
+            "holes": 0,
+            "partitioned": false,
+            "lying": false,
+            "attack": "none",
+            "rejected": 0,
+            "evaluated": 50,
+            "reputation": 1.0,
+            "coverage_healthy": true
+          },
+          {
+            "id": 2,
+            "live": true,
+            "claims": 187,
+            "holes": 0,
+            "partitioned": false,
+            "lying": false,
+            "attack": "none",
+            "rejected": 0,
+            "evaluated": 50,
+            "reputation": 1.0,
+            "coverage_healthy": true
+          },
+          {
+            "id": 3,
+            "live": true,
+            "claims": 186,
+            "holes": 0,
+            "partitioned": false,
+            "lying": false,
+            "attack": "none",
+            "rejected": 0,
+            "evaluated": 50,
+            "reputation": 1.0,
+            "coverage_healthy": true
+          }
+        ],
+        "identities": [
+          {
+            "short": "P-001",
+            "name": "worker-0",
+            "status": "seen",
+            "x": 10.95,
+            "y": 1.44,
+            "claims": 52,
+            "error_m": 0.38,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-002",
+            "name": "worker-1",
+            "status": "seen",
+            "x": 22.19,
+            "y": 1.56,
+            "claims": 50,
+            "error_m": 0.06,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-003",
+            "name": "worker-4",
+            "status": "seen",
+            "x": 24.47,
+            "y": 17.42,
+            "claims": 50,
+            "error_m": 0.34,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-004",
+            "name": "worker-3",
+            "status": "seen",
+            "x": 32.52,
+            "y": 1.5,
+            "claims": 50,
+            "error_m": 0.42,
+            "age_s": 0.0
+          }
+        ],
+        "regions": [],
+        "central": {
+          "status": "HEALTHY",
+          "cut_cameras": [],
+          "now_t_media": 10.8,
+          "identities_total": 4,
+          "tracked_now": 4,
+          "delivered_observations": 199,
+          "dropped_observations": 0,
+          "pid": 40024,
+          "uptime_s": 11.5,
+          "tracked": [
+            {
+              "id": "9JDVM3",
+              "x": 10.52,
+              "y": 1.4,
+              "camera": 0,
+              "age_s": 0.0,
+              "current": true,
+              "n": 51
+            },
+            {
+              "id": "9JDVM4",
+              "x": 24.05,
+              "y": 17.51,
+              "camera": 2,
+              "age_s": 0.0,
+              "current": true,
+              "n": 50
+            },
+            {
+              "id": "65J58W",
+              "x": 31.95,
+              "y": 1.47,
+              "camera": 3,
+              "age_s": 0.0,
+              "current": true,
+              "n": 50
+            },
+            {
+              "id": "G8BY9T",
+              "x": 21.78,
+              "y": 1.46,
+              "camera": 1,
+              "age_s": 0.0,
+              "current": true,
+              "n": 48
+            }
+          ],
+          "starling_tracked_now": 4,
+          "truth_workers": 4
+        }
+      }
+    },
+    {
+      "slug": "02_header",
+      "panel": "header",
+      "file": "explainer_shots/02_header.png",
+      "caption": "The always-on health strip.",
+      "note": "",
+      "t_s": 12.7,
+      "bytes": 22235,
+      "live": {
+        "sim_t": 11.2,
+        "claims_total": 210,
+        "nodes_live": 4,
+        "mean_error_m": 0.3,
+        "convergence": {
+          "spread": 17,
+          "holes_total": 0,
+          "any_partitioned": false,
+          "converged": true,
+          "tolerance": 30
+        },
+        "forks_open": 0,
+        "forks": [],
+        "nodes": [
+          {
+            "id": 0,
+            "live": true,
+            "claims": 203,
+            "holes": 0,
+            "partitioned": false,
+            "lying": false,
+            "attack": "none",
+            "rejected": 0,
+            "evaluated": 52,
+            "reputation": 1.0,
+            "coverage_healthy": true
+          },
+          {
+            "id": 1,
+            "live": true,
+            "claims": 203,
+            "holes": 0,
+            "partitioned": false,
+            "lying": false,
+            "attack": "none",
+            "rejected": 0,
+            "evaluated": 50,
+            "reputation": 1.0,
+            "coverage_healthy": true
+          },
+          {
+            "id": 2,
+            "live": true,
+            "claims": 187,
+            "holes": 0,
+            "partitioned": false,
+            "lying": false,
+            "attack": "none",
+            "rejected": 0,
+            "evaluated": 50,
+            "reputation": 1.0,
+            "coverage_healthy": true
+          },
+          {
+            "id": 3,
+            "live": true,
+            "claims": 186,
+            "holes": 0,
+            "partitioned": false,
+            "lying": false,
+            "attack": "none",
+            "rejected": 0,
+            "evaluated": 50,
+            "reputation": 1.0,
+            "coverage_healthy": true
+          }
+        ],
+        "identities": [
+          {
+            "short": "P-001",
+            "name": "worker-0",
+            "status": "seen",
+            "x": 10.95,
+            "y": 1.44,
+            "claims": 52,
+            "error_m": 0.38,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-002",
+            "name": "worker-1",
+            "status": "seen",
+            "x": 22.19,
+            "y": 1.56,
+            "claims": 50,
+            "error_m": 0.06,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-003",
+            "name": "worker-4",
+            "status": "seen",
+            "x": 24.47,
+            "y": 17.42,
+            "claims": 50,
+            "error_m": 0.34,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-004",
+            "name": "worker-3",
+            "status": "seen",
+            "x": 32.52,
+            "y": 1.5,
+            "claims": 50,
+            "error_m": 0.42,
+            "age_s": 0.0
+          }
+        ],
+        "regions": [],
+        "central": {
+          "status": "HEALTHY",
+          "cut_cameras": [],
+          "now_t_media": 10.8,
+          "identities_total": 4,
+          "tracked_now": 4,
+          "delivered_observations": 199,
+          "dropped_observations": 0,
+          "pid": 40024,
+          "uptime_s": 11.5,
+          "tracked": [
+            {
+              "id": "9JDVM3",
+              "x": 10.52,
+              "y": 1.4,
+              "camera": 0,
+              "age_s": 0.0,
+              "current": true,
+              "n": 51
+            },
+            {
+              "id": "9JDVM4",
+              "x": 24.05,
+              "y": 17.51,
+              "camera": 2,
+              "age_s": 0.0,
+              "current": true,
+              "n": 50
+            },
+            {
+              "id": "65J58W",
+              "x": 31.95,
+              "y": 1.47,
+              "camera": 3,
+              "age_s": 0.0,
+              "current": true,
+              "n": 50
+            },
+            {
+              "id": "G8BY9T",
+              "x": 21.78,
+              "y": 1.46,
+              "camera": 1,
+              "age_s": 0.0,
+              "current": true,
+              "n": 48
+            }
+          ],
+          "starling_tracked_now": 4,
+          "truth_workers": 4
+        }
+      }
+    },
+    {
+      "slug": "03_map",
+      "panel": "map",
+      "file": "explainer_shots/03_map.png",
+      "caption": "Believed positions vs simulator ground truth.",
+      "note": "",
+      "t_s": 12.8,
+      "bytes": 149406,
+      "live": {
+        "sim_t": 11.2,
+        "claims_total": 210,
+        "nodes_live": 4,
+        "mean_error_m": 0.3,
+        "convergence": {
+          "spread": 17,
+          "holes_total": 0,
+          "any_partitioned": false,
+          "converged": true,
+          "tolerance": 30
+        },
+        "forks_open": 0,
+        "forks": [],
+        "nodes": [
+          {
+            "id": 0,
+            "live": true,
+            "claims": 203,
+            "holes": 0,
+            "partitioned": false,
+            "lying": false,
+            "attack": "none",
+            "rejected": 0,
+            "evaluated": 52,
+            "reputation": 1.0,
+            "coverage_healthy": true
+          },
+          {
+            "id": 1,
+            "live": true,
+            "claims": 203,
+            "holes": 0,
+            "partitioned": false,
+            "lying": false,
+            "attack": "none",
+            "rejected": 0,
+            "evaluated": 50,
+            "reputation": 1.0,
+            "coverage_healthy": true
+          },
+          {
+            "id": 2,
+            "live": true,
+            "claims": 187,
+            "holes": 0,
+            "partitioned": false,
+            "lying": false,
+            "attack": "none",
+            "rejected": 0,
+            "evaluated": 50,
+            "reputation": 1.0,
+            "coverage_healthy": true
+          },
+          {
+            "id": 3,
+            "live": true,
+            "claims": 186,
+            "holes": 0,
+            "partitioned": false,
+            "lying": false,
+            "attack": "none",
+            "rejected": 0,
+            "evaluated": 50,
+            "reputation": 1.0,
+            "coverage_healthy": true
+          }
+        ],
+        "identities": [
+          {
+            "short": "P-001",
+            "name": "worker-0",
+            "status": "seen",
+            "x": 10.95,
+            "y": 1.44,
+            "claims": 52,
+            "error_m": 0.38,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-002",
+            "name": "worker-1",
+            "status": "seen",
+            "x": 22.19,
+            "y": 1.56,
+            "claims": 50,
+            "error_m": 0.06,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-003",
+            "name": "worker-4",
+            "status": "seen",
+            "x": 24.47,
+            "y": 17.42,
+            "claims": 50,
+            "error_m": 0.34,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-004",
+            "name": "worker-3",
+            "status": "seen",
+            "x": 32.52,
+            "y": 1.5,
+            "claims": 50,
+            "error_m": 0.42,
+            "age_s": 0.0
+          }
+        ],
+        "regions": [],
+        "central": {
+          "status": "HEALTHY",
+          "cut_cameras": [],
+          "now_t_media": 10.8,
+          "identities_total": 4,
+          "tracked_now": 4,
+          "delivered_observations": 199,
+          "dropped_observations": 0,
+          "pid": 40024,
+          "uptime_s": 11.5,
+          "tracked": [
+            {
+              "id": "9JDVM3",
+              "x": 10.52,
+              "y": 1.4,
+              "camera": 0,
+              "age_s": 0.0,
+              "current": true,
+              "n": 51
+            },
+            {
+              "id": "9JDVM4",
+              "x": 24.05,
+              "y": 17.51,
+              "camera": 2,
+              "age_s": 0.0,
+              "current": true,
+              "n": 50
+            },
+            {
+              "id": "65J58W",
+              "x": 31.95,
+              "y": 1.47,
+              "camera": 3,
+              "age_s": 0.0,
+              "current": true,
+              "n": 50
+            },
+            {
+              "id": "G8BY9T",
+              "x": 21.78,
+              "y": 1.46,
+              "camera": 1,
+              "age_s": 0.0,
+              "current": true,
+              "n": 48
+            }
+          ],
+          "starling_tracked_now": 4,
+          "truth_workers": 4
+        }
+      }
+    },
+    {
+      "slug": "04_identities",
+      "panel": "identities",
+      "file": "explainer_shots/04_identities.png",
+      "caption": "One row per identity the resolver produced.",
+      "note": "",
+      "t_s": 12.9,
+      "bytes": 54528,
+      "live": {
+        "sim_t": 11.2,
+        "claims_total": 210,
+        "nodes_live": 4,
+        "mean_error_m": 0.3,
+        "convergence": {
+          "spread": 17,
+          "holes_total": 0,
+          "any_partitioned": false,
+          "converged": true,
+          "tolerance": 30
+        },
+        "forks_open": 0,
+        "forks": [],
+        "nodes": [
+          {
+            "id": 0,
+            "live": true,
+            "claims": 203,
+            "holes": 0,
+            "partitioned": false,
+            "lying": false,
+            "attack": "none",
+            "rejected": 0,
+            "evaluated": 52,
+            "reputation": 1.0,
+            "coverage_healthy": true
+          },
+          {
+            "id": 1,
+            "live": true,
+            "claims": 203,
+            "holes": 0,
+            "partitioned": false,
+            "lying": false,
+            "attack": "none",
+            "rejected": 0,
+            "evaluated": 50,
+            "reputation": 1.0,
+            "coverage_healthy": true
+          },
+          {
+            "id": 2,
+            "live": true,
+            "claims": 187,
+            "holes": 0,
+            "partitioned": false,
+            "lying": false,
+            "attack": "none",
+            "rejected": 0,
+            "evaluated": 50,
+            "reputation": 1.0,
+            "coverage_healthy": true
+          },
+          {
+            "id": 3,
+            "live": true,
+            "claims": 186,
+            "holes": 0,
+            "partitioned": false,
+            "lying": false,
+            "attack": "none",
+            "rejected": 0,
+            "evaluated": 50,
+            "reputation": 1.0,
+            "coverage_healthy": true
+          }
+        ],
+        "identities": [
+          {
+            "short": "P-001",
+            "name": "worker-0",
+            "status": "seen",
+            "x": 10.95,
+            "y": 1.44,
+            "claims": 52,
+            "error_m": 0.38,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-002",
+            "name": "worker-1",
+            "status": "seen",
+            "x": 22.19,
+            "y": 1.56,
+            "claims": 50,
+            "error_m": 0.06,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-003",
+            "name": "worker-4",
+            "status": "seen",
+            "x": 24.47,
+            "y": 17.42,
+            "claims": 50,
+            "error_m": 0.34,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-004",
+            "name": "worker-3",
+            "status": "seen",
+            "x": 32.52,
+            "y": 1.5,
+            "claims": 50,
+            "error_m": 0.42,
+            "age_s": 0.0
+          }
+        ],
+        "regions": [],
+        "central": {
+          "status": "HEALTHY",
+          "cut_cameras": [],
+          "now_t_media": 10.8,
+          "identities_total": 4,
+          "tracked_now": 4,
+          "delivered_observations": 199,
+          "dropped_observations": 0,
+          "pid": 40024,
+          "uptime_s": 11.5,
+          "tracked": [
+            {
+              "id": "9JDVM3",
+              "x": 10.52,
+              "y": 1.4,
+              "camera": 0,
+              "age_s": 0.0,
+              "current": true,
+              "n": 51
+            },
+            {
+              "id": "9JDVM4",
+              "x": 24.05,
+              "y": 17.51,
+              "camera": 2,
+              "age_s": 0.0,
+              "current": true,
+              "n": 50
+            },
+            {
+              "id": "65J58W",
+              "x": 31.95,
+              "y": 1.47,
+              "camera": 3,
+              "age_s": 0.0,
+              "current": true,
+              "n": 50
+            },
+            {
+              "id": "G8BY9T",
+              "x": 21.78,
+              "y": 1.46,
+              "camera": 1,
+              "age_s": 0.0,
+              "current": true,
+              "n": 48
+            }
+          ],
+          "starling_tracked_now": 4,
+          "truth_workers": 4
+        }
+      }
+    },
+    {
+      "slug": "05_nodes",
+      "panel": "nodes",
+      "file": "explainer_shots/05_nodes.png",
+      "caption": "The four node processes and their replicas.",
+      "note": "",
+      "t_s": 13.0,
+      "bytes": 113218,
+      "live": {
+        "sim_t": 11.2,
+        "claims_total": 210,
+        "nodes_live": 4,
+        "mean_error_m": 0.3,
+        "convergence": {
+          "spread": 17,
+          "holes_total": 0,
+          "any_partitioned": false,
+          "converged": true,
+          "tolerance": 30
+        },
+        "forks_open": 0,
+        "forks": [],
+        "nodes": [
+          {
+            "id": 0,
+            "live": true,
+            "claims": 203,
+            "holes": 0,
+            "partitioned": false,
+            "lying": false,
+            "attack": "none",
+            "rejected": 0,
+            "evaluated": 52,
+            "reputation": 1.0,
+            "coverage_healthy": true
+          },
+          {
+            "id": 1,
+            "live": true,
+            "claims": 203,
+            "holes": 0,
+            "partitioned": false,
+            "lying": false,
+            "attack": "none",
+            "rejected": 0,
+            "evaluated": 50,
+            "reputation": 1.0,
+            "coverage_healthy": true
+          },
+          {
+            "id": 2,
+            "live": true,
+            "claims": 187,
+            "holes": 0,
+            "partitioned": false,
+            "lying": false,
+            "attack": "none",
+            "rejected": 0,
+            "evaluated": 50,
+            "reputation": 1.0,
+            "coverage_healthy": true
+          },
+          {
+            "id": 3,
+            "live": true,
+            "claims": 186,
+            "holes": 0,
+            "partitioned": false,
+            "lying": false,
+            "attack": "none",
+            "rejected": 0,
+            "evaluated": 50,
+            "reputation": 1.0,
+            "coverage_healthy": true
+          }
+        ],
+        "identities": [
+          {
+            "short": "P-001",
+            "name": "worker-0",
+            "status": "seen",
+            "x": 10.95,
+            "y": 1.44,
+            "claims": 52,
+            "error_m": 0.38,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-002",
+            "name": "worker-1",
+            "status": "seen",
+            "x": 22.19,
+            "y": 1.56,
+            "claims": 50,
+            "error_m": 0.06,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-003",
+            "name": "worker-4",
+            "status": "seen",
+            "x": 24.47,
+            "y": 17.42,
+            "claims": 50,
+            "error_m": 0.34,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-004",
+            "name": "worker-3",
+            "status": "seen",
+            "x": 32.52,
+            "y": 1.5,
+            "claims": 50,
+            "error_m": 0.42,
+            "age_s": 0.0
+          }
+        ],
+        "regions": [],
+        "central": {
+          "status": "HEALTHY",
+          "cut_cameras": [],
+          "now_t_media": 10.8,
+          "identities_total": 4,
+          "tracked_now": 4,
+          "delivered_observations": 199,
+          "dropped_observations": 0,
+          "pid": 40024,
+          "uptime_s": 11.5,
+          "tracked": [
+            {
+              "id": "9JDVM3",
+              "x": 10.52,
+              "y": 1.4,
+              "camera": 0,
+              "age_s": 0.0,
+              "current": true,
+              "n": 51
+            },
+            {
+              "id": "9JDVM4",
+              "x": 24.05,
+              "y": 17.51,
+              "camera": 2,
+              "age_s": 0.0,
+              "current": true,
+              "n": 50
+            },
+            {
+              "id": "65J58W",
+              "x": 31.95,
+              "y": 1.47,
+              "camera": 3,
+              "age_s": 0.0,
+              "current": true,
+              "n": 50
+            },
+            {
+              "id": "G8BY9T",
+              "x": 21.78,
+              "y": 1.46,
+              "camera": 1,
+              "age_s": 0.0,
+              "current": true,
+              "n": 48
+            }
+          ],
+          "starling_tracked_now": 4,
+          "truth_workers": 4
+        }
+      }
+    },
+    {
+      "slug": "06_controls",
+      "panel": "controls",
+      "file": "explainer_shots/06_controls.png",
+      "caption": "Every fault this demo can inject, by hand.",
+      "note": "",
+      "t_s": 13.1,
+      "bytes": 40803,
+      "live": {
+        "sim_t": 12.2,
+        "claims_total": 221,
+        "nodes_live": 4,
+        "mean_error_m": 0.11,
+        "convergence": {
+          "spread": 4,
+          "holes_total": 0,
+          "any_partitioned": false,
+          "converged": true,
+          "tolerance": 30
+        },
+        "forks_open": 0,
+        "forks": [],
+        "nodes": [
+          {
+            "id": 0,
+            "live": true,
+            "claims": 203,
+            "holes": 0,
+            "partitioned": false,
+            "lying": false,
+            "attack": "none",
+            "rejected": 0,
+            "evaluated": 57,
+            "reputation": 1.0,
+            "coverage_healthy": true
+          },
+          {
+            "id": 1,
+            "live": true,
+            "claims": 203,
+            "holes": 0,
+            "partitioned": false,
+            "lying": false,
+            "attack": "none",
+            "rejected": 0,
+            "evaluated": 54,
+            "reputation": 1.0,
+            "coverage_healthy": true
+          },
+          {
+            "id": 2,
+            "live": true,
+            "claims": 207,
+            "holes": 0,
+            "partitioned": false,
+            "lying": false,
+            "attack": "none",
+            "rejected": 0,
+            "evaluated": 55,
+            "reputation": 1.0,
+            "coverage_healthy": true
+          },
+          {
+            "id": 3,
+            "live": true,
+            "claims": 207,
+            "holes": 0,
+            "partitioned": false,
+            "lying": false,
+            "attack": "none",
+            "rejected": 0,
+            "evaluated": 55,
+            "reputation": 1.0,
+            "coverage_healthy": true
+          }
+        ],
+        "identities": [
+          {
+            "short": "P-001",
+            "name": "worker-0",
+            "status": "seen",
+            "x": 12.01,
+            "y": 1.59,
+            "claims": 57,
+            "error_m": 0.05,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-002",
+            "name": "worker-1",
+            "status": "seen",
+            "x": 22.17,
+            "y": 1.44,
+            "claims": 54,
+            "error_m": 0.07,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-003",
+            "name": "worker-4",
+            "status": "seen",
+            "x": 25.14,
+            "y": 17.9,
+            "claims": 55,
+            "error_m": 0.14,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-004",
+            "name": "worker-3",
+            "status": "seen",
+            "x": 33.73,
+            "y": 1.62,
+            "claims": 55,
+            "error_m": 0.18,
+            "age_s": 0.0
+          }
+        ],
+        "regions": [],
+        "central": {
+          "status": "HEALTHY",
+          "cut_cameras": [],
+          "now_t_media": 11.8,
+          "identities_total": 4,
+          "tracked_now": 4,
+          "delivered_observations": 219,
+          "dropped_observations": 0,
+          "pid": 40024,
+          "uptime_s": 12.6,
+          "tracked": [
+            {
+              "id": "9JDVM3",
+              "x": 11.58,
+              "y": 1.47,
+              "camera": 0,
+              "age_s": 0.0,
+              "current": true,
+              "n": 56
+            },
+            {
+              "id": "9JDVM4",
+              "x": 25.01,
+              "y": 17.45,
+              "camera": 2,
+              "age_s": 0.0,
+              "current": true,
+              "n": 55
+            },
+            {
+              "id": "65J58W",
+              "x": 33.22,
+              "y": 1.53,
+              "camera": 3,
+              "age_s": 0.0,
+              "current": true,
+              "n": 55
+            },
+            {
+              "id": "G8BY9T",
+              "x": 22.18,
+              "y": 1.44,
+              "camera": 1,
+              "age_s": 0.0,
+              "current": true,
+              "n": 53
+            }
+          ],
+          "starling_tracked_now": 4,
+          "truth_workers": 4
+        }
+      }
+    },
+    {
+      "slug": "07_demo_script",
+      "panel": "demo_script",
+      "file": "explainer_shots/07_demo_script.png",
+      "caption": "The scripted tour built into the page.",
+      "note": "",
+      "t_s": 13.2,
+      "bytes": 215556,
+      "live": {
+        "sim_t": 12.2,
+        "claims_total": 221,
+        "nodes_live": 4,
+        "mean_error_m": 0.11,
+        "convergence": {
+          "spread": 4,
+          "holes_total": 0,
+          "any_partitioned": false,
+          "converged": true,
+          "tolerance": 30
+        },
+        "forks_open": 0,
+        "forks": [],
+        "nodes": [
+          {
+            "id": 0,
+            "live": true,
+            "claims": 203,
+            "holes": 0,
+            "partitioned": false,
+            "lying": false,
+            "attack": "none",
+            "rejected": 0,
+            "evaluated": 57,
+            "reputation": 1.0,
+            "coverage_healthy": true
+          },
+          {
+            "id": 1,
+            "live": true,
+            "claims": 203,
+            "holes": 0,
+            "partitioned": false,
+            "lying": false,
+            "attack": "none",
+            "rejected": 0,
+            "evaluated": 54,
+            "reputation": 1.0,
+            "coverage_healthy": true
+          },
+          {
+            "id": 2,
+            "live": true,
+            "claims": 207,
+            "holes": 0,
+            "partitioned": false,
+            "lying": false,
+            "attack": "none",
+            "rejected": 0,
+            "evaluated": 55,
+            "reputation": 1.0,
+            "coverage_healthy": true
+          },
+          {
+            "id": 3,
+            "live": true,
+            "claims": 207,
+            "holes": 0,
+            "partitioned": false,
+            "lying": false,
+            "attack": "none",
+            "rejected": 0,
+            "evaluated": 55,
+            "reputation": 1.0,
+            "coverage_healthy": true
+          }
+        ],
+        "identities": [
+          {
+            "short": "P-001",
+            "name": "worker-0",
+            "status": "seen",
+            "x": 12.01,
+            "y": 1.59,
+            "claims": 57,
+            "error_m": 0.05,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-002",
+            "name": "worker-1",
+            "status": "seen",
+            "x": 22.17,
+            "y": 1.44,
+            "claims": 54,
+            "error_m": 0.07,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-003",
+            "name": "worker-4",
+            "status": "seen",
+            "x": 25.14,
+            "y": 17.9,
+            "claims": 55,
+            "error_m": 0.14,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-004",
+            "name": "worker-3",
+            "status": "seen",
+            "x": 33.73,
+            "y": 1.62,
+            "claims": 55,
+            "error_m": 0.18,
+            "age_s": 0.0
+          }
+        ],
+        "regions": [],
+        "central": {
+          "status": "HEALTHY",
+          "cut_cameras": [],
+          "now_t_media": 11.8,
+          "identities_total": 4,
+          "tracked_now": 4,
+          "delivered_observations": 219,
+          "dropped_observations": 0,
+          "pid": 40024,
+          "uptime_s": 12.6,
+          "tracked": [
+            {
+              "id": "9JDVM3",
+              "x": 11.58,
+              "y": 1.47,
+              "camera": 0,
+              "age_s": 0.0,
+              "current": true,
+              "n": 56
+            },
+            {
+              "id": "9JDVM4",
+              "x": 25.01,
+              "y": 17.45,
+              "camera": 2,
+              "age_s": 0.0,
+              "current": true,
+              "n": 55
+            },
+            {
+              "id": "65J58W",
+              "x": 33.22,
+              "y": 1.53,
+              "camera": 3,
+              "age_s": 0.0,
+              "current": true,
+              "n": 55
+            },
+            {
+              "id": "G8BY9T",
+              "x": 22.18,
+              "y": 1.44,
+              "camera": 1,
+              "age_s": 0.0,
+              "current": true,
+              "n": 53
+            }
+          ],
+          "starling_tracked_now": 4,
+          "truth_workers": 4
+        }
+      }
+    },
+    {
+      "slug": "08_events",
+      "panel": "events",
+      "file": "explainer_shots/08_events.png",
+      "caption": "What the system did, in order.",
+      "note": "",
+      "t_s": 13.3,
+      "bytes": 18677,
+      "live": {
+        "sim_t": 12.2,
+        "claims_total": 221,
+        "nodes_live": 4,
+        "mean_error_m": 0.11,
+        "convergence": {
+          "spread": 4,
+          "holes_total": 0,
+          "any_partitioned": false,
+          "converged": true,
+          "tolerance": 30
+        },
+        "forks_open": 0,
+        "forks": [],
+        "nodes": [
+          {
+            "id": 0,
+            "live": true,
+            "claims": 203,
+            "holes": 0,
+            "partitioned": false,
+            "lying": false,
+            "attack": "none",
+            "rejected": 0,
+            "evaluated": 57,
+            "reputation": 1.0,
+            "coverage_healthy": true
+          },
+          {
+            "id": 1,
+            "live": true,
+            "claims": 203,
+            "holes": 0,
+            "partitioned": false,
+            "lying": false,
+            "attack": "none",
+            "rejected": 0,
+            "evaluated": 54,
+            "reputation": 1.0,
+            "coverage_healthy": true
+          },
+          {
+            "id": 2,
+            "live": true,
+            "claims": 207,
+            "holes": 0,
+            "partitioned": false,
+            "lying": false,
+            "attack": "none",
+            "rejected": 0,
+            "evaluated": 55,
+            "reputation": 1.0,
+            "coverage_healthy": true
+          },
+          {
+            "id": 3,
+            "live": true,
+            "claims": 207,
+            "holes": 0,
+            "partitioned": false,
+            "lying": false,
+            "attack": "none",
+            "rejected": 0,
+            "evaluated": 55,
+            "reputation": 1.0,
+            "coverage_healthy": true
+          }
+        ],
+        "identities": [
+          {
+            "short": "P-001",
+            "name": "worker-0",
+            "status": "seen",
+            "x": 12.01,
+            "y": 1.59,
+            "claims": 57,
+            "error_m": 0.05,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-002",
+            "name": "worker-1",
+            "status": "seen",
+            "x": 22.17,
+            "y": 1.44,
+            "claims": 54,
+            "error_m": 0.07,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-003",
+            "name": "worker-4",
+            "status": "seen",
+            "x": 25.14,
+            "y": 17.9,
+            "claims": 55,
+            "error_m": 0.14,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-004",
+            "name": "worker-3",
+            "status": "seen",
+            "x": 33.73,
+            "y": 1.62,
+            "claims": 55,
+            "error_m": 0.18,
+            "age_s": 0.0
+          }
+        ],
+        "regions": [],
+        "central": {
+          "status": "HEALTHY",
+          "cut_cameras": [],
+          "now_t_media": 11.8,
+          "identities_total": 4,
+          "tracked_now": 4,
+          "delivered_observations": 219,
+          "dropped_observations": 0,
+          "pid": 40024,
+          "uptime_s": 12.6,
+          "tracked": [
+            {
+              "id": "9JDVM3",
+              "x": 11.58,
+              "y": 1.47,
+              "camera": 0,
+              "age_s": 0.0,
+              "current": true,
+              "n": 56
+            },
+            {
+              "id": "9JDVM4",
+              "x": 25.01,
+              "y": 17.45,
+              "camera": 2,
+              "age_s": 0.0,
+              "current": true,
+              "n": 55
+            },
+            {
+              "id": "65J58W",
+              "x": 33.22,
+              "y": 1.53,
+              "camera": 3,
+              "age_s": 0.0,
+              "current": true,
+              "n": 55
+            },
+            {
+              "id": "G8BY9T",
+              "x": 22.18,
+              "y": 1.44,
+              "camera": 1,
+              "age_s": 0.0,
+              "current": true,
+              "n": 53
+            }
+          ],
+          "starling_tracked_now": 4,
+          "truth_workers": 4
+        }
+      }
+    },
+    {
+      "slug": "10_map_region_healthy",
+      "panel": "map",
+      "file": "explainer_shots/10_map_region_healthy.png",
+      "caption": "Worker-2 is inside the uncovered block; the region stays inside it.",
+      "note": "",
+      "t_s": 174.5,
+      "bytes": 236365,
+      "live": {
+        "sim_t": 171.4,
+        "claims_total": 3390,
+        "nodes_live": 4,
+        "mean_error_m": 0.17,
+        "convergence": {
+          "spread": 15,
+          "holes_total": 0,
+          "any_partitioned": false,
+          "converged": true,
+          "tolerance": 30
+        },
+        "forks_open": 0,
+        "forks": [],
+        "nodes": [
+          {
+            "id": 0,
+            "live": true,
+            "claims": 3383,
+            "holes": 0,
+            "partitioned": false,
+            "lying": false,
+            "attack": "none",
+            "rejected": 1,
+            "evaluated": 901,
+            "reputation": 1.0,
+            "coverage_healthy": true
+          },
+          {
+            "id": 1,
+            "live": true,
+            "claims": 3383,
+            "holes": 0,
+            "partitioned": false,
+            "lying": false,
+            "attack": "none",
+            "rejected": 0,
+            "evaluated": 820,
+            "reputation": 1.0,
+            "coverage_healthy": true
+          },
+          {
+            "id": 2,
+            "live": true,
+            "claims": 3368,
+            "holes": 0,
+            "partitioned": false,
+            "lying": false,
+            "attack": "none",
+            "rejected": 0,
+            "evaluated": 828,
+            "reputation": 1.0,
+            "coverage_healthy": true
+          },
+          {
+            "id": 3,
+            "live": true,
+            "claims": 3368,
+            "holes": 0,
+            "partitioned": false,
+            "lying": false,
+            "attack": "none",
+            "rejected": 0,
+            "evaluated": 830,
+            "reputation": 1.0,
+            "coverage_healthy": true
+          }
+        ],
+        "identities": [
+          {
+            "short": "P-001",
+            "name": "worker-0",
+            "status": "seen",
+            "x": 4.75,
+            "y": 23.29,
+            "claims": 218,
+            "error_m": 0.38,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-002",
+            "name": "worker-1",
+            "status": "seen",
+            "x": 23.13,
+            "y": 1.43,
+            "claims": 220,
+            "error_m": 0.09,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-003",
+            "name": "worker-4",
+            "status": "seen",
+            "x": 21.39,
+            "y": 23.53,
+            "claims": 219,
+            "error_m": 0.03,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-004",
+            "name": "worker-3",
+            "status": "seen",
+            "x": 26.95,
+            "y": 7.02,
+            "claims": 220,
+            "error_m": 0.2,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-005",
+            "name": "worker-2",
+            "status": "unseen",
+            "x": 14.01,
+            "y": 14.53,
+            "claims": 72,
+            "error_m": null,
+            "age_s": 15.8
+          }
+        ],
+        "regions": [
+          {
+            "id": "P-005",
+            "area_m2": 69.0,
+            "reachable_area_m2": 819.62,
+            "ratio": 0.084,
+            "unseen_for_s": 15.8,
+            "blind_block_area_m2": 69.0,
+            "healthy_zone_overlap_m2": 0,
+            "zone_overlap_m2": {},
+            "healthy_nodes": [
+              0,
+              1,
+              2,
+              3
+            ],
+            "silent_nodes": [],
+            "occluded_nodes": [],
+            "explanation": "worker-2 unseen 16 s. Cameras 0, 1, 2, 3 are healthy and saw nobody, so their zones are ruled out. Search area 69 m\u00b2 instead of 820 m\u00b2 reachable."
+          }
+        ],
+        "central": {
+          "status": "HEALTHY",
+          "cut_cameras": [],
+          "now_t_media": 171.4,
+          "identities_total": 5,
+          "tracked_now": 4,
+          "delivered_observations": 3391,
+          "dropped_observations": 0,
+          "pid": 40024,
+          "uptime_s": 173.9,
+          "tracked": [
+            {
+              "id": "9JDVM3",
+              "x": 4.75,
+              "y": 23.29,
+              "camera": 0,
+              "age_s": 0.0,
+              "current": true,
+              "n": 832
+            },
+            {
+              "id": "9JDVM4",
+              "x": 21.39,
+              "y": 23.53,
+              "camera": 2,
+              "age_s": 0.0,
+              "current": true,
+              "n": 832
+            },
+            {
+              "id": "65J58W",
+              "x": 26.95,
+              "y": 7.02,
+              "camera": 3,
+              "age_s": 0.0,
+              "current": true,
+              "n": 834
+            },
+            {
+              "id": "G8BY9T",
+              "x": 23.13,
+              "y": 1.43,
+              "camera": 1,
+              "age_s": 0.0,
+              "current": true,
+              "n": 821
+            },
+            {
+              "id": "WA6MP3",
+              "x": 14.01,
+              "y": 14.53,
+              "camera": 0,
+              "age_s": 15.8,
+              "current": false,
+              "n": 72
+            }
+          ],
+          "starling_tracked_now": 4,
+          "truth_workers": 5
+        }
+      }
+    },
+    {
+      "slug": "11_region_card_healthy",
+      "panel": "region_cards",
+      "file": "explainer_shots/11_region_card_healthy.png",
+      "caption": "The negative-evidence numbers behind that shaded area.",
+      "note": "",
+      "t_s": 174.7,
+      "bytes": 50413,
+      "live": {
+        "sim_t": 171.4,
+        "claims_total": 3398,
+        "nodes_live": 4,
+        "mean_error_m": 0.44,
+        "convergence": {
+          "spread": 5,
+          "holes_total": 0,
+          "any_partitioned": false,
+          "converged": true,
+          "tolerance": 30
+        },
+        "forks_open": 0,
+        "forks": [],
+        "nodes": [
+          {
+            "id": 0,
+            "live": true,
+            "claims": 3383,
+            "holes": 0,
+            "partitioned": false,
+            "lying": false,
+            "attack": "none",
+            "rejected": 1,
+            "evaluated": 906,
+            "reputation": 1.0,
+            "coverage_healthy": true
+          },
+          {
+            "id": 1,
+            "live": true,
+            "claims": 3383,
+            "holes": 0,
+            "partitioned": false,
+            "lying": false,
+            "attack": "none",
+            "rejected": 0,
+            "evaluated": 824,
+            "reputation": 1.0,
+            "coverage_healthy": true
+          },
+          {
+            "id": 2,
+            "live": true,
+            "claims": 3387,
+            "holes": 0,
+            "partitioned": false,
+            "lying": false,
+            "attack": "none",
+            "rejected": 0,
+            "evaluated": 833,
+            "reputation": 1.0,
+            "coverage_healthy": true
+          },
+          {
+            "id": 3,
+            "live": true,
+            "claims": 3388,
+            "holes": 0,
+            "partitioned": false,
+            "lying": false,
+            "attack": "none",
+            "rejected": 0,
+            "evaluated": 835,
+            "reputation": 1.0,
+            "coverage_healthy": true
+          }
+        ],
+        "identities": [
+          {
+            "short": "P-001",
+            "name": "worker-0",
+            "status": "seen",
+            "x": 4.75,
+            "y": 23.29,
+            "claims": 218,
+            "error_m": 0.82,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-002",
+            "name": "worker-1",
+            "status": "seen",
+            "x": 23.13,
+            "y": 1.43,
+            "claims": 220,
+            "error_m": 0.27,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-003",
+            "name": "worker-4",
+            "status": "seen",
+            "x": 21.39,
+            "y": 23.53,
+            "claims": 219,
+            "error_m": 0.03,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-004",
+            "name": "worker-3",
+            "status": "seen",
+            "x": 26.95,
+            "y": 7.02,
+            "claims": 220,
+            "error_m": 0.64,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-005",
+            "name": "worker-2",
+            "status": "unseen",
+            "x": 14.01,
+            "y": 14.53,
+            "claims": 72,
+            "error_m": null,
+            "age_s": 15.8
+          }
+        ],
+        "regions": [
+          {
+            "id": "P-005",
+            "area_m2": 69.0,
+            "reachable_area_m2": 819.62,
+            "ratio": 0.084,
+            "unseen_for_s": 15.8,
+            "blind_block_area_m2": 69.0,
+            "healthy_zone_overlap_m2": 0,
+            "zone_overlap_m2": {},
+            "healthy_nodes": [
+              0,
+              1,
+              2,
+              3
+            ],
+            "silent_nodes": [],
+            "occluded_nodes": [],
+            "explanation": "worker-2 unseen 16 s. Cameras 0, 1, 2, 3 are healthy and saw nobody, so their zones are ruled out. Search area 69 m\u00b2 instead of 820 m\u00b2 reachable."
+          }
+        ],
+        "central": {
+          "status": "HEALTHY",
+          "cut_cameras": [],
+          "now_t_media": 171.4,
+          "identities_total": 5,
+          "tracked_now": 4,
+          "delivered_observations": 3391,
+          "dropped_observations": 0,
+          "pid": 40024,
+          "uptime_s": 173.9,
+          "tracked": [
+            {
+              "id": "9JDVM3",
+              "x": 4.75,
+              "y": 23.29,
+              "camera": 0,
+              "age_s": 0.0,
+              "current": true,
+              "n": 832
+            },
+            {
+              "id": "9JDVM4",
+              "x": 21.39,
+              "y": 23.53,
+              "camera": 2,
+              "age_s": 0.0,
+              "current": true,
+              "n": 832
+            },
+            {
+              "id": "65J58W",
+              "x": 26.95,
+              "y": 7.02,
+              "camera": 3,
+              "age_s": 0.0,
+              "current": true,
+              "n": 834
+            },
+            {
+              "id": "G8BY9T",
+              "x": 23.13,
+              "y": 1.43,
+              "camera": 1,
+              "age_s": 0.0,
+              "current": true,
+              "n": 821
+            },
+            {
+              "id": "WA6MP3",
+              "x": 14.01,
+              "y": 14.53,
+              "camera": 0,
+              "age_s": 15.8,
+              "current": false,
+              "n": 72
+            }
+          ],
+          "starling_tracked_now": 4,
+          "truth_workers": 5
+        }
+      }
+    },
+    {
+      "slug": "12_map_region_occluded",
+      "panel": "map",
+      "file": "explainer_shots/12_map_region_occluded.png",
+      "caption": "Same walk, camera 1 occluded: the region leaks into its zone only.",
+      "note": "",
+      "t_s": 311.6,
+      "bytes": 251317,
+      "live": {
+        "sim_t": 307.2,
+        "claims_total": 6531,
+        "nodes_live": 4,
+        "mean_error_m": 0.13,
+        "convergence": {
+          "spread": 4,
+          "holes_total": 0,
+          "any_partitioned": false,
+          "converged": true,
+          "tolerance": 30
+        },
+        "forks_open": 0,
+        "forks": [],
+        "nodes": [
+          {
+            "id": 0,
+            "live": true,
+            "claims": 6513,
+            "holes": 0,
+            "partitioned": false,
+            "lying": false,
+            "attack": "none",
+            "rejected": 17,
+            "evaluated": 1904,
+            "reputation": 1.0,
+            "coverage_healthy": true
+          },
+          {
+            "id": 1,
+            "live": true,
+            "claims": 6513,
+            "holes": 0,
+            "partitioned": false,
+            "lying": false,
+            "attack": "none",
+            "rejected": 0,
+            "evaluated": 1481,
+            "reputation": 1.0,
+            "coverage_healthy": false
+          },
+          {
+            "id": 2,
+            "live": true,
+            "claims": 6517,
+            "holes": 0,
+            "partitioned": false,
+            "lying": false,
+            "attack": "none",
+            "rejected": 1,
+            "evaluated": 1554,
+            "reputation": 1.0,
+            "coverage_healthy": true
+          },
+          {
+            "id": 3,
+            "live": true,
+            "claims": 6517,
+            "holes": 0,
+            "partitioned": false,
+            "lying": false,
+            "attack": "none",
+            "rejected": 1,
+            "evaluated": 1585,
+            "reputation": 1.0,
+            "coverage_healthy": true
+          }
+        ],
+        "identities": [
+          {
+            "short": "P-001",
+            "name": "worker-0",
+            "status": "seen",
+            "x": 2.79,
+            "y": 23.48,
+            "claims": 216,
+            "error_m": 0.27,
+            "age_s": 0.2
+          },
+          {
+            "short": "P-002",
+            "name": "worker-1",
+            "status": "seen",
+            "x": 19.72,
+            "y": 7.42,
+            "claims": 220,
+            "error_m": 0.14,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-003",
+            "name": "worker-4",
+            "status": "seen",
+            "x": 24.97,
+            "y": 17.49,
+            "claims": 221,
+            "error_m": 0.03,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-004",
+            "name": "worker-3",
+            "status": "seen",
+            "x": 29.8,
+            "y": 23.48,
+            "claims": 214,
+            "error_m": 0.09,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-010",
+            "name": "worker-2",
+            "status": "unseen",
+            "x": 13.95,
+            "y": 14.32,
+            "claims": 132,
+            "error_m": null,
+            "age_s": 18.2
+          }
+        ],
+        "regions": [
+          {
+            "id": "P-010",
+            "area_m2": 174.0,
+            "reachable_area_m2": 882.31,
+            "ratio": 0.197,
+            "unseen_for_s": 18.2,
+            "blind_block_area_m2": 69.0,
+            "healthy_zone_overlap_m2": 0,
+            "zone_overlap_m2": {
+              "1": 105.0
+            },
+            "healthy_nodes": [
+              0,
+              2,
+              3
+            ],
+            "silent_nodes": [
+              1
+            ],
+            "occluded_nodes": [
+              1
+            ],
+            "explanation": "worker-2 unseen 18 s. Cameras 0, 2, 3 are healthy and saw nobody, so their zones are ruled out. camera 1 is silent (occluded, no healthy attestation): its silence is not counted as evidence. The region therefore leaks into camera 1's zone. Search area 174 m\u00b2 instead of 882 m\u00b2 reachable."
+          }
+        ],
+        "central": {
+          "status": "HEALTHY",
+          "cut_cameras": [],
+          "now_t_media": 306.8,
+          "identities_total": 5,
+          "tracked_now": 4,
+          "delivered_observations": 6529,
+          "dropped_observations": 0,
+          "pid": 40024,
+          "uptime_s": 310.9,
+          "tracked": [
+            {
+              "id": "9JDVM3",
+              "x": 2.92,
+              "y": 23.53,
+              "camera": 0,
+              "age_s": 0.0,
+              "current": true,
+              "n": 1486
+            },
+            {
+              "id": "9JDVM4",
+              "x": 24.69,
+              "y": 17.58,
+              "camera": 2,
+              "age_s": 0.0,
+              "current": true,
+              "n": 1491
+            },
+            {
+              "id": "65J58W",
+              "x": 30.1,
+              "y": 23.42,
+              "camera": 3,
+              "age_s": 0.0,
+              "current": true,
+              "n": 1485
+            },
+            {
+              "id": "G8BY9T",
+              "x": 19.46,
+              "y": 7.5,
+              "camera": 1,
+              "age_s": 0.0,
+              "current": true,
+              "n": 1481
+            },
+            {
+              "id": "WA6MP3",
+              "x": 13.95,
+              "y": 14.32,
+              "camera": 0,
+              "age_s": 17.8,
+              "current": false,
+              "n": 586
+            }
+          ],
+          "starling_tracked_now": 4,
+          "truth_workers": 5
+        }
+      }
+    },
+    {
+      "slug": "13_region_card_occluded",
+      "panel": "region_cards",
+      "file": "explainer_shots/13_region_card_occluded.png",
+      "caption": "Silence is listed, and explicitly not counted as evidence.",
+      "note": "",
+      "t_s": 311.7,
+      "bytes": 61312,
+      "live": {
+        "sim_t": 307.2,
+        "claims_total": 6531,
+        "nodes_live": 4,
+        "mean_error_m": 0.13,
+        "convergence": {
+          "spread": 4,
+          "holes_total": 0,
+          "any_partitioned": false,
+          "converged": true,
+          "tolerance": 30
+        },
+        "forks_open": 0,
+        "forks": [],
+        "nodes": [
+          {
+            "id": 0,
+            "live": true,
+            "claims": 6513,
+            "holes": 0,
+            "partitioned": false,
+            "lying": false,
+            "attack": "none",
+            "rejected": 17,
+            "evaluated": 1904,
+            "reputation": 1.0,
+            "coverage_healthy": true
+          },
+          {
+            "id": 1,
+            "live": true,
+            "claims": 6513,
+            "holes": 0,
+            "partitioned": false,
+            "lying": false,
+            "attack": "none",
+            "rejected": 0,
+            "evaluated": 1481,
+            "reputation": 1.0,
+            "coverage_healthy": false
+          },
+          {
+            "id": 2,
+            "live": true,
+            "claims": 6517,
+            "holes": 0,
+            "partitioned": false,
+            "lying": false,
+            "attack": "none",
+            "rejected": 1,
+            "evaluated": 1554,
+            "reputation": 1.0,
+            "coverage_healthy": true
+          },
+          {
+            "id": 3,
+            "live": true,
+            "claims": 6517,
+            "holes": 0,
+            "partitioned": false,
+            "lying": false,
+            "attack": "none",
+            "rejected": 1,
+            "evaluated": 1585,
+            "reputation": 1.0,
+            "coverage_healthy": true
+          }
+        ],
+        "identities": [
+          {
+            "short": "P-001",
+            "name": "worker-0",
+            "status": "seen",
+            "x": 2.79,
+            "y": 23.48,
+            "claims": 216,
+            "error_m": 0.27,
+            "age_s": 0.2
+          },
+          {
+            "short": "P-002",
+            "name": "worker-1",
+            "status": "seen",
+            "x": 19.72,
+            "y": 7.42,
+            "claims": 220,
+            "error_m": 0.14,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-003",
+            "name": "worker-4",
+            "status": "seen",
+            "x": 24.97,
+            "y": 17.49,
+            "claims": 221,
+            "error_m": 0.03,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-004",
+            "name": "worker-3",
+            "status": "seen",
+            "x": 29.8,
+            "y": 23.48,
+            "claims": 214,
+            "error_m": 0.09,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-010",
+            "name": "worker-2",
+            "status": "unseen",
+            "x": 13.95,
+            "y": 14.32,
+            "claims": 132,
+            "error_m": null,
+            "age_s": 18.2
+          }
+        ],
+        "regions": [
+          {
+            "id": "P-010",
+            "area_m2": 174.0,
+            "reachable_area_m2": 882.31,
+            "ratio": 0.197,
+            "unseen_for_s": 18.2,
+            "blind_block_area_m2": 69.0,
+            "healthy_zone_overlap_m2": 0,
+            "zone_overlap_m2": {
+              "1": 105.0
+            },
+            "healthy_nodes": [
+              0,
+              2,
+              3
+            ],
+            "silent_nodes": [
+              1
+            ],
+            "occluded_nodes": [
+              1
+            ],
+            "explanation": "worker-2 unseen 18 s. Cameras 0, 2, 3 are healthy and saw nobody, so their zones are ruled out. camera 1 is silent (occluded, no healthy attestation): its silence is not counted as evidence. The region therefore leaks into camera 1's zone. Search area 174 m\u00b2 instead of 882 m\u00b2 reachable."
+          }
+        ],
+        "central": {
+          "status": "HEALTHY",
+          "cut_cameras": [],
+          "now_t_media": 306.8,
+          "identities_total": 5,
+          "tracked_now": 4,
+          "delivered_observations": 6529,
+          "dropped_observations": 0,
+          "pid": 40024,
+          "uptime_s": 310.9,
+          "tracked": [
+            {
+              "id": "9JDVM3",
+              "x": 2.92,
+              "y": 23.53,
+              "camera": 0,
+              "age_s": 0.0,
+              "current": true,
+              "n": 1486
+            },
+            {
+              "id": "9JDVM4",
+              "x": 24.69,
+              "y": 17.58,
+              "camera": 2,
+              "age_s": 0.0,
+              "current": true,
+              "n": 1491
+            },
+            {
+              "id": "65J58W",
+              "x": 30.1,
+              "y": 23.42,
+              "camera": 3,
+              "age_s": 0.0,
+              "current": true,
+              "n": 1485
+            },
+            {
+              "id": "G8BY9T",
+              "x": 19.46,
+              "y": 7.5,
+              "camera": 1,
+              "age_s": 0.0,
+              "current": true,
+              "n": 1481
+            },
+            {
+              "id": "WA6MP3",
+              "x": 13.95,
+              "y": 14.32,
+              "camera": 0,
+              "age_s": 17.8,
+              "current": false,
+              "n": 586
+            }
+          ],
+          "starling_tracked_now": 4,
+          "truth_workers": 5
+        }
+      }
+    },
+    {
+      "slug": "20_nodes_before",
+      "panel": "nodes",
+      "file": "explainer_shots/20_nodes_before.png",
+      "caption": "Before the cut: four replicas in step.",
+      "note": "",
+      "t_s": 324.3,
+      "bytes": 114520,
+      "live": {
+        "sim_t": 319.2,
+        "claims_total": 6795,
+        "nodes_live": 4,
+        "mean_error_m": 0.65,
+        "convergence": {
+          "spread": 9,
+          "holes_total": 0,
+          "any_partitioned": false,
+          "converged": true,
+          "tolerance": 30
+        },
+        "forks_open": 0,
+        "forks": [],
+        "nodes": [
+          {
+            "id": 0,
+            "live": true,
+            "claims": 6783,
+            "holes": 0,
+            "partitioned": false,
+            "lying": false,
+            "attack": "none",
+            "rejected": 17,
+            "evaluated": 1963,
+            "reputation": 1.0,
+            "coverage_healthy": true
+          },
+          {
+            "id": 1,
+            "live": true,
+            "claims": 6779,
+            "holes": 0,
+            "partitioned": false,
+            "lying": false,
+            "attack": "none",
+            "rejected": 0,
+            "evaluated": 1543,
+            "reputation": 1.0,
+            "coverage_healthy": false
+          },
+          {
+            "id": 2,
+            "live": true,
+            "claims": 6787,
+            "holes": 0,
+            "partitioned": false,
+            "lying": false,
+            "attack": "none",
+            "rejected": 1,
+            "evaluated": 1614,
+            "reputation": 1.0,
+            "coverage_healthy": true
+          },
+          {
+            "id": 3,
+            "live": true,
+            "claims": 6788,
+            "holes": 0,
+            "partitioned": false,
+            "lying": false,
+            "attack": "none",
+            "rejected": 1,
+            "evaluated": 1666,
+            "reputation": 1.0,
+            "coverage_healthy": true
+          }
+        ],
+        "identities": [
+          {
+            "short": "P-001",
+            "name": "worker-0",
+            "status": "seen",
+            "x": 0.82,
+            "y": 12.31,
+            "claims": 214,
+            "error_m": 0.76,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-002",
+            "name": "worker-1",
+            "status": "seen",
+            "x": 14.96,
+            "y": 2.45,
+            "claims": 223,
+            "error_m": 0.55,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-003",
+            "name": "worker-4",
+            "status": "seen",
+            "x": 20.38,
+            "y": 23.62,
+            "claims": 220,
+            "error_m": 0.59,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-004",
+            "name": "worker-3",
+            "status": "seen",
+            "x": 27.0,
+            "y": 18.62,
+            "claims": 217,
+            "error_m": 0.76,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-010",
+            "name": "worker-2",
+            "status": "seen",
+            "x": 29.18,
+            "y": 12.02,
+            "claims": 91,
+            "error_m": 0.6,
+            "age_s": 0.0
+          }
+        ],
+        "regions": [],
+        "central": {
+          "status": "HEALTHY",
+          "cut_cameras": [],
+          "now_t_media": 319.4,
+          "identities_total": 5,
+          "tracked_now": 5,
+          "delivered_observations": 6791,
+          "dropped_observations": 0,
+          "pid": 40024,
+          "uptime_s": 323.8,
+          "tracked": [
+            {
+              "id": "9JDVM3",
+              "x": 1.04,
+              "y": 12.12,
+              "camera": 0,
+              "age_s": 0.0,
+              "current": true,
+              "n": 1545
+            },
+            {
+              "id": "9JDVM4",
+              "x": 20.19,
+              "y": 23.53,
+              "camera": 2,
+              "age_s": 0.0,
+              "current": true,
+              "n": 1551
+            },
+            {
+              "id": "65J58W",
+              "x": 27.07,
+              "y": 18.25,
+              "camera": 3,
+              "age_s": 0.0,
+              "current": true,
+              "n": 1547
+            },
+            {
+              "id": "G8BY9T",
+              "x": 15.07,
+              "y": 2.31,
+              "camera": 1,
+              "age_s": 0.0,
+              "current": true,
+              "n": 1543
+            },
+            {
+              "id": "WA6MP3",
+              "x": 29.36,
+              "y": 11.89,
+              "camera": 3,
+              "age_s": 0.0,
+              "current": true,
+              "n": 605
+            }
+          ],
+          "starling_tracked_now": 5,
+          "truth_workers": 5
+        }
+      }
+    },
+    {
+      "slug": "21_nodes_partitioned",
+      "panel": "nodes",
+      "file": "explainer_shots/21_nodes_partitioned.png",
+      "caption": "Cut {2,3} from {0,1}: the replicas drift apart.",
+      "note": "",
+      "t_s": 339.1,
+      "bytes": 126277,
+      "live": {
+        "sim_t": 334.4,
+        "claims_total": 7153,
+        "nodes_live": 4,
+        "mean_error_m": 0.25,
+        "convergence": {
+          "spread": 62,
+          "holes_total": 0,
+          "any_partitioned": true,
+          "converged": false,
+          "tolerance": 30
+        },
+        "forks_open": 0,
+        "forks": [],
+        "nodes": [
+          {
+            "id": 0,
+            "live": true,
+            "claims": 6939,
+            "holes": 0,
+            "partitioned": true,
+            "lying": false,
+            "attack": "none",
+            "rejected": 17,
+            "evaluated": 2031,
+            "reputation": 1.0,
+            "coverage_healthy": true
+          },
+          {
+            "id": 1,
+            "live": true,
+            "claims": 6940,
+            "holes": 0,
+            "partitioned": true,
+            "lying": false,
+            "attack": "none",
+            "rejected": 0,
+            "evaluated": 1613,
+            "reputation": 1.0,
+            "coverage_healthy": false
+          },
+          {
+            "id": 2,
+            "live": true,
+            "claims": 7000,
+            "holes": 0,
+            "partitioned": true,
+            "lying": false,
+            "attack": "none",
+            "rejected": 1,
+            "evaluated": 1684,
+            "reputation": 1.0,
+            "coverage_healthy": true
+          },
+          {
+            "id": 3,
+            "live": true,
+            "claims": 7001,
+            "holes": 0,
+            "partitioned": true,
+            "lying": false,
+            "attack": "none",
+            "rejected": 1,
+            "evaluated": 1806,
+            "reputation": 1.0,
+            "coverage_healthy": true
+          }
+        ],
+        "identities": [
+          {
+            "short": "P-001",
+            "name": "worker-0",
+            "status": "seen",
+            "x": 8.4,
+            "y": 1.57,
+            "claims": 214,
+            "error_m": 0.29,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-002",
+            "name": "worker-1",
+            "status": "seen",
+            "x": 22.93,
+            "y": 1.55,
+            "claims": 223,
+            "error_m": 0.28,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-003",
+            "name": "worker-4",
+            "status": "seen",
+            "x": 15.85,
+            "y": 17.59,
+            "claims": 218,
+            "error_m": 0.1,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-004",
+            "name": "worker-3",
+            "status": "seen",
+            "x": 27.1,
+            "y": 6.91,
+            "claims": 221,
+            "error_m": 0.5,
+            "age_s": 0.2
+          },
+          {
+            "short": "P-010",
+            "name": "worker-2",
+            "status": "seen",
+            "x": 28.44,
+            "y": 17.57,
+            "claims": 91,
+            "error_m": 0.08,
+            "age_s": 0.0
+          }
+        ],
+        "regions": [],
+        "central": {
+          "status": "PARTIAL",
+          "cut_cameras": [
+            2,
+            3
+          ],
+          "now_t_media": 334.4,
+          "identities_total": 5,
+          "tracked_now": 2,
+          "delivered_observations": 6943,
+          "dropped_observations": 210,
+          "pid": 40024,
+          "uptime_s": 338.9,
+          "tracked": [
+            {
+              "id": "9JDVM3",
+              "x": 8.4,
+              "y": 1.57,
+              "camera": 0,
+              "age_s": 0.0,
+              "current": true,
+              "n": 1616
+            },
+            {
+              "id": "9JDVM4",
+              "x": 19.47,
+              "y": 23.63,
+              "camera": 2,
+              "age_s": 14.4,
+              "current": false,
+              "n": 1553
+            },
+            {
+              "id": "65J58W",
+              "x": 26.96,
+              "y": 17.48,
+              "camera": 3,
+              "age_s": 14.4,
+              "current": false,
+              "n": 1550
+            },
+            {
+              "id": "G8BY9T",
+              "x": 22.93,
+              "y": 1.55,
+              "camera": 1,
+              "age_s": 0.0,
+              "current": true,
+              "n": 1616
+            },
+            {
+              "id": "WA6MP3",
+              "x": 29.93,
+              "y": 12.02,
+              "camera": 3,
+              "age_s": 14.4,
+              "current": false,
+              "n": 608
+            }
+          ],
+          "starling_tracked_now": 5,
+          "truth_workers": 5
+        }
+      }
+    },
+    {
+      "slug": "22_central_partitioned",
+      "panel": "central",
+      "file": "explainer_shots/22_central_partitioned.png",
+      "caption": "The centralized comparison loses the cut-off cameras' workers.",
+      "note": "",
+      "t_s": 339.2,
+      "bytes": 64359,
+      "live": {
+        "sim_t": 334.4,
+        "claims_total": 7153,
+        "nodes_live": 4,
+        "mean_error_m": 0.25,
+        "convergence": {
+          "spread": 62,
+          "holes_total": 0,
+          "any_partitioned": true,
+          "converged": false,
+          "tolerance": 30
+        },
+        "forks_open": 0,
+        "forks": [],
+        "nodes": [
+          {
+            "id": 0,
+            "live": true,
+            "claims": 6939,
+            "holes": 0,
+            "partitioned": true,
+            "lying": false,
+            "attack": "none",
+            "rejected": 17,
+            "evaluated": 2031,
+            "reputation": 1.0,
+            "coverage_healthy": true
+          },
+          {
+            "id": 1,
+            "live": true,
+            "claims": 6940,
+            "holes": 0,
+            "partitioned": true,
+            "lying": false,
+            "attack": "none",
+            "rejected": 0,
+            "evaluated": 1613,
+            "reputation": 1.0,
+            "coverage_healthy": false
+          },
+          {
+            "id": 2,
+            "live": true,
+            "claims": 7000,
+            "holes": 0,
+            "partitioned": true,
+            "lying": false,
+            "attack": "none",
+            "rejected": 1,
+            "evaluated": 1684,
+            "reputation": 1.0,
+            "coverage_healthy": true
+          },
+          {
+            "id": 3,
+            "live": true,
+            "claims": 7001,
+            "holes": 0,
+            "partitioned": true,
+            "lying": false,
+            "attack": "none",
+            "rejected": 1,
+            "evaluated": 1806,
+            "reputation": 1.0,
+            "coverage_healthy": true
+          }
+        ],
+        "identities": [
+          {
+            "short": "P-001",
+            "name": "worker-0",
+            "status": "seen",
+            "x": 8.4,
+            "y": 1.57,
+            "claims": 214,
+            "error_m": 0.29,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-002",
+            "name": "worker-1",
+            "status": "seen",
+            "x": 22.93,
+            "y": 1.55,
+            "claims": 223,
+            "error_m": 0.28,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-003",
+            "name": "worker-4",
+            "status": "seen",
+            "x": 15.85,
+            "y": 17.59,
+            "claims": 218,
+            "error_m": 0.1,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-004",
+            "name": "worker-3",
+            "status": "seen",
+            "x": 27.1,
+            "y": 6.91,
+            "claims": 221,
+            "error_m": 0.5,
+            "age_s": 0.2
+          },
+          {
+            "short": "P-010",
+            "name": "worker-2",
+            "status": "seen",
+            "x": 28.44,
+            "y": 17.57,
+            "claims": 91,
+            "error_m": 0.08,
+            "age_s": 0.0
+          }
+        ],
+        "regions": [],
+        "central": {
+          "status": "PARTIAL",
+          "cut_cameras": [
+            2,
+            3
+          ],
+          "now_t_media": 334.4,
+          "identities_total": 5,
+          "tracked_now": 2,
+          "delivered_observations": 6943,
+          "dropped_observations": 210,
+          "pid": 40024,
+          "uptime_s": 338.9,
+          "tracked": [
+            {
+              "id": "9JDVM3",
+              "x": 8.4,
+              "y": 1.57,
+              "camera": 0,
+              "age_s": 0.0,
+              "current": true,
+              "n": 1616
+            },
+            {
+              "id": "9JDVM4",
+              "x": 19.47,
+              "y": 23.63,
+              "camera": 2,
+              "age_s": 14.4,
+              "current": false,
+              "n": 1553
+            },
+            {
+              "id": "65J58W",
+              "x": 26.96,
+              "y": 17.48,
+              "camera": 3,
+              "age_s": 14.4,
+              "current": false,
+              "n": 1550
+            },
+            {
+              "id": "G8BY9T",
+              "x": 22.93,
+              "y": 1.55,
+              "camera": 1,
+              "age_s": 0.0,
+              "current": true,
+              "n": 1616
+            },
+            {
+              "id": "WA6MP3",
+              "x": 29.93,
+              "y": 12.02,
+              "camera": 3,
+              "age_s": 14.4,
+              "current": false,
+              "n": 608
+            }
+          ],
+          "starling_tracked_now": 5,
+          "truth_workers": 5
+        }
+      }
+    },
+    {
+      "slug": "23_nodes_healed",
+      "panel": "nodes",
+      "file": "explainer_shots/23_nodes_healed.png",
+      "caption": "After healing: converged again, no gaps.",
+      "note": "",
+      "t_s": 345.2,
+      "bytes": 114623,
+      "live": {
+        "sim_t": 340.4,
+        "claims_total": 7294,
+        "nodes_live": 4,
+        "mean_error_m": 0.1,
+        "convergence": {
+          "spread": 10,
+          "holes_total": 0,
+          "any_partitioned": false,
+          "converged": true,
+          "tolerance": 30
+        },
+        "forks_open": 0,
+        "forks": [],
+        "nodes": [
+          {
+            "id": 0,
+            "live": true,
+            "claims": 7263,
+            "holes": 0,
+            "partitioned": false,
+            "lying": false,
+            "attack": "none",
+            "rejected": 17,
+            "evaluated": 2059,
+            "reputation": 1.0,
+            "coverage_healthy": true
+          },
+          {
+            "id": 1,
+            "live": true,
+            "claims": 7267,
+            "holes": 0,
+            "partitioned": false,
+            "lying": false,
+            "attack": "none",
+            "rejected": 0,
+            "evaluated": 1639,
+            "reputation": 1.0,
+            "coverage_healthy": false
+          },
+          {
+            "id": 2,
+            "live": true,
+            "claims": 7273,
+            "holes": 0,
+            "partitioned": false,
+            "lying": false,
+            "attack": "none",
+            "rejected": 1,
+            "evaluated": 1723,
+            "reputation": 1.0,
+            "coverage_healthy": true
+          },
+          {
+            "id": 3,
+            "live": true,
+            "claims": 7272,
+            "holes": 0,
+            "partitioned": false,
+            "lying": false,
+            "attack": "none",
+            "rejected": 1,
+            "evaluated": 1849,
+            "reputation": 1.0,
+            "coverage_healthy": true
+          }
+        ],
+        "identities": [
+          {
+            "short": "P-001",
+            "name": "worker-0",
+            "status": "seen",
+            "x": 11.93,
+            "y": 2.73,
+            "claims": 216,
+            "error_m": 0.07,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-002",
+            "name": "worker-1",
+            "status": "seen",
+            "x": 25.07,
+            "y": 3.94,
+            "claims": 221,
+            "error_m": 0.08,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-003",
+            "name": "worker-4",
+            "status": "seen",
+            "x": 21.5,
+            "y": 17.48,
+            "claims": 218,
+            "error_m": 0.1,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-004",
+            "name": "worker-3",
+            "status": "seen",
+            "x": 28.58,
+            "y": 1.53,
+            "claims": 220,
+            "error_m": 0.13,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-010",
+            "name": "worker-2",
+            "status": "seen",
+            "x": 23.26,
+            "y": 17.57,
+            "claims": 120,
+            "error_m": 0.11,
+            "age_s": 0.0
+          }
+        ],
+        "regions": [],
+        "central": {
+          "status": "HEALTHY",
+          "cut_cameras": [],
+          "now_t_media": 339.8,
+          "identities_total": 5,
+          "tracked_now": 5,
+          "delivered_observations": 7070,
+          "dropped_observations": 215,
+          "pid": 40024,
+          "uptime_s": 344.3,
+          "tracked": [
+            {
+              "id": "9JDVM3",
+              "x": 12.09,
+              "y": 2.52,
+              "camera": 0,
+              "age_s": 0.0,
+              "current": true,
+              "n": 1643
+            },
+            {
+              "id": "9JDVM4",
+              "x": 20.83,
+              "y": 17.47,
+              "camera": 2,
+              "age_s": 0.0,
+              "current": true,
+              "n": 1578
+            },
+            {
+              "id": "65J58W",
+              "x": 27.78,
+              "y": 1.45,
+              "camera": 3,
+              "age_s": 0.0,
+              "current": true,
+              "n": 1575
+            },
+            {
+              "id": "G8BY9T",
+              "x": 24.98,
+              "y": 3.39,
+              "camera": 1,
+              "age_s": 0.0,
+              "current": true,
+              "n": 1641
+            },
+            {
+              "id": "WA6MP3",
+              "x": 23.64,
+              "y": 17.41,
+              "camera": 2,
+              "age_s": 0.0,
+              "current": true,
+              "n": 633
+            }
+          ],
+          "starling_tracked_now": 5,
+          "truth_workers": 5
+        }
+      }
+    },
+    {
+      "slug": "30_nodes_honest",
+      "panel": "nodes",
+      "file": "explainer_shots/30_nodes_honest.png",
+      "caption": "All four nodes honest; reputation at 1.00.",
+      "note": "",
+      "t_s": 345.3,
+      "bytes": 114210,
+      "live": {
+        "sim_t": 340.4,
+        "claims_total": 7294,
+        "nodes_live": 4,
+        "mean_error_m": 0.1,
+        "convergence": {
+          "spread": 10,
+          "holes_total": 0,
+          "any_partitioned": false,
+          "converged": true,
+          "tolerance": 30
+        },
+        "forks_open": 0,
+        "forks": [],
+        "nodes": [
+          {
+            "id": 0,
+            "live": true,
+            "claims": 7263,
+            "holes": 0,
+            "partitioned": false,
+            "lying": false,
+            "attack": "none",
+            "rejected": 17,
+            "evaluated": 2059,
+            "reputation": 1.0,
+            "coverage_healthy": true
+          },
+          {
+            "id": 1,
+            "live": true,
+            "claims": 7267,
+            "holes": 0,
+            "partitioned": false,
+            "lying": false,
+            "attack": "none",
+            "rejected": 0,
+            "evaluated": 1639,
+            "reputation": 1.0,
+            "coverage_healthy": false
+          },
+          {
+            "id": 2,
+            "live": true,
+            "claims": 7273,
+            "holes": 0,
+            "partitioned": false,
+            "lying": false,
+            "attack": "none",
+            "rejected": 1,
+            "evaluated": 1723,
+            "reputation": 1.0,
+            "coverage_healthy": true
+          },
+          {
+            "id": 3,
+            "live": true,
+            "claims": 7272,
+            "holes": 0,
+            "partitioned": false,
+            "lying": false,
+            "attack": "none",
+            "rejected": 1,
+            "evaluated": 1849,
+            "reputation": 1.0,
+            "coverage_healthy": true
+          }
+        ],
+        "identities": [
+          {
+            "short": "P-001",
+            "name": "worker-0",
+            "status": "seen",
+            "x": 11.93,
+            "y": 2.73,
+            "claims": 216,
+            "error_m": 0.07,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-002",
+            "name": "worker-1",
+            "status": "seen",
+            "x": 25.07,
+            "y": 3.94,
+            "claims": 221,
+            "error_m": 0.08,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-003",
+            "name": "worker-4",
+            "status": "seen",
+            "x": 21.5,
+            "y": 17.48,
+            "claims": 218,
+            "error_m": 0.1,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-004",
+            "name": "worker-3",
+            "status": "seen",
+            "x": 28.58,
+            "y": 1.53,
+            "claims": 220,
+            "error_m": 0.13,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-010",
+            "name": "worker-2",
+            "status": "seen",
+            "x": 23.26,
+            "y": 17.57,
+            "claims": 120,
+            "error_m": 0.11,
+            "age_s": 0.0
+          }
+        ],
+        "regions": [],
+        "central": {
+          "status": "HEALTHY",
+          "cut_cameras": [],
+          "now_t_media": 339.8,
+          "identities_total": 5,
+          "tracked_now": 5,
+          "delivered_observations": 7070,
+          "dropped_observations": 215,
+          "pid": 40024,
+          "uptime_s": 344.3,
+          "tracked": [
+            {
+              "id": "9JDVM3",
+              "x": 12.09,
+              "y": 2.52,
+              "camera": 0,
+              "age_s": 0.0,
+              "current": true,
+              "n": 1643
+            },
+            {
+              "id": "9JDVM4",
+              "x": 20.83,
+              "y": 17.47,
+              "camera": 2,
+              "age_s": 0.0,
+              "current": true,
+              "n": 1578
+            },
+            {
+              "id": "65J58W",
+              "x": 27.78,
+              "y": 1.45,
+              "camera": 3,
+              "age_s": 0.0,
+              "current": true,
+              "n": 1575
+            },
+            {
+              "id": "G8BY9T",
+              "x": 24.98,
+              "y": 3.39,
+              "camera": 1,
+              "age_s": 0.0,
+              "current": true,
+              "n": 1641
+            },
+            {
+              "id": "WA6MP3",
+              "x": 23.64,
+              "y": 17.41,
+              "camera": 2,
+              "age_s": 0.0,
+              "current": true,
+              "n": 633
+            }
+          ],
+          "starling_tracked_now": 5,
+          "truth_workers": 5
+        }
+      }
+    },
+    {
+      "slug": "31_nodes_lying",
+      "panel": "nodes",
+      "file": "explainer_shots/31_nodes_lying.png",
+      "caption": "Node 2 fabricates sightings: reputation falls, rejections climb.",
+      "note": "",
+      "t_s": 350.9,
+      "bytes": 118259,
+      "live": {
+        "sim_t": 345.4,
+        "claims_total": 7452,
+        "nodes_live": 4,
+        "mean_error_m": 0.47,
+        "convergence": {
+          "spread": 13,
+          "holes_total": 0,
+          "any_partitioned": false,
+          "converged": true,
+          "tolerance": 30
+        },
+        "forks_open": 0,
+        "forks": [],
+        "nodes": [
+          {
+            "id": 0,
+            "live": true,
+            "claims": 7426,
+            "holes": 0,
+            "partitioned": false,
+            "lying": false,
+            "attack": "none",
+            "rejected": 17,
+            "evaluated": 2085,
+            "reputation": 1.0,
+            "coverage_healthy": true
+          },
+          {
+            "id": 1,
+            "live": true,
+            "claims": 7433,
+            "holes": 0,
+            "partitioned": false,
+            "lying": false,
+            "attack": "none",
+            "rejected": 0,
+            "evaluated": 1667,
+            "reputation": 1.0,
+            "coverage_healthy": false
+          },
+          {
+            "id": 2,
+            "live": true,
+            "claims": 7438,
+            "holes": 0,
+            "partitioned": false,
+            "lying": true,
+            "attack": "fabricate",
+            "rejected": 18,
+            "evaluated": 1797,
+            "reputation": 0.694,
+            "coverage_healthy": true
+          },
+          {
+            "id": 3,
+            "live": true,
+            "claims": 7439,
+            "holes": 0,
+            "partitioned": false,
+            "lying": false,
+            "attack": "none",
+            "rejected": 1,
+            "evaluated": 1875,
+            "reputation": 1.0,
+            "coverage_healthy": true
+          }
+        ],
+        "identities": [
+          {
+            "short": "P-001",
+            "name": "worker-0",
+            "status": "seen",
+            "x": 12.05,
+            "y": 8.75,
+            "claims": 215,
+            "error_m": 0.71,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-002",
+            "name": "worker-1",
+            "status": "seen",
+            "x": 24.98,
+            "y": 6.57,
+            "claims": 221,
+            "error_m": 0.07,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-003",
+            "name": "worker-4",
+            "status": "seen",
+            "x": 24.9,
+            "y": 17.48,
+            "claims": 219,
+            "error_m": 0.43,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-004",
+            "name": "worker-3",
+            "status": "seen",
+            "x": 34.01,
+            "y": 1.41,
+            "claims": 221,
+            "error_m": 0.62,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-010",
+            "name": "worker-2",
+            "status": "seen",
+            "x": 18.64,
+            "y": 17.45,
+            "claims": 145,
+            "error_m": 0.5,
+            "age_s": 0.0
+          }
+        ],
+        "regions": [],
+        "central": {
+          "status": "HEALTHY",
+          "cut_cameras": [],
+          "now_t_media": 345.2,
+          "identities_total": 5,
+          "tracked_now": 5,
+          "delivered_observations": 7201,
+          "dropped_observations": 215,
+          "pid": 40024,
+          "uptime_s": 349.7,
+          "tracked": [
+            {
+              "id": "9JDVM3",
+              "x": 11.98,
+              "y": 8.57,
+              "camera": 0,
+              "age_s": 0.0,
+              "current": true,
+              "n": 1668
+            },
+            {
+              "id": "9JDVM4",
+              "x": 24.66,
+              "y": 17.6,
+              "camera": 2,
+              "age_s": 0.0,
+              "current": true,
+              "n": 1605
+            },
+            {
+              "id": "65J58W",
+              "x": 33.66,
+              "y": 1.45,
+              "camera": 3,
+              "age_s": 0.0,
+              "current": true,
+              "n": 1600
+            },
+            {
+              "id": "G8BY9T",
+              "x": 24.9,
+              "y": 6.5,
+              "camera": 1,
+              "age_s": 0.0,
+              "current": true,
+              "n": 1668
+            },
+            {
+              "id": "WA6MP3",
+              "x": 18.96,
+              "y": 17.42,
+              "camera": 2,
+              "age_s": 0.0,
+              "current": true,
+              "n": 660
+            }
+          ],
+          "starling_tracked_now": 5,
+          "truth_workers": 5
+        }
+      }
+    },
+    {
+      "slug": "32_nodes_recovered",
+      "panel": "nodes",
+      "file": "explainer_shots/32_nodes_recovered.png",
+      "caption": "It stops lying and its reputation recovers.",
+      "note": "",
+      "t_s": 353.9,
+      "bytes": 116574,
+      "live": {
+        "sim_t": 348.4,
+        "claims_total": 7526,
+        "nodes_live": 4,
+        "mean_error_m": 0.52,
+        "convergence": {
+          "spread": 9,
+          "holes_total": 0,
+          "any_partitioned": false,
+          "converged": true,
+          "tolerance": 30
+        },
+        "forks_open": 0,
+        "forks": [],
+        "nodes": [
+          {
+            "id": 0,
+            "live": true,
+            "claims": 7506,
+            "holes": 0,
+            "partitioned": false,
+            "lying": false,
+            "attack": "none",
+            "rejected": 17,
+            "evaluated": 2105,
+            "reputation": 1.0,
+            "coverage_healthy": true
+          },
+          {
+            "id": 1,
+            "live": true,
+            "claims": 7509,
+            "holes": 0,
+            "partitioned": false,
+            "lying": false,
+            "attack": "none",
+            "rejected": 0,
+            "evaluated": 1687,
+            "reputation": 1.0,
+            "coverage_healthy": false
+          },
+          {
+            "id": 2,
+            "live": true,
+            "claims": 7515,
+            "holes": 0,
+            "partitioned": false,
+            "lying": false,
+            "attack": "none",
+            "rejected": 24,
+            "evaluated": 1841,
+            "reputation": 0.888,
+            "coverage_healthy": true
+          },
+          {
+            "id": 3,
+            "live": true,
+            "claims": 7515,
+            "holes": 0,
+            "partitioned": false,
+            "lying": false,
+            "attack": "none",
+            "rejected": 1,
+            "evaluated": 1893,
+            "reputation": 1.0,
+            "coverage_healthy": true
+          }
+        ],
+        "identities": [
+          {
+            "short": "P-001",
+            "name": "worker-0",
+            "status": "seen",
+            "x": 12.09,
+            "y": 12.32,
+            "claims": 215,
+            "error_m": 0.74,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-002",
+            "name": "worker-1",
+            "status": "seen",
+            "x": 24.97,
+            "y": 6.86,
+            "claims": 221,
+            "error_m": 0.05,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-003",
+            "name": "worker-4",
+            "status": "seen",
+            "x": 24.96,
+            "y": 18.21,
+            "claims": 219,
+            "error_m": 0.69,
+            "age_s": 0.2
+          },
+          {
+            "short": "P-004",
+            "name": "worker-3",
+            "status": "seen",
+            "x": 37.32,
+            "y": 1.46,
+            "claims": 220,
+            "error_m": 0.6,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-010",
+            "name": "worker-2",
+            "status": "seen",
+            "x": 15.94,
+            "y": 17.65,
+            "claims": 160,
+            "error_m": 0.52,
+            "age_s": 0.0
+          }
+        ],
+        "regions": [],
+        "central": {
+          "status": "HEALTHY",
+          "cut_cameras": [],
+          "now_t_media": 348.4,
+          "identities_total": 5,
+          "tracked_now": 5,
+          "delivered_observations": 7278,
+          "dropped_observations": 215,
+          "pid": 40024,
+          "uptime_s": 352.9,
+          "tracked": [
+            {
+              "id": "9JDVM3",
+              "x": 12.09,
+              "y": 12.32,
+              "camera": 0,
+              "age_s": 0.0,
+              "current": true,
+              "n": 1684
+            },
+            {
+              "id": "9JDVM4",
+              "x": 24.96,
+              "y": 18.21,
+              "camera": 2,
+              "age_s": 0.2,
+              "current": true,
+              "n": 1619
+            },
+            {
+              "id": "65J58W",
+              "x": 37.32,
+              "y": 1.46,
+              "camera": 3,
+              "age_s": 0.0,
+              "current": true,
+              "n": 1615
+            },
+            {
+              "id": "G8BY9T",
+              "x": 24.97,
+              "y": 6.86,
+              "camera": 1,
+              "age_s": 0.0,
+              "current": true,
+              "n": 1684
+            },
+            {
+              "id": "WA6MP3",
+              "x": 15.94,
+              "y": 17.65,
+              "camera": 2,
+              "age_s": 0.0,
+              "current": true,
+              "n": 676
+            }
+          ],
+          "starling_tracked_now": 5,
+          "truth_workers": 5
+        }
+      }
+    },
+    {
+      "slug": "40_forks_ambiguous",
+      "panel": "forks",
+      "file": "explainer_shots/40_forks_ambiguous.png",
+      "caption": "The ambiguous conflict, as the resolver reports it.",
+      "note": "",
+      "t_s": 399.5,
+      "bytes": 93168,
+      "live": {
+        "sim_t": 393.6,
+        "claims_total": 8944,
+        "nodes_live": 4,
+        "mean_error_m": 6.77,
+        "convergence": {
+          "spread": 12,
+          "holes_total": 0,
+          "any_partitioned": false,
+          "converged": true,
+          "tolerance": 30
+        },
+        "forks_open": 1,
+        "forks": [
+          {
+            "status": "OPEN",
+            "identity": "P-028",
+            "face_identity": "P-101",
+            "explanation": "Both trajectories are physically possible from the identity's last confirmed anchor, so the system does NOT pick one (never by score). It is an ambiguity for a human: branch 0 at (5.08, 21.61) OR branch 1 at (33.32, 12.48).",
+            "branches": [
+              {
+                "i": 0,
+                "x": 5.08,
+                "y": 21.61,
+                "n": 125
+              },
+              {
+                "i": 1,
+                "x": 33.32,
+                "y": 12.48,
+                "n": 1
+              }
+            ]
+          }
+        ],
+        "nodes": [
+          {
+            "id": 0,
+            "live": true,
+            "claims": 8918,
+            "holes": 0,
+            "partitioned": false,
+            "lying": false,
+            "attack": "none",
+            "rejected": 30,
+            "evaluated": 2763,
+            "reputation": 1.0,
+            "coverage_healthy": true
+          },
+          {
+            "id": 1,
+            "live": true,
+            "claims": 8911,
+            "holes": 0,
+            "partitioned": false,
+            "lying": false,
+            "attack": "none",
+            "rejected": 0,
+            "evaluated": 1906,
+            "reputation": 1.0,
+            "coverage_healthy": true
+          },
+          {
+            "id": 2,
+            "live": true,
+            "claims": 8914,
+            "holes": 0,
+            "partitioned": false,
+            "lying": false,
+            "attack": "none",
+            "rejected": 24,
+            "evaluated": 2066,
+            "reputation": 1.0,
+            "coverage_healthy": true
+          },
+          {
+            "id": 3,
+            "live": true,
+            "claims": 8923,
+            "holes": 0,
+            "partitioned": false,
+            "lying": false,
+            "attack": "none",
+            "rejected": 2,
+            "evaluated": 2209,
+            "reputation": 1.0,
+            "coverage_healthy": true
+          }
+        ],
+        "identities": [
+          {
+            "short": "P-001",
+            "name": "worker-0",
+            "status": "seen",
+            "x": 0.8,
+            "y": 5.51,
+            "claims": 222,
+            "error_m": 0.68,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-002",
+            "name": "worker-1",
+            "status": "seen",
+            "x": 23.33,
+            "y": 7.49,
+            "claims": 220,
+            "error_m": 0.53,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-003",
+            "name": "worker-4",
+            "status": "seen",
+            "x": 24.87,
+            "y": 19.47,
+            "claims": 220,
+            "error_m": 0.64,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-004",
+            "name": "worker-3",
+            "status": "seen",
+            "x": 27.16,
+            "y": 20.02,
+            "claims": 219,
+            "error_m": 0.17,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-010",
+            "name": "worker-2",
+            "status": "unseen",
+            "x": 3.62,
+            "y": 17.5,
+            "claims": 66,
+            "error_m": null,
+            "age_s": 31.4
+          },
+          {
+            "short": "P-028",
+            "name": "worker-7",
+            "status": "forked",
+            "x": 34.4,
+            "y": 19.95,
+            "claims": 218,
+            "error_m": 31.81,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-047",
+            "name": null,
+            "status": "unseen",
+            "x": 0.76,
+            "y": 16.94,
+            "claims": 9,
+            "error_m": null,
+            "age_s": 28.0
+          }
+        ],
+        "regions": [
+          {
+            "id": "P-010",
+            "area_m2": 69.0,
+            "reachable_area_m2": 932.5,
+            "ratio": 0.074,
+            "unseen_for_s": 31.4,
+            "blind_block_area_m2": 69.0,
+            "healthy_zone_overlap_m2": 0,
+            "zone_overlap_m2": {},
+            "healthy_nodes": [
+              0,
+              1,
+              2,
+              3
+            ],
+            "silent_nodes": [],
+            "occluded_nodes": [],
+            "explanation": "worker-2 unseen 31 s. Cameras 0, 1, 2, 3 are healthy and saw nobody, so their zones are ruled out. Search area 69 m\u00b2 instead of 932 m\u00b2 reachable."
+          },
+          {
+            "id": "P-047",
+            "area_m2": 69.0,
+            "reachable_area_m2": 923.38,
+            "ratio": 0.075,
+            "unseen_for_s": 28.0,
+            "blind_block_area_m2": 69.0,
+            "healthy_zone_overlap_m2": 0,
+            "zone_overlap_m2": {},
+            "healthy_nodes": [
+              0,
+              1,
+              2,
+              3
+            ],
+            "silent_nodes": [],
+            "occluded_nodes": [],
+            "explanation": "P-047 unseen 28 s. Cameras 0, 1, 2, 3 are healthy and saw nobody, so their zones are ruled out. Search area 69 m\u00b2 instead of 923 m\u00b2 reachable."
+          }
+        ],
+        "central": {
+          "status": "HEALTHY",
+          "cut_cameras": [],
+          "now_t_media": 394.0,
+          "identities_total": 6,
+          "tracked_now": 6,
+          "delivered_observations": 8264,
+          "dropped_observations": 655,
+          "pid": 40024,
+          "uptime_s": 399.1,
+          "tracked": [
+            {
+              "id": "9JDVM3",
+              "x": 1.15,
+              "y": 5.0,
+              "camera": 0,
+              "age_s": 0.0,
+              "current": true,
+              "n": 1908
+            },
+            {
+              "id": "9JDVM4",
+              "x": 25.01,
+              "y": 19.61,
+              "camera": 2,
+              "age_s": 0.2,
+              "current": true,
+              "n": 1654
+            },
+            {
+              "id": "65J58W",
+              "x": 27.06,
+              "y": 20.06,
+              "camera": 3,
+              "age_s": 0.0,
+              "current": true,
+              "n": 1651
+            },
+            {
+              "id": "G8BY9T",
+              "x": 23.09,
+              "y": 7.51,
+              "camera": 1,
+              "age_s": 0.0,
+              "current": true,
+              "n": 1906
+            },
+            {
+              "id": "WA6MP3",
+              "x": 1.04,
+              "y": 14.5,
+              "camera": 0,
+              "age_s": 0.0,
+              "current": true,
+              "n": 893
+            },
+            {
+              "id": "TPP3ND",
+              "x": 34.71,
+              "y": 20.02,
+              "camera": 3,
+              "age_s": 0.0,
+              "current": true,
+              "n": 252
+            }
+          ],
+          "starling_tracked_now": 4,
+          "truth_workers": 7
+        }
+      }
+    },
+    {
+      "slug": "40_map_ambiguous",
+      "panel": "map",
+      "file": "explainer_shots/40_map_ambiguous.png",
+      "caption": "The ambiguous conflict's branches drawn on the floor.",
+      "note": "",
+      "t_s": 399.7,
+      "bytes": 312291,
+      "live": {
+        "sim_t": 393.6,
+        "claims_total": 8944,
+        "nodes_live": 4,
+        "mean_error_m": 6.77,
+        "convergence": {
+          "spread": 12,
+          "holes_total": 0,
+          "any_partitioned": false,
+          "converged": true,
+          "tolerance": 30
+        },
+        "forks_open": 1,
+        "forks": [
+          {
+            "status": "OPEN",
+            "identity": "P-028",
+            "face_identity": "P-101",
+            "explanation": "Both trajectories are physically possible from the identity's last confirmed anchor, so the system does NOT pick one (never by score). It is an ambiguity for a human: branch 0 at (5.08, 21.61) OR branch 1 at (33.32, 12.48).",
+            "branches": [
+              {
+                "i": 0,
+                "x": 5.08,
+                "y": 21.61,
+                "n": 125
+              },
+              {
+                "i": 1,
+                "x": 33.32,
+                "y": 12.48,
+                "n": 1
+              }
+            ]
+          }
+        ],
+        "nodes": [
+          {
+            "id": 0,
+            "live": true,
+            "claims": 8918,
+            "holes": 0,
+            "partitioned": false,
+            "lying": false,
+            "attack": "none",
+            "rejected": 30,
+            "evaluated": 2763,
+            "reputation": 1.0,
+            "coverage_healthy": true
+          },
+          {
+            "id": 1,
+            "live": true,
+            "claims": 8911,
+            "holes": 0,
+            "partitioned": false,
+            "lying": false,
+            "attack": "none",
+            "rejected": 0,
+            "evaluated": 1906,
+            "reputation": 1.0,
+            "coverage_healthy": true
+          },
+          {
+            "id": 2,
+            "live": true,
+            "claims": 8914,
+            "holes": 0,
+            "partitioned": false,
+            "lying": false,
+            "attack": "none",
+            "rejected": 24,
+            "evaluated": 2066,
+            "reputation": 1.0,
+            "coverage_healthy": true
+          },
+          {
+            "id": 3,
+            "live": true,
+            "claims": 8923,
+            "holes": 0,
+            "partitioned": false,
+            "lying": false,
+            "attack": "none",
+            "rejected": 2,
+            "evaluated": 2209,
+            "reputation": 1.0,
+            "coverage_healthy": true
+          }
+        ],
+        "identities": [
+          {
+            "short": "P-001",
+            "name": "worker-0",
+            "status": "seen",
+            "x": 0.8,
+            "y": 5.51,
+            "claims": 222,
+            "error_m": 0.68,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-002",
+            "name": "worker-1",
+            "status": "seen",
+            "x": 23.33,
+            "y": 7.49,
+            "claims": 220,
+            "error_m": 0.53,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-003",
+            "name": "worker-4",
+            "status": "seen",
+            "x": 24.87,
+            "y": 19.47,
+            "claims": 220,
+            "error_m": 0.64,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-004",
+            "name": "worker-3",
+            "status": "seen",
+            "x": 27.16,
+            "y": 20.02,
+            "claims": 219,
+            "error_m": 0.17,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-010",
+            "name": "worker-2",
+            "status": "unseen",
+            "x": 3.62,
+            "y": 17.5,
+            "claims": 66,
+            "error_m": null,
+            "age_s": 31.4
+          },
+          {
+            "short": "P-028",
+            "name": "worker-7",
+            "status": "forked",
+            "x": 34.4,
+            "y": 19.95,
+            "claims": 218,
+            "error_m": 31.81,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-047",
+            "name": null,
+            "status": "unseen",
+            "x": 0.76,
+            "y": 16.94,
+            "claims": 9,
+            "error_m": null,
+            "age_s": 28.0
+          }
+        ],
+        "regions": [
+          {
+            "id": "P-010",
+            "area_m2": 69.0,
+            "reachable_area_m2": 932.5,
+            "ratio": 0.074,
+            "unseen_for_s": 31.4,
+            "blind_block_area_m2": 69.0,
+            "healthy_zone_overlap_m2": 0,
+            "zone_overlap_m2": {},
+            "healthy_nodes": [
+              0,
+              1,
+              2,
+              3
+            ],
+            "silent_nodes": [],
+            "occluded_nodes": [],
+            "explanation": "worker-2 unseen 31 s. Cameras 0, 1, 2, 3 are healthy and saw nobody, so their zones are ruled out. Search area 69 m\u00b2 instead of 932 m\u00b2 reachable."
+          },
+          {
+            "id": "P-047",
+            "area_m2": 69.0,
+            "reachable_area_m2": 923.38,
+            "ratio": 0.075,
+            "unseen_for_s": 28.0,
+            "blind_block_area_m2": 69.0,
+            "healthy_zone_overlap_m2": 0,
+            "zone_overlap_m2": {},
+            "healthy_nodes": [
+              0,
+              1,
+              2,
+              3
+            ],
+            "silent_nodes": [],
+            "occluded_nodes": [],
+            "explanation": "P-047 unseen 28 s. Cameras 0, 1, 2, 3 are healthy and saw nobody, so their zones are ruled out. Search area 69 m\u00b2 instead of 923 m\u00b2 reachable."
+          }
+        ],
+        "central": {
+          "status": "HEALTHY",
+          "cut_cameras": [],
+          "now_t_media": 394.0,
+          "identities_total": 6,
+          "tracked_now": 6,
+          "delivered_observations": 8264,
+          "dropped_observations": 655,
+          "pid": 40024,
+          "uptime_s": 399.1,
+          "tracked": [
+            {
+              "id": "9JDVM3",
+              "x": 1.15,
+              "y": 5.0,
+              "camera": 0,
+              "age_s": 0.0,
+              "current": true,
+              "n": 1908
+            },
+            {
+              "id": "9JDVM4",
+              "x": 25.01,
+              "y": 19.61,
+              "camera": 2,
+              "age_s": 0.2,
+              "current": true,
+              "n": 1654
+            },
+            {
+              "id": "65J58W",
+              "x": 27.06,
+              "y": 20.06,
+              "camera": 3,
+              "age_s": 0.0,
+              "current": true,
+              "n": 1651
+            },
+            {
+              "id": "G8BY9T",
+              "x": 23.09,
+              "y": 7.51,
+              "camera": 1,
+              "age_s": 0.0,
+              "current": true,
+              "n": 1906
+            },
+            {
+              "id": "WA6MP3",
+              "x": 1.04,
+              "y": 14.5,
+              "camera": 0,
+              "age_s": 0.0,
+              "current": true,
+              "n": 893
+            },
+            {
+              "id": "TPP3ND",
+              "x": 34.71,
+              "y": 20.02,
+              "camera": 3,
+              "age_s": 0.0,
+              "current": true,
+              "n": 252
+            }
+          ],
+          "starling_tracked_now": 4,
+          "truth_workers": 7
+        }
+      }
+    },
+    {
+      "slug": "41_forks_resolvable",
+      "panel": "forks",
+      "file": "explainer_shots/41_forks_resolvable.png",
+      "caption": "The resolvable conflict, as the resolver reports it.",
+      "note": "",
+      "t_s": 445.3,
+      "bytes": 141593,
+      "live": {
+        "sim_t": 438.8,
+        "claims_total": 10680,
+        "nodes_live": 4,
+        "mean_error_m": 3.66,
+        "convergence": {
+          "spread": 17,
+          "holes_total": 0,
+          "any_partitioned": false,
+          "converged": true,
+          "tolerance": 30
+        },
+        "forks_open": 1,
+        "forks": [
+          {
+            "status": "OPEN",
+            "identity": "P-028",
+            "face_identity": "P-101",
+            "explanation": "Both trajectories are physically possible from the identity's last confirmed anchor, so the system does NOT pick one (never by score). It is an ambiguity for a human: branch 0 at (5.08, 21.61) OR branch 1 at (33.32, 12.48).",
+            "branches": [
+              {
+                "i": 0,
+                "x": 5.08,
+                "y": 21.61,
+                "n": 125
+              },
+              {
+                "i": 1,
+                "x": 33.32,
+                "y": 12.48,
+                "n": 1
+              }
+            ]
+          },
+          {
+            "status": "RESOLVED_REACHABILITY",
+            "identity": "P-049",
+            "face_identity": "P-100",
+            "explanation": "Resolved by reachability: branch 0 kept. Rejected: branch 1 requires 6.7 m/s over 4.2 s, exceeds v_max 1.6 m/s.",
+            "branches": [
+              {
+                "i": 0,
+                "x": 9.82,
+                "y": 12.53,
+                "n": 157
+              },
+              {
+                "i": 1,
+                "x": 33.36,
+                "y": 12.55,
+                "n": 1
+              }
+            ]
+          }
+        ],
+        "nodes": [
+          {
+            "id": 0,
+            "live": true,
+            "claims": 10651,
+            "holes": 0,
+            "partitioned": false,
+            "lying": false,
+            "attack": "none",
+            "rejected": 31,
+            "evaluated": 3569,
+            "reputation": 1.0,
+            "coverage_healthy": true
+          },
+          {
+            "id": 1,
+            "live": true,
+            "claims": 10641,
+            "holes": 0,
+            "partitioned": false,
+            "lying": false,
+            "attack": "none",
+            "rejected": 0,
+            "evaluated": 2122,
+            "reputation": 1.0,
+            "coverage_healthy": true
+          },
+          {
+            "id": 2,
+            "live": true,
+            "claims": 10648,
+            "holes": 0,
+            "partitioned": false,
+            "lying": false,
+            "attack": "none",
+            "rejected": 24,
+            "evaluated": 2281,
+            "reputation": 1.0,
+            "coverage_healthy": true
+          },
+          {
+            "id": 3,
+            "live": true,
+            "claims": 10658,
+            "holes": 0,
+            "partitioned": false,
+            "lying": false,
+            "attack": "none",
+            "rejected": 59,
+            "evaluated": 2708,
+            "reputation": 0.83,
+            "coverage_healthy": true
+          }
+        ],
+        "identities": [
+          {
+            "short": "P-001",
+            "name": "worker-0",
+            "status": "seen",
+            "x": 2.66,
+            "y": 23.52,
+            "claims": 218,
+            "error_m": 0.62,
+            "age_s": 0.2
+          },
+          {
+            "short": "P-002",
+            "name": "worker-1",
+            "status": "seen",
+            "x": 22.7,
+            "y": 7.51,
+            "claims": 216,
+            "error_m": 0.3,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-003",
+            "name": "worker-4",
+            "status": "seen",
+            "x": 24.91,
+            "y": 23.16,
+            "claims": 215,
+            "error_m": 0.35,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-004",
+            "name": "worker-3",
+            "status": "seen",
+            "x": 39.12,
+            "y": 6.99,
+            "claims": 221,
+            "error_m": 0.47,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-010",
+            "name": "worker-2",
+            "status": "seen",
+            "x": 0.92,
+            "y": 14.44,
+            "claims": 221,
+            "error_m": 0.1,
+            "age_s": 0.2
+          },
+          {
+            "short": "P-028",
+            "name": "worker-7",
+            "status": "forked",
+            "x": 5.27,
+            "y": 22.0,
+            "claims": 151,
+            "error_m": null,
+            "age_s": 14.0
+          },
+          {
+            "short": "P-048",
+            "name": "worker-8",
+            "status": "unseen",
+            "x": 36.43,
+            "y": 9.13,
+            "claims": 163,
+            "error_m": null,
+            "age_s": 1.6
+          },
+          {
+            "short": "P-049",
+            "name": "worker-5",
+            "status": "seen",
+            "x": 28.95,
+            "y": 18.92,
+            "claims": 217,
+            "error_m": 23.2,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-087",
+            "name": "worker-5",
+            "status": "seen",
+            "x": 10.94,
+            "y": 4.89,
+            "claims": 59,
+            "error_m": 0.56,
+            "age_s": 0.2
+          }
+        ],
+        "regions": [
+          {
+            "id": "P-048",
+            "area_m2": 8.12,
+            "reachable_area_m2": 11.06,
+            "ratio": 0.734,
+            "unseen_for_s": 1.6,
+            "blind_block_area_m2": 8.1,
+            "healthy_zone_overlap_m2": 0,
+            "zone_overlap_m2": {},
+            "healthy_nodes": [
+              0,
+              1,
+              2,
+              3
+            ],
+            "silent_nodes": [],
+            "occluded_nodes": [],
+            "explanation": "worker-8 unseen 2 s. Cameras 0, 1, 2, 3 are healthy and saw nobody, so their zones are ruled out. Search area 8 m\u00b2 instead of 11 m\u00b2 reachable."
+          }
+        ],
+        "central": {
+          "status": "HEALTHY",
+          "cut_cameras": [],
+          "now_t_media": 438.8,
+          "identities_total": 7,
+          "tracked_now": 7,
+          "delivered_observations": 9413,
+          "dropped_observations": 1234,
+          "pid": 40024,
+          "uptime_s": 444.6,
+          "tracked": [
+            {
+              "id": "9JDVM3",
+              "x": 2.49,
+              "y": 23.46,
+              "camera": 0,
+              "age_s": 0.0,
+              "current": true,
+              "n": 2125
+            },
+            {
+              "id": "9JDVM4",
+              "x": 24.91,
+              "y": 23.16,
+              "camera": 2,
+              "age_s": 0.0,
+              "current": true,
+              "n": 1688
+            },
+            {
+              "id": "65J58W",
+              "x": 39.12,
+              "y": 6.99,
+              "camera": 3,
+              "age_s": 0.0,
+              "current": true,
+              "n": 1685
+            },
+            {
+              "id": "G8BY9T",
+              "x": 22.7,
+              "y": 7.51,
+              "camera": 1,
+              "age_s": 0.0,
+              "current": true,
+              "n": 2120
+            },
+            {
+              "id": "WA6MP3",
+              "x": 1.0,
+              "y": 14.46,
+              "camera": 0,
+              "age_s": 0.0,
+              "current": true,
+              "n": 1113
+            },
+            {
+              "id": "TPP3ND",
+              "x": 38.04,
+              "y": 8.91,
+              "camera": 3,
+              "age_s": 0.0,
+              "current": true,
+              "n": 434
+            },
+            {
+              "id": "PJV5JV",
+              "x": 28.95,
+              "y": 18.92,
+              "camera": 3,
+              "age_s": 0.0,
+              "current": true,
+              "n": 248
+            }
+          ],
+          "starling_tracked_now": 7,
+          "truth_workers": 7
+        }
+      }
+    },
+    {
+      "slug": "41_map_resolvable",
+      "panel": "map",
+      "file": "explainer_shots/41_map_resolvable.png",
+      "caption": "The resolvable conflict's branches drawn on the floor.",
+      "note": "",
+      "t_s": 445.4,
+      "bytes": 265147,
+      "live": {
+        "sim_t": 438.8,
+        "claims_total": 10680,
+        "nodes_live": 4,
+        "mean_error_m": 3.66,
+        "convergence": {
+          "spread": 17,
+          "holes_total": 0,
+          "any_partitioned": false,
+          "converged": true,
+          "tolerance": 30
+        },
+        "forks_open": 1,
+        "forks": [
+          {
+            "status": "OPEN",
+            "identity": "P-028",
+            "face_identity": "P-101",
+            "explanation": "Both trajectories are physically possible from the identity's last confirmed anchor, so the system does NOT pick one (never by score). It is an ambiguity for a human: branch 0 at (5.08, 21.61) OR branch 1 at (33.32, 12.48).",
+            "branches": [
+              {
+                "i": 0,
+                "x": 5.08,
+                "y": 21.61,
+                "n": 125
+              },
+              {
+                "i": 1,
+                "x": 33.32,
+                "y": 12.48,
+                "n": 1
+              }
+            ]
+          },
+          {
+            "status": "RESOLVED_REACHABILITY",
+            "identity": "P-049",
+            "face_identity": "P-100",
+            "explanation": "Resolved by reachability: branch 0 kept. Rejected: branch 1 requires 6.7 m/s over 4.2 s, exceeds v_max 1.6 m/s.",
+            "branches": [
+              {
+                "i": 0,
+                "x": 9.82,
+                "y": 12.53,
+                "n": 157
+              },
+              {
+                "i": 1,
+                "x": 33.36,
+                "y": 12.55,
+                "n": 1
+              }
+            ]
+          }
+        ],
+        "nodes": [
+          {
+            "id": 0,
+            "live": true,
+            "claims": 10651,
+            "holes": 0,
+            "partitioned": false,
+            "lying": false,
+            "attack": "none",
+            "rejected": 31,
+            "evaluated": 3569,
+            "reputation": 1.0,
+            "coverage_healthy": true
+          },
+          {
+            "id": 1,
+            "live": true,
+            "claims": 10641,
+            "holes": 0,
+            "partitioned": false,
+            "lying": false,
+            "attack": "none",
+            "rejected": 0,
+            "evaluated": 2122,
+            "reputation": 1.0,
+            "coverage_healthy": true
+          },
+          {
+            "id": 2,
+            "live": true,
+            "claims": 10648,
+            "holes": 0,
+            "partitioned": false,
+            "lying": false,
+            "attack": "none",
+            "rejected": 24,
+            "evaluated": 2281,
+            "reputation": 1.0,
+            "coverage_healthy": true
+          },
+          {
+            "id": 3,
+            "live": true,
+            "claims": 10658,
+            "holes": 0,
+            "partitioned": false,
+            "lying": false,
+            "attack": "none",
+            "rejected": 59,
+            "evaluated": 2708,
+            "reputation": 0.83,
+            "coverage_healthy": true
+          }
+        ],
+        "identities": [
+          {
+            "short": "P-001",
+            "name": "worker-0",
+            "status": "seen",
+            "x": 2.66,
+            "y": 23.52,
+            "claims": 218,
+            "error_m": 0.62,
+            "age_s": 0.2
+          },
+          {
+            "short": "P-002",
+            "name": "worker-1",
+            "status": "seen",
+            "x": 22.7,
+            "y": 7.51,
+            "claims": 216,
+            "error_m": 0.3,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-003",
+            "name": "worker-4",
+            "status": "seen",
+            "x": 24.91,
+            "y": 23.16,
+            "claims": 215,
+            "error_m": 0.35,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-004",
+            "name": "worker-3",
+            "status": "seen",
+            "x": 39.12,
+            "y": 6.99,
+            "claims": 221,
+            "error_m": 0.47,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-010",
+            "name": "worker-2",
+            "status": "seen",
+            "x": 0.92,
+            "y": 14.44,
+            "claims": 221,
+            "error_m": 0.1,
+            "age_s": 0.2
+          },
+          {
+            "short": "P-028",
+            "name": "worker-7",
+            "status": "forked",
+            "x": 5.27,
+            "y": 22.0,
+            "claims": 151,
+            "error_m": null,
+            "age_s": 14.0
+          },
+          {
+            "short": "P-048",
+            "name": "worker-8",
+            "status": "unseen",
+            "x": 36.43,
+            "y": 9.13,
+            "claims": 163,
+            "error_m": null,
+            "age_s": 1.6
+          },
+          {
+            "short": "P-049",
+            "name": "worker-5",
+            "status": "seen",
+            "x": 28.95,
+            "y": 18.92,
+            "claims": 217,
+            "error_m": 23.2,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-087",
+            "name": "worker-5",
+            "status": "seen",
+            "x": 10.94,
+            "y": 4.89,
+            "claims": 59,
+            "error_m": 0.56,
+            "age_s": 0.2
+          }
+        ],
+        "regions": [
+          {
+            "id": "P-048",
+            "area_m2": 8.12,
+            "reachable_area_m2": 11.06,
+            "ratio": 0.734,
+            "unseen_for_s": 1.6,
+            "blind_block_area_m2": 8.1,
+            "healthy_zone_overlap_m2": 0,
+            "zone_overlap_m2": {},
+            "healthy_nodes": [
+              0,
+              1,
+              2,
+              3
+            ],
+            "silent_nodes": [],
+            "occluded_nodes": [],
+            "explanation": "worker-8 unseen 2 s. Cameras 0, 1, 2, 3 are healthy and saw nobody, so their zones are ruled out. Search area 8 m\u00b2 instead of 11 m\u00b2 reachable."
+          }
+        ],
+        "central": {
+          "status": "HEALTHY",
+          "cut_cameras": [],
+          "now_t_media": 438.8,
+          "identities_total": 7,
+          "tracked_now": 7,
+          "delivered_observations": 9413,
+          "dropped_observations": 1234,
+          "pid": 40024,
+          "uptime_s": 444.6,
+          "tracked": [
+            {
+              "id": "9JDVM3",
+              "x": 2.49,
+              "y": 23.46,
+              "camera": 0,
+              "age_s": 0.0,
+              "current": true,
+              "n": 2125
+            },
+            {
+              "id": "9JDVM4",
+              "x": 24.91,
+              "y": 23.16,
+              "camera": 2,
+              "age_s": 0.0,
+              "current": true,
+              "n": 1688
+            },
+            {
+              "id": "65J58W",
+              "x": 39.12,
+              "y": 6.99,
+              "camera": 3,
+              "age_s": 0.0,
+              "current": true,
+              "n": 1685
+            },
+            {
+              "id": "G8BY9T",
+              "x": 22.7,
+              "y": 7.51,
+              "camera": 1,
+              "age_s": 0.0,
+              "current": true,
+              "n": 2120
+            },
+            {
+              "id": "WA6MP3",
+              "x": 1.0,
+              "y": 14.46,
+              "camera": 0,
+              "age_s": 0.0,
+              "current": true,
+              "n": 1113
+            },
+            {
+              "id": "TPP3ND",
+              "x": 38.04,
+              "y": 8.91,
+              "camera": 3,
+              "age_s": 0.0,
+              "current": true,
+              "n": 434
+            },
+            {
+              "id": "PJV5JV",
+              "x": 28.95,
+              "y": 18.92,
+              "camera": 3,
+              "age_s": 0.0,
+              "current": true,
+              "n": 248
+            }
+          ],
+          "starling_tracked_now": 7,
+          "truth_workers": 7
+        }
+      }
+    },
+    {
+      "slug": "50_query_answered",
+      "panel": "query",
+      "file": "explainer_shots/50_query_answered.png",
+      "caption": "A valid query: confirmed and inferred kept apart.",
+      "note": "",
+      "t_s": 447.4,
+      "bytes": 95130,
+      "live": {
+        "sim_t": 440.6,
+        "claims_total": 10750,
+        "nodes_live": 4,
+        "mean_error_m": 0.35,
+        "convergence": {
+          "spread": 12,
+          "holes_total": 0,
+          "any_partitioned": false,
+          "converged": true,
+          "tolerance": 30
+        },
+        "forks_open": 1,
+        "forks": [
+          {
+            "status": "OPEN",
+            "identity": "P-028",
+            "face_identity": "P-101",
+            "explanation": "Both trajectories are physically possible from the identity's last confirmed anchor, so the system does NOT pick one (never by score). It is an ambiguity for a human: branch 0 at (5.08, 21.61) OR branch 1 at (33.32, 12.48).",
+            "branches": [
+              {
+                "i": 0,
+                "x": 5.08,
+                "y": 21.61,
+                "n": 125
+              },
+              {
+                "i": 1,
+                "x": 33.32,
+                "y": 12.48,
+                "n": 1
+              }
+            ]
+          },
+          {
+            "status": "RESOLVED_REACHABILITY",
+            "identity": "P-108",
+            "face_identity": "P-100",
+            "explanation": "Resolved by reachability: branch 0 kept. Rejected: branch 1 requires 6.7 m/s over 4.2 s, exceeds v_max 1.6 m/s.",
+            "branches": [
+              {
+                "i": 0,
+                "x": 7.18,
+                "y": 14.13,
+                "n": 1
+              },
+              {
+                "i": 1,
+                "x": 33.36,
+                "y": 12.55,
+                "n": 1
+              }
+            ]
+          }
+        ],
+        "nodes": [
+          {
+            "id": 0,
+            "live": true,
+            "claims": 10722,
+            "holes": 0,
+            "partitioned": false,
+            "lying": false,
+            "attack": "none",
+            "rejected": 31,
+            "evaluated": 3596,
+            "reputation": 1.0,
+            "coverage_healthy": true
+          },
+          {
+            "id": 1,
+            "live": true,
+            "claims": 10715,
+            "holes": 0,
+            "partitioned": false,
+            "lying": false,
+            "attack": "none",
+            "rejected": 0,
+            "evaluated": 2131,
+            "reputation": 1.0,
+            "coverage_healthy": true
+          },
+          {
+            "id": 2,
+            "live": true,
+            "claims": 10718,
+            "holes": 0,
+            "partitioned": false,
+            "lying": false,
+            "attack": "none",
+            "rejected": 24,
+            "evaluated": 2290,
+            "reputation": 1.0,
+            "coverage_healthy": true
+          },
+          {
+            "id": 3,
+            "live": true,
+            "claims": 10727,
+            "holes": 0,
+            "partitioned": false,
+            "lying": false,
+            "attack": "none",
+            "rejected": 59,
+            "evaluated": 2726,
+            "reputation": 0.927,
+            "coverage_healthy": true
+          }
+        ],
+        "identities": [
+          {
+            "short": "P-001",
+            "name": "worker-0",
+            "status": "seen",
+            "x": 1.08,
+            "y": 22.87,
+            "claims": 220,
+            "error_m": 0.73,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-002",
+            "name": "worker-1",
+            "status": "seen",
+            "x": 20.9,
+            "y": 7.56,
+            "claims": 217,
+            "error_m": 0.5,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-003",
+            "name": "worker-4",
+            "status": "seen",
+            "x": 23.66,
+            "y": 23.58,
+            "claims": 216,
+            "error_m": 0.1,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-004",
+            "name": "worker-3",
+            "status": "seen",
+            "x": 39.01,
+            "y": 8.84,
+            "claims": 221,
+            "error_m": 0.14,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-010",
+            "name": "worker-2",
+            "status": "seen",
+            "x": 0.94,
+            "y": 14.36,
+            "claims": 222,
+            "error_m": 0.15,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-028",
+            "name": "worker-7",
+            "status": "forked",
+            "x": 5.27,
+            "y": 22.0,
+            "claims": 142,
+            "error_m": null,
+            "age_s": 15.8
+          },
+          {
+            "short": "P-048",
+            "name": "worker-8",
+            "status": "unseen",
+            "x": 36.43,
+            "y": 9.13,
+            "claims": 154,
+            "error_m": null,
+            "age_s": 3.4
+          },
+          {
+            "short": "P-049",
+            "name": "worker-5",
+            "status": "seen",
+            "x": 9.07,
+            "y": 4.94,
+            "claims": 201,
+            "error_m": 0.48,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-108",
+            "name": null,
+            "status": "seen",
+            "x": 29.53,
+            "y": 19.93,
+            "claims": 70,
+            "error_m": null,
+            "age_s": 0.0
+          }
+        ],
+        "regions": [
+          {
+            "id": "P-048",
+            "area_m2": 22.19,
+            "reachable_area_m2": 56.38,
+            "ratio": 0.394,
+            "unseen_for_s": 3.4,
+            "blind_block_area_m2": 22.2,
+            "healthy_zone_overlap_m2": 0,
+            "zone_overlap_m2": {},
+            "healthy_nodes": [
+              0,
+              1,
+              2,
+              3
+            ],
+            "silent_nodes": [],
+            "occluded_nodes": [],
+            "explanation": "worker-8 unseen 3 s. Cameras 0, 1, 2, 3 are healthy and saw nobody, so their zones are ruled out. Search area 22 m\u00b2 instead of 56 m\u00b2 reachable."
+          }
+        ],
+        "central": {
+          "status": "HEALTHY",
+          "cut_cameras": [],
+          "now_t_media": 440.8,
+          "identities_total": 7,
+          "tracked_now": 7,
+          "delivered_observations": 9483,
+          "dropped_observations": 1234,
+          "pid": 40024,
+          "uptime_s": 446.6,
+          "tracked": [
+            {
+              "id": "9JDVM3",
+              "x": 0.98,
+              "y": 22.65,
+              "camera": 0,
+              "age_s": 0.0,
+              "current": true,
+              "n": 2135
+            },
+            {
+              "id": "9JDVM4",
+              "x": 23.67,
+              "y": 23.46,
+              "camera": 2,
+              "age_s": 0.0,
+              "current": true,
+              "n": 1698
+            },
+            {
+              "id": "65J58W",
+              "x": 38.94,
+              "y": 8.94,
+              "camera": 3,
+              "age_s": 0.0,
+              "current": true,
+              "n": 1695
+            },
+            {
+              "id": "G8BY9T",
+              "x": 20.91,
+              "y": 7.55,
+              "camera": 1,
+              "age_s": 0.0,
+              "current": true,
+              "n": 2130
+            },
+            {
+              "id": "WA6MP3",
+              "x": 0.86,
+              "y": 14.39,
+              "camera": 0,
+              "age_s": 0.0,
+              "current": true,
+              "n": 1123
+            },
+            {
+              "id": "TPP3ND",
+              "x": 38.04,
+              "y": 8.91,
+              "camera": 3,
+              "age_s": 2.0,
+              "current": true,
+              "n": 434
+            },
+            {
+              "id": "PJV5JV",
+              "x": 29.75,
+              "y": 20.05,
+              "camera": 3,
+              "age_s": 0.0,
+              "current": true,
+              "n": 268
+            }
+          ],
+          "starling_tracked_now": 7,
+          "truth_workers": 7
+        }
+      }
+    },
+    {
+      "slug": "51_query_refused_unknown",
+      "panel": "query",
+      "file": "explainer_shots/51_query_refused_unknown.png",
+      "caption": "Nobody by that name: refused, with the reason.",
+      "note": "",
+      "t_s": 449.3,
+      "bytes": 40085,
+      "live": {
+        "sim_t": 442.8,
+        "claims_total": 10820,
+        "nodes_live": 4,
+        "mean_error_m": 0.32,
+        "convergence": {
+          "spread": 13,
+          "holes_total": 0,
+          "any_partitioned": false,
+          "converged": true,
+          "tolerance": 30
+        },
+        "forks_open": 1,
+        "forks": [
+          {
+            "status": "OPEN",
+            "identity": "P-028",
+            "face_identity": "P-101",
+            "explanation": "Both trajectories are physically possible from the identity's last confirmed anchor, so the system does NOT pick one (never by score). It is an ambiguity for a human: branch 0 at (5.08, 21.61) OR branch 1 at (33.32, 12.48).",
+            "branches": [
+              {
+                "i": 0,
+                "x": 5.08,
+                "y": 21.61,
+                "n": 125
+              },
+              {
+                "i": 1,
+                "x": 33.32,
+                "y": 12.48,
+                "n": 1
+              }
+            ]
+          },
+          {
+            "status": "RESOLVED_REACHABILITY",
+            "identity": "P-108",
+            "face_identity": "P-100",
+            "explanation": "Resolved by reachability: branch 0 kept. Rejected: branch 1 requires 6.7 m/s over 4.2 s, exceeds v_max 1.6 m/s.",
+            "branches": [
+              {
+                "i": 0,
+                "x": 7.18,
+                "y": 14.13,
+                "n": 1
+              },
+              {
+                "i": 1,
+                "x": 33.36,
+                "y": 12.55,
+                "n": 1
+              }
+            ]
+          }
+        ],
+        "nodes": [
+          {
+            "id": 0,
+            "live": true,
+            "claims": 10792,
+            "holes": 0,
+            "partitioned": false,
+            "lying": false,
+            "attack": "none",
+            "rejected": 31,
+            "evaluated": 3626,
+            "reputation": 1.0,
+            "coverage_healthy": true
+          },
+          {
+            "id": 1,
+            "live": true,
+            "claims": 10785,
+            "holes": 0,
+            "partitioned": false,
+            "lying": false,
+            "attack": "none",
+            "rejected": 0,
+            "evaluated": 2141,
+            "reputation": 1.0,
+            "coverage_healthy": true
+          },
+          {
+            "id": 2,
+            "live": true,
+            "claims": 10788,
+            "holes": 0,
+            "partitioned": false,
+            "lying": false,
+            "attack": "none",
+            "rejected": 24,
+            "evaluated": 2300,
+            "reputation": 1.0,
+            "coverage_healthy": true
+          },
+          {
+            "id": 3,
+            "live": true,
+            "claims": 10798,
+            "holes": 0,
+            "partitioned": false,
+            "lying": false,
+            "attack": "none",
+            "rejected": 59,
+            "evaluated": 2746,
+            "reputation": 0.974,
+            "coverage_healthy": true
+          }
+        ],
+        "identities": [
+          {
+            "short": "P-001",
+            "name": "worker-0",
+            "status": "seen",
+            "x": 0.96,
+            "y": 20.28,
+            "claims": 221,
+            "error_m": 0.54,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-002",
+            "name": "worker-1",
+            "status": "seen",
+            "x": 18.73,
+            "y": 7.6,
+            "claims": 217,
+            "error_m": 0.34,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-003",
+            "name": "worker-4",
+            "status": "seen",
+            "x": 23.04,
+            "y": 23.43,
+            "claims": 217,
+            "error_m": 0.45,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-004",
+            "name": "worker-3",
+            "status": "seen",
+            "x": 38.96,
+            "y": 8.98,
+            "claims": 221,
+            "error_m": 0.04,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-010",
+            "name": "worker-2",
+            "status": "seen",
+            "x": 0.97,
+            "y": 14.59,
+            "claims": 222,
+            "error_m": 0.1,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-028",
+            "name": "worker-7",
+            "status": "forked",
+            "x": 5.27,
+            "y": 22.0,
+            "claims": 131,
+            "error_m": null,
+            "age_s": 18.0
+          },
+          {
+            "short": "P-048",
+            "name": "worker-8",
+            "status": "unseen",
+            "x": 36.43,
+            "y": 9.13,
+            "claims": 143,
+            "error_m": null,
+            "age_s": 5.6
+          },
+          {
+            "short": "P-049",
+            "name": "worker-5",
+            "status": "seen",
+            "x": 7.21,
+            "y": 5.05,
+            "claims": 201,
+            "error_m": 0.42,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-108",
+            "name": "worker-6",
+            "status": "seen",
+            "x": 31.58,
+            "y": 19.96,
+            "claims": 81,
+            "error_m": 0.36,
+            "age_s": 0.0
+          }
+        ],
+        "regions": [
+          {
+            "id": "P-048",
+            "area_m2": 40.94,
+            "reachable_area_m2": 138.75,
+            "ratio": 0.295,
+            "unseen_for_s": 5.6,
+            "blind_block_area_m2": 40.9,
+            "healthy_zone_overlap_m2": 0,
+            "zone_overlap_m2": {},
+            "healthy_nodes": [
+              0,
+              1,
+              2,
+              3
+            ],
+            "silent_nodes": [],
+            "occluded_nodes": [],
+            "explanation": "worker-8 unseen 6 s. Cameras 0, 1, 2, 3 are healthy and saw nobody, so their zones are ruled out. Search area 41 m\u00b2 instead of 139 m\u00b2 reachable."
+          }
+        ],
+        "central": {
+          "status": "HEALTHY",
+          "cut_cameras": [],
+          "now_t_media": 443.0,
+          "identities_total": 7,
+          "tracked_now": 6,
+          "delivered_observations": 9560,
+          "dropped_observations": 1234,
+          "pid": 40024,
+          "uptime_s": 448.7,
+          "tracked": [
+            {
+              "id": "9JDVM3",
+              "x": 1.03,
+              "y": 20.06,
+              "camera": 0,
+              "age_s": 0.0,
+              "current": true,
+              "n": 2146
+            },
+            {
+              "id": "9JDVM4",
+              "x": 22.98,
+              "y": 23.55,
+              "camera": 2,
+              "age_s": 0.0,
+              "current": true,
+              "n": 1709
+            },
+            {
+              "id": "65J58W",
+              "x": 39.02,
+              "y": 8.97,
+              "camera": 3,
+              "age_s": 0.0,
+              "current": true,
+              "n": 1706
+            },
+            {
+              "id": "G8BY9T",
+              "x": 18.67,
+              "y": 7.5,
+              "camera": 1,
+              "age_s": 0.0,
+              "current": true,
+              "n": 2141
+            },
+            {
+              "id": "WA6MP3",
+              "x": 1.01,
+              "y": 14.65,
+              "camera": 0,
+              "age_s": 0.0,
+              "current": true,
+              "n": 1134
+            },
+            {
+              "id": "TPP3ND",
+              "x": 38.04,
+              "y": 8.91,
+              "camera": 3,
+              "age_s": 4.2,
+              "current": false,
+              "n": 434
+            },
+            {
+              "id": "PJV5JV",
+              "x": 31.78,
+              "y": 20.22,
+              "camera": 3,
+              "age_s": 0.0,
+              "current": true,
+              "n": 290
+            }
+          ],
+          "starling_tracked_now": 7,
+          "truth_workers": 7
+        }
+      }
+    },
+    {
+      "slug": "52_query_refused_purpose",
+      "panel": "query",
+      "file": "explainer_shots/52_query_refused_purpose.png",
+      "caption": "Same question, wrong purpose: refused.",
+      "note": "",
+      "t_s": 451.3,
+      "bytes": 59626,
+      "live": {
+        "sim_t": 444.8,
+        "claims_total": 10887,
+        "nodes_live": 4,
+        "mean_error_m": 0.37,
+        "convergence": {
+          "spread": 11,
+          "holes_total": 0,
+          "any_partitioned": false,
+          "converged": true,
+          "tolerance": 30
+        },
+        "forks_open": 1,
+        "forks": [
+          {
+            "status": "OPEN",
+            "identity": "P-028",
+            "face_identity": "P-101",
+            "explanation": "Both trajectories are physically possible from the identity's last confirmed anchor, so the system does NOT pick one (never by score). It is an ambiguity for a human: branch 0 at (5.08, 21.61) OR branch 1 at (33.32, 12.48).",
+            "branches": [
+              {
+                "i": 0,
+                "x": 5.08,
+                "y": 21.61,
+                "n": 125
+              },
+              {
+                "i": 1,
+                "x": 33.32,
+                "y": 12.48,
+                "n": 1
+              }
+            ]
+          },
+          {
+            "status": "RESOLVED_REACHABILITY",
+            "identity": "P-108",
+            "face_identity": "P-100",
+            "explanation": "Resolved by reachability: branch 0 kept. Rejected: branch 1 requires 6.7 m/s over 4.2 s, exceeds v_max 1.6 m/s.",
+            "branches": [
+              {
+                "i": 0,
+                "x": 7.18,
+                "y": 14.13,
+                "n": 1
+              },
+              {
+                "i": 1,
+                "x": 33.36,
+                "y": 12.55,
+                "n": 1
+              }
+            ]
+          }
+        ],
+        "nodes": [
+          {
+            "id": 0,
+            "live": true,
+            "claims": 10861,
+            "holes": 0,
+            "partitioned": false,
+            "lying": false,
+            "attack": "none",
+            "rejected": 31,
+            "evaluated": 3655,
+            "reputation": 1.0,
+            "coverage_healthy": true
+          },
+          {
+            "id": 1,
+            "live": true,
+            "claims": 10854,
+            "holes": 0,
+            "partitioned": false,
+            "lying": false,
+            "attack": "none",
+            "rejected": 0,
+            "evaluated": 2151,
+            "reputation": 1.0,
+            "coverage_healthy": true
+          },
+          {
+            "id": 2,
+            "live": true,
+            "claims": 10857,
+            "holes": 0,
+            "partitioned": false,
+            "lying": false,
+            "attack": "none",
+            "rejected": 24,
+            "evaluated": 2310,
+            "reputation": 1.0,
+            "coverage_healthy": true
+          },
+          {
+            "id": 3,
+            "live": true,
+            "claims": 10865,
+            "holes": 0,
+            "partitioned": false,
+            "lying": false,
+            "attack": "none",
+            "rejected": 59,
+            "evaluated": 2764,
+            "reputation": 0.991,
+            "coverage_healthy": true
+          }
+        ],
+        "identities": [
+          {
+            "short": "P-001",
+            "name": "worker-0",
+            "status": "seen",
+            "x": 1.1,
+            "y": 19.2,
+            "claims": 220,
+            "error_m": 0.2,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-002",
+            "name": "worker-1",
+            "status": "seen",
+            "x": 16.65,
+            "y": 7.42,
+            "claims": 219,
+            "error_m": 0.27,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-003",
+            "name": "worker-4",
+            "status": "seen",
+            "x": 20.9,
+            "y": 23.41,
+            "claims": 218,
+            "error_m": 0.32,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-004",
+            "name": "worker-3",
+            "status": "seen",
+            "x": 39.11,
+            "y": 10.4,
+            "claims": 221,
+            "error_m": 0.79,
+            "age_s": 0.2
+          },
+          {
+            "short": "P-010",
+            "name": "worker-2",
+            "status": "seen",
+            "x": 0.98,
+            "y": 14.51,
+            "claims": 222,
+            "error_m": 0.02,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-028",
+            "name": "worker-7",
+            "status": "forked",
+            "x": 5.27,
+            "y": 22.0,
+            "claims": 122,
+            "error_m": null,
+            "age_s": 20.0
+          },
+          {
+            "short": "P-048",
+            "name": "worker-8",
+            "status": "unseen",
+            "x": 36.43,
+            "y": 9.13,
+            "claims": 134,
+            "error_m": null,
+            "age_s": 7.6
+          },
+          {
+            "short": "P-049",
+            "name": "worker-5",
+            "status": "seen",
+            "x": 5.48,
+            "y": 5.03,
+            "claims": 201,
+            "error_m": 0.48,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-108",
+            "name": "worker-6",
+            "status": "seen",
+            "x": 33.24,
+            "y": 20.09,
+            "claims": 91,
+            "error_m": 0.51,
+            "age_s": 0.0
+          }
+        ],
+        "regions": [
+          {
+            "id": "P-048",
+            "area_m2": 55.94,
+            "reachable_area_m2": 223.25,
+            "ratio": 0.251,
+            "unseen_for_s": 7.6,
+            "blind_block_area_m2": 55.9,
+            "healthy_zone_overlap_m2": 0,
+            "zone_overlap_m2": {},
+            "healthy_nodes": [
+              0,
+              1,
+              2,
+              3
+            ],
+            "silent_nodes": [],
+            "occluded_nodes": [],
+            "explanation": "worker-8 unseen 8 s. Cameras 0, 1, 2, 3 are healthy and saw nobody, so their zones are ruled out. Search area 56 m\u00b2 instead of 223 m\u00b2 reachable."
+          }
+        ],
+        "central": {
+          "status": "HEALTHY",
+          "cut_cameras": [],
+          "now_t_media": 445.0,
+          "identities_total": 7,
+          "tracked_now": 6,
+          "delivered_observations": 9627,
+          "dropped_observations": 1234,
+          "pid": 40024,
+          "uptime_s": 450.8,
+          "tracked": [
+            {
+              "id": "9JDVM3",
+              "x": 1.1,
+              "y": 19.06,
+              "camera": 0,
+              "age_s": 0.0,
+              "current": true,
+              "n": 2155
+            },
+            {
+              "id": "9JDVM4",
+              "x": 20.77,
+              "y": 23.45,
+              "camera": 2,
+              "age_s": 0.0,
+              "current": true,
+              "n": 1719
+            },
+            {
+              "id": "65J58W",
+              "x": 39.11,
+              "y": 10.4,
+              "camera": 3,
+              "age_s": 0.4,
+              "current": true,
+              "n": 1714
+            },
+            {
+              "id": "G8BY9T",
+              "x": 16.49,
+              "y": 7.53,
+              "camera": 1,
+              "age_s": 0.0,
+              "current": true,
+              "n": 2151
+            },
+            {
+              "id": "WA6MP3",
+              "x": 1.03,
+              "y": 14.49,
+              "camera": 0,
+              "age_s": 0.0,
+              "current": true,
+              "n": 1144
+            },
+            {
+              "id": "TPP3ND",
+              "x": 38.04,
+              "y": 8.91,
+              "camera": 3,
+              "age_s": 6.2,
+              "current": false,
+              "n": 434
+            },
+            {
+              "id": "PJV5JV",
+              "x": 33.57,
+              "y": 19.97,
+              "camera": 3,
+              "age_s": 0.0,
+              "current": true,
+              "n": 310
+            }
+          ],
+          "starling_tracked_now": 7,
+          "truth_workers": 7
+        }
+      }
+    },
+    {
+      "slug": "60_central_healthy",
+      "panel": "central",
+      "file": "explainer_shots/60_central_healthy.png",
+      "caption": "The centralized baseline, working normally.",
+      "note": "",
+      "t_s": 451.4,
+      "bytes": 62378,
+      "live": {
+        "sim_t": 444.8,
+        "claims_total": 10887,
+        "nodes_live": 4,
+        "mean_error_m": 0.37,
+        "convergence": {
+          "spread": 11,
+          "holes_total": 0,
+          "any_partitioned": false,
+          "converged": true,
+          "tolerance": 30
+        },
+        "forks_open": 1,
+        "forks": [
+          {
+            "status": "OPEN",
+            "identity": "P-028",
+            "face_identity": "P-101",
+            "explanation": "Both trajectories are physically possible from the identity's last confirmed anchor, so the system does NOT pick one (never by score). It is an ambiguity for a human: branch 0 at (5.08, 21.61) OR branch 1 at (33.32, 12.48).",
+            "branches": [
+              {
+                "i": 0,
+                "x": 5.08,
+                "y": 21.61,
+                "n": 125
+              },
+              {
+                "i": 1,
+                "x": 33.32,
+                "y": 12.48,
+                "n": 1
+              }
+            ]
+          },
+          {
+            "status": "RESOLVED_REACHABILITY",
+            "identity": "P-108",
+            "face_identity": "P-100",
+            "explanation": "Resolved by reachability: branch 0 kept. Rejected: branch 1 requires 6.7 m/s over 4.2 s, exceeds v_max 1.6 m/s.",
+            "branches": [
+              {
+                "i": 0,
+                "x": 7.18,
+                "y": 14.13,
+                "n": 1
+              },
+              {
+                "i": 1,
+                "x": 33.36,
+                "y": 12.55,
+                "n": 1
+              }
+            ]
+          }
+        ],
+        "nodes": [
+          {
+            "id": 0,
+            "live": true,
+            "claims": 10861,
+            "holes": 0,
+            "partitioned": false,
+            "lying": false,
+            "attack": "none",
+            "rejected": 31,
+            "evaluated": 3655,
+            "reputation": 1.0,
+            "coverage_healthy": true
+          },
+          {
+            "id": 1,
+            "live": true,
+            "claims": 10854,
+            "holes": 0,
+            "partitioned": false,
+            "lying": false,
+            "attack": "none",
+            "rejected": 0,
+            "evaluated": 2151,
+            "reputation": 1.0,
+            "coverage_healthy": true
+          },
+          {
+            "id": 2,
+            "live": true,
+            "claims": 10857,
+            "holes": 0,
+            "partitioned": false,
+            "lying": false,
+            "attack": "none",
+            "rejected": 24,
+            "evaluated": 2310,
+            "reputation": 1.0,
+            "coverage_healthy": true
+          },
+          {
+            "id": 3,
+            "live": true,
+            "claims": 10865,
+            "holes": 0,
+            "partitioned": false,
+            "lying": false,
+            "attack": "none",
+            "rejected": 59,
+            "evaluated": 2764,
+            "reputation": 0.991,
+            "coverage_healthy": true
+          }
+        ],
+        "identities": [
+          {
+            "short": "P-001",
+            "name": "worker-0",
+            "status": "seen",
+            "x": 1.1,
+            "y": 19.2,
+            "claims": 220,
+            "error_m": 0.2,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-002",
+            "name": "worker-1",
+            "status": "seen",
+            "x": 16.65,
+            "y": 7.42,
+            "claims": 219,
+            "error_m": 0.27,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-003",
+            "name": "worker-4",
+            "status": "seen",
+            "x": 20.9,
+            "y": 23.41,
+            "claims": 218,
+            "error_m": 0.32,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-004",
+            "name": "worker-3",
+            "status": "seen",
+            "x": 39.11,
+            "y": 10.4,
+            "claims": 221,
+            "error_m": 0.79,
+            "age_s": 0.2
+          },
+          {
+            "short": "P-010",
+            "name": "worker-2",
+            "status": "seen",
+            "x": 0.98,
+            "y": 14.51,
+            "claims": 222,
+            "error_m": 0.02,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-028",
+            "name": "worker-7",
+            "status": "forked",
+            "x": 5.27,
+            "y": 22.0,
+            "claims": 122,
+            "error_m": null,
+            "age_s": 20.0
+          },
+          {
+            "short": "P-048",
+            "name": "worker-8",
+            "status": "unseen",
+            "x": 36.43,
+            "y": 9.13,
+            "claims": 134,
+            "error_m": null,
+            "age_s": 7.6
+          },
+          {
+            "short": "P-049",
+            "name": "worker-5",
+            "status": "seen",
+            "x": 5.48,
+            "y": 5.03,
+            "claims": 201,
+            "error_m": 0.48,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-108",
+            "name": "worker-6",
+            "status": "seen",
+            "x": 33.24,
+            "y": 20.09,
+            "claims": 91,
+            "error_m": 0.51,
+            "age_s": 0.0
+          }
+        ],
+        "regions": [
+          {
+            "id": "P-048",
+            "area_m2": 55.94,
+            "reachable_area_m2": 223.25,
+            "ratio": 0.251,
+            "unseen_for_s": 7.6,
+            "blind_block_area_m2": 55.9,
+            "healthy_zone_overlap_m2": 0,
+            "zone_overlap_m2": {},
+            "healthy_nodes": [
+              0,
+              1,
+              2,
+              3
+            ],
+            "silent_nodes": [],
+            "occluded_nodes": [],
+            "explanation": "worker-8 unseen 8 s. Cameras 0, 1, 2, 3 are healthy and saw nobody, so their zones are ruled out. Search area 56 m\u00b2 instead of 223 m\u00b2 reachable."
+          }
+        ],
+        "central": {
+          "status": "HEALTHY",
+          "cut_cameras": [],
+          "now_t_media": 445.0,
+          "identities_total": 7,
+          "tracked_now": 6,
+          "delivered_observations": 9627,
+          "dropped_observations": 1234,
+          "pid": 40024,
+          "uptime_s": 450.8,
+          "tracked": [
+            {
+              "id": "9JDVM3",
+              "x": 1.1,
+              "y": 19.06,
+              "camera": 0,
+              "age_s": 0.0,
+              "current": true,
+              "n": 2155
+            },
+            {
+              "id": "9JDVM4",
+              "x": 20.77,
+              "y": 23.45,
+              "camera": 2,
+              "age_s": 0.0,
+              "current": true,
+              "n": 1719
+            },
+            {
+              "id": "65J58W",
+              "x": 39.11,
+              "y": 10.4,
+              "camera": 3,
+              "age_s": 0.4,
+              "current": true,
+              "n": 1714
+            },
+            {
+              "id": "G8BY9T",
+              "x": 16.49,
+              "y": 7.53,
+              "camera": 1,
+              "age_s": 0.0,
+              "current": true,
+              "n": 2151
+            },
+            {
+              "id": "WA6MP3",
+              "x": 1.03,
+              "y": 14.49,
+              "camera": 0,
+              "age_s": 0.0,
+              "current": true,
+              "n": 1144
+            },
+            {
+              "id": "TPP3ND",
+              "x": 38.04,
+              "y": 8.91,
+              "camera": 3,
+              "age_s": 6.2,
+              "current": false,
+              "n": 434
+            },
+            {
+              "id": "PJV5JV",
+              "x": 33.57,
+              "y": 19.97,
+              "camera": 3,
+              "age_s": 0.0,
+              "current": true,
+              "n": 310
+            }
+          ],
+          "starling_tracked_now": 7,
+          "truth_workers": 7
+        }
+      }
+    },
+    {
+      "slug": "61_central_down",
+      "panel": "central",
+      "file": "explainer_shots/61_central_down.png",
+      "caption": "Server killed: it tracks nobody. Starling is unaffected.",
+      "note": "",
+      "t_s": 461.3,
+      "bytes": 61418,
+      "live": {
+        "sim_t": 454.8,
+        "claims_total": 11221,
+        "nodes_live": 4,
+        "mean_error_m": 0.23,
+        "convergence": {
+          "spread": 13,
+          "holes_total": 0,
+          "any_partitioned": false,
+          "converged": true,
+          "tolerance": 30
+        },
+        "forks_open": 1,
+        "forks": [
+          {
+            "status": "OPEN",
+            "identity": "P-028",
+            "face_identity": "P-101",
+            "explanation": "Both trajectories are physically possible from the identity's last confirmed anchor, so the system does NOT pick one (never by score). It is an ambiguity for a human: branch 0 at (5.08, 21.61) OR branch 1 at (33.32, 12.48).",
+            "branches": [
+              {
+                "i": 0,
+                "x": 5.08,
+                "y": 21.61,
+                "n": 125
+              },
+              {
+                "i": 1,
+                "x": 33.32,
+                "y": 12.48,
+                "n": 1
+              }
+            ]
+          },
+          {
+            "status": "RESOLVED_REACHABILITY",
+            "identity": "P-108",
+            "face_identity": "P-100",
+            "explanation": "Resolved by reachability: branch 0 kept. Rejected: branch 1 requires 6.7 m/s over 4.2 s, exceeds v_max 1.6 m/s.",
+            "branches": [
+              {
+                "i": 0,
+                "x": 7.18,
+                "y": 14.13,
+                "n": 1
+              },
+              {
+                "i": 1,
+                "x": 33.36,
+                "y": 12.55,
+                "n": 1
+              }
+            ]
+          }
+        ],
+        "nodes": [
+          {
+            "id": 0,
+            "live": true,
+            "claims": 11201,
+            "holes": 0,
+            "partitioned": false,
+            "lying": false,
+            "attack": "none",
+            "rejected": 31,
+            "evaluated": 3792,
+            "reputation": 1.0,
+            "coverage_healthy": true
+          },
+          {
+            "id": 1,
+            "live": true,
+            "claims": 11194,
+            "holes": 0,
+            "partitioned": false,
+            "lying": false,
+            "attack": "none",
+            "rejected": 0,
+            "evaluated": 2197,
+            "reputation": 1.0,
+            "coverage_healthy": true
+          },
+          {
+            "id": 2,
+            "live": true,
+            "claims": 11198,
+            "holes": 0,
+            "partitioned": false,
+            "lying": false,
+            "attack": "none",
+            "rejected": 24,
+            "evaluated": 2353,
+            "reputation": 1.0,
+            "coverage_healthy": true
+          },
+          {
+            "id": 3,
+            "live": true,
+            "claims": 11207,
+            "holes": 0,
+            "partitioned": false,
+            "lying": false,
+            "attack": "none",
+            "rejected": 60,
+            "evaluated": 2854,
+            "reputation": 0.95,
+            "coverage_healthy": true
+          }
+        ],
+        "identities": [
+          {
+            "short": "P-001",
+            "name": "worker-0",
+            "status": "seen",
+            "x": 1.08,
+            "y": 8.65,
+            "claims": 220,
+            "error_m": 0.21,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-002",
+            "name": "worker-1",
+            "status": "seen",
+            "x": 16.89,
+            "y": 1.42,
+            "claims": 219,
+            "error_m": 0.13,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-003",
+            "name": "worker-4",
+            "status": "seen",
+            "x": 14.97,
+            "y": 21.08,
+            "claims": 215,
+            "error_m": 0.19,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-004",
+            "name": "worker-3",
+            "status": "seen",
+            "x": 39.12,
+            "y": 19.26,
+            "claims": 222,
+            "error_m": 0.14,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-010",
+            "name": "worker-2",
+            "status": "seen",
+            "x": 0.98,
+            "y": 14.58,
+            "claims": 222,
+            "error_m": 0.08,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-028",
+            "name": "worker-7",
+            "status": "forked",
+            "x": 5.27,
+            "y": 22.0,
+            "claims": 74,
+            "error_m": null,
+            "age_s": 30.0
+          },
+          {
+            "short": "P-048",
+            "name": "worker-8",
+            "status": "unseen",
+            "x": 36.43,
+            "y": 9.13,
+            "claims": 105,
+            "error_m": null,
+            "age_s": 17.6
+          },
+          {
+            "short": "P-049",
+            "name": "worker-5",
+            "status": "seen",
+            "x": 4.94,
+            "y": 13.66,
+            "claims": 200,
+            "error_m": 0.18,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-108",
+            "name": "worker-6",
+            "status": "seen",
+            "x": 38.14,
+            "y": 16.12,
+            "claims": 136,
+            "error_m": 0.69,
+            "age_s": 0.4
+          }
+        ],
+        "regions": [
+          {
+            "id": "P-048",
+            "area_m2": 69.0,
+            "reachable_area_m2": 640.06,
+            "ratio": 0.108,
+            "unseen_for_s": 17.6,
+            "blind_block_area_m2": 69.0,
+            "healthy_zone_overlap_m2": 0,
+            "zone_overlap_m2": {},
+            "healthy_nodes": [
+              0,
+              1,
+              2,
+              3
+            ],
+            "silent_nodes": [],
+            "occluded_nodes": [],
+            "explanation": "worker-8 unseen 18 s. Cameras 0, 1, 2, 3 are healthy and saw nobody, so their zones are ruled out. Search area 69 m\u00b2 instead of 640 m\u00b2 reachable."
+          }
+        ],
+        "central": {
+          "status": "DOWN",
+          "tracked_now": 0,
+          "tracked": [],
+          "cut_cameras": [],
+          "starling_tracked_now": 7,
+          "truth_workers": 7
+        }
+      }
+    },
+    {
+      "slug": "62_nodes_while_central_down",
+      "panel": "nodes",
+      "file": "explainer_shots/62_nodes_while_central_down.png",
+      "caption": "The same instant on Starling's side.",
+      "note": "",
+      "t_s": 461.4,
+      "bytes": 116403,
+      "live": {
+        "sim_t": 454.8,
+        "claims_total": 11228,
+        "nodes_live": 4,
+        "mean_error_m": 0.34,
+        "convergence": {
+          "spread": 13,
+          "holes_total": 0,
+          "any_partitioned": false,
+          "converged": true,
+          "tolerance": 30
+        },
+        "forks_open": 1,
+        "forks": [
+          {
+            "status": "OPEN",
+            "identity": "P-028",
+            "face_identity": "P-101",
+            "explanation": "Both trajectories are physically possible from the identity's last confirmed anchor, so the system does NOT pick one (never by score). It is an ambiguity for a human: branch 0 at (5.08, 21.61) OR branch 1 at (33.32, 12.48).",
+            "branches": [
+              {
+                "i": 0,
+                "x": 5.08,
+                "y": 21.61,
+                "n": 125
+              },
+              {
+                "i": 1,
+                "x": 33.32,
+                "y": 12.48,
+                "n": 1
+              }
+            ]
+          },
+          {
+            "status": "RESOLVED_REACHABILITY",
+            "identity": "P-108",
+            "face_identity": "P-100",
+            "explanation": "Resolved by reachability: branch 0 kept. Rejected: branch 1 requires 6.7 m/s over 4.2 s, exceeds v_max 1.6 m/s.",
+            "branches": [
+              {
+                "i": 0,
+                "x": 7.18,
+                "y": 14.13,
+                "n": 1
+              },
+              {
+                "i": 1,
+                "x": 33.36,
+                "y": 12.55,
+                "n": 1
+              }
+            ]
+          }
+        ],
+        "nodes": [
+          {
+            "id": 0,
+            "live": true,
+            "claims": 11201,
+            "holes": 0,
+            "partitioned": false,
+            "lying": false,
+            "attack": "none",
+            "rejected": 31,
+            "evaluated": 3792,
+            "reputation": 1.0,
+            "coverage_healthy": true
+          },
+          {
+            "id": 1,
+            "live": true,
+            "claims": 11194,
+            "holes": 0,
+            "partitioned": false,
+            "lying": false,
+            "attack": "none",
+            "rejected": 0,
+            "evaluated": 2197,
+            "reputation": 1.0,
+            "coverage_healthy": true
+          },
+          {
+            "id": 2,
+            "live": true,
+            "claims": 11198,
+            "holes": 0,
+            "partitioned": false,
+            "lying": false,
+            "attack": "none",
+            "rejected": 24,
+            "evaluated": 2353,
+            "reputation": 1.0,
+            "coverage_healthy": true
+          },
+          {
+            "id": 3,
+            "live": true,
+            "claims": 11207,
+            "holes": 0,
+            "partitioned": false,
+            "lying": false,
+            "attack": "none",
+            "rejected": 60,
+            "evaluated": 2854,
+            "reputation": 0.95,
+            "coverage_healthy": true
+          }
+        ],
+        "identities": [
+          {
+            "short": "P-001",
+            "name": "worker-0",
+            "status": "seen",
+            "x": 1.08,
+            "y": 8.65,
+            "claims": 220,
+            "error_m": 0.44,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-002",
+            "name": "worker-1",
+            "status": "seen",
+            "x": 16.89,
+            "y": 1.42,
+            "claims": 219,
+            "error_m": 0.13,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-003",
+            "name": "worker-4",
+            "status": "seen",
+            "x": 14.97,
+            "y": 21.08,
+            "claims": 215,
+            "error_m": 0.38,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-004",
+            "name": "worker-3",
+            "status": "seen",
+            "x": 39.12,
+            "y": 19.26,
+            "claims": 222,
+            "error_m": 0.14,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-010",
+            "name": "worker-2",
+            "status": "seen",
+            "x": 0.98,
+            "y": 14.58,
+            "claims": 222,
+            "error_m": 0.08,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-028",
+            "name": "worker-7",
+            "status": "forked",
+            "x": 5.27,
+            "y": 22.0,
+            "claims": 74,
+            "error_m": null,
+            "age_s": 30.0
+          },
+          {
+            "short": "P-048",
+            "name": "worker-8",
+            "status": "unseen",
+            "x": 36.43,
+            "y": 9.13,
+            "claims": 105,
+            "error_m": null,
+            "age_s": 17.6
+          },
+          {
+            "short": "P-049",
+            "name": "worker-5",
+            "status": "seen",
+            "x": 4.94,
+            "y": 13.66,
+            "claims": 200,
+            "error_m": 0.35,
+            "age_s": 0.0
+          },
+          {
+            "short": "P-108",
+            "name": "worker-6",
+            "status": "seen",
+            "x": 38.14,
+            "y": 16.12,
+            "claims": 136,
+            "error_m": 0.87,
+            "age_s": 0.4
+          }
+        ],
+        "regions": [
+          {
+            "id": "P-048",
+            "area_m2": 69.0,
+            "reachable_area_m2": 640.06,
+            "ratio": 0.108,
+            "unseen_for_s": 17.6,
+            "blind_block_area_m2": 69.0,
+            "healthy_zone_overlap_m2": 0,
+            "zone_overlap_m2": {},
+            "healthy_nodes": [
+              0,
+              1,
+              2,
+              3
+            ],
+            "silent_nodes": [],
+            "occluded_nodes": [],
+            "explanation": "worker-8 unseen 18 s. Cameras 0, 1, 2, 3 are healthy and saw nobody, so their zones are ruled out. Search area 69 m\u00b2 instead of 640 m\u00b2 reachable."
+          }
+        ],
+        "central": {
+          "status": "DOWN",
+          "tracked_now": 0,
+          "tracked": [],
+          "cut_cameras": [],
+          "starling_tracked_now": 7,
+          "truth_workers": 7
+        }
+      }
+    }
+  ],
+  "page_errors": [],
+  "captured_utc": "2026-09-23T16:46:06Z"
+}

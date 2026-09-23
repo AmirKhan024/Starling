@@ -1,0 +1,943 @@
+<!DOCTYPE html><html lang='en'><head><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'>
+<title>Starling — Reading the Dashboard</title>
+<style>
+:root{--bg:#f6f7f9;--panel:#fff;--ink:#16202c;--soft:#5a6575;--line:#e0e5ec;--accent:#2557d6;
+ --accent-bg:#eaf0fe;--warn:#a8680a;--warn-bg:#fdf4e4;--ok:#0f7a52;--ok-bg:#e7f6f0;--code:#f1f3f7;}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+ --bg:#0e1319;--panel:#161d26;--ink:#e6ecf3;--soft:#98a5b6;--line:#26303c;--accent:#6f9bff;
+ --accent-bg:#152238;--warn:#e8b061;--warn-bg:#2a2013;--ok:#3ddc9a;--ok-bg:#122a20;--code:#1d2632;}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);
+ font:16px/1.65 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.wrap{max-width:1020px;margin:0 auto;padding:28px 20px 90px}
+h1{font-size:30px;margin:0 0 6px;letter-spacing:-.02em}
+h2{font-size:23px;margin:46px 0 6px;padding-top:18px;border-top:2px solid var(--line);letter-spacing:-.01em}
+h3{font-size:18px;margin:26px 0 6px}
+h4{font-size:16px;margin:18px 0 4px;color:var(--soft);text-transform:uppercase;letter-spacing:.05em;font-size:12.5px}
+p{margin:9px 0}
+code{background:var(--code);padding:1px 5px;border-radius:4px;font:13.5px ui-monospace,Consolas,monospace}
+.sub{color:var(--soft);margin-bottom:22px}
+.lede{font-size:17.5px}
+figure{margin:20px 0 6px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px}
+figure img{width:100%;display:block;border-radius:7px;border:1px solid var(--line)}
+figcaption{color:var(--soft);font-size:13.5px;padding:8px 3px 2px}
+.shot{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:4px 18px 18px;margin:26px 0}
+.shot>h3{margin-top:16px}
+.big{background:var(--accent-bg);border-left:4px solid var(--accent);border-radius:0 10px 10px 0;padding:14px 18px;margin:22px 0}
+.big h3{margin-top:0}
+.warn{background:var(--warn-bg);border-left:4px solid var(--warn);border-radius:0 10px 10px 0;padding:14px 18px;margin:22px 0}
+.warn h3{margin-top:0;color:var(--warn)}
+.qa{border-left:3px solid var(--line);padding:2px 0 2px 16px;margin:14px 0}
+.qa .q{font-weight:650}
+.qa .a{color:var(--ink);margin-top:3px}
+.vals{background:var(--code);border-radius:9px;padding:10px 14px;margin:12px 0;font:13px ui-monospace,Consolas,monospace;
+ color:var(--soft);overflow-x:auto;white-space:pre-wrap}
+.vals b{color:var(--ink)}
+table{width:100%;border-collapse:collapse;margin:12px 0;font-size:14.5px}
+th,td{text-align:left;padding:7px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--soft);font-size:12.5px;text-transform:uppercase;letter-spacing:.04em}
+nav{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px 20px;margin:24px 0}
+nav ol{margin:6px 0;padding-left:22px} nav a{color:var(--accent);text-decoration:none}
+nav a:hover{text-decoration:underline}
+ul{margin:8px 0;padding-left:22px} li{margin:5px 0}
+.miss{color:var(--warn);font-size:14px;padding:8px 0}
+footer{margin-top:50px;padding-top:18px;border-top:1px solid var(--line);color:var(--soft);font-size:13.5px}
+</style></head><body><div class='wrap'>
+<h1>Starling — reading the dashboard</h1>
+<p class='sub'>A walkthrough of the technical view, panel by panel, with the questions you are most likely to be asked about each one.</p>
+
+<p class="lede">This page explains the <b>technical view</b> of the Starling dashboard, one panel
+at a time. Every screenshot is real, taken automatically from a running system, and the numbers
+quoted underneath each one are the values that were live at the instant the picture was taken.</p>
+
+<p>Read it in order. The technical view is the harder of the two screens; once you can read it,
+the manager view at <code>/</code> is just the same information with the jargon removed.</p>
+
+<div class="big">
+<h3>If you remember one thing, remember this</h3>
+<p><b>The cameras never agree on who someone is. They agree on what they saw.</b></p>
+<p>Each camera node writes small signed records called <b>claims</b> — "at media-time 41.2s I saw
+a person at (12.4, 8.1) with this appearance vector". Those claims are gossiped to neighbours and
+merged into a set. The identity assignment — <i>which claims belong to the same person</i> — is
+<b>never sent over the network</b>. Every node recomputes it locally from the claims it holds, using
+the same deterministic function, so they all arrive at the same answer without anyone being in charge.</p>
+<p>That is the whole project in three sentences. Almost every examiner question is a variation of
+"are you sure there's no coordinator?" — and the answer is: the thing a coordinator would decide
+is the one thing that is never transmitted.</p>
+</div>
+
+<div class="warn">
+<h3>The question you will definitely be asked</h3>
+<p><b>"It's a simulation — doesn't the system already know where everyone is?"</b></p>
+<p>No, and this is worth being able to answer crisply. The simulator generates the true positions,
+but a node only ever receives a noisy observation derived from them. The true worker id is
+deliberately excluded from the wire format, so it cannot reach a node even by accident. On the map
+below, ground truth is drawn only as a <i>faint dashed ring</i>, and only by the dashboard, which is
+a passive observer. The "&asymp; ground-truth" column in the identity table is a display label
+computed by nearest-neighbour matching for your benefit — the network never sees it.</p>
+</div>
+
+<nav><b>Contents</b><ol>
+<li><a href='#orientation'>Orientation — what am I looking at?</a></li>
+<li><a href='#c4'>Negative evidence — reasoning from what nobody saw</a></li>
+<li><a href='#partition'>Partition tolerance — cutting the network in half</a></li>
+<li><a href='#byzantine'>A lying camera — Byzantine robustness</a></li>
+<li><a href='#forks'>Identity conflicts — when the system refuses to guess</a></li>
+<li><a href='#query'>Asking questions, and being refused</a></li>
+<li><a href='#central'>Why not just use one server?</a></li>
+<li><a href='#limits'>What is <i>not</i> built, and honest weaknesses</a></li>
+<li><a href='#glossary'>Glossary</a></li>
+<li><a href='#closing'>The five questions to rehearse</a></li>
+</ol></nav>
+<h2 id='orientation'>1. Orientation — what am I looking at?</h2>
+<p>The technical view is one page with nine panels. This section names each one. Nothing unusual is happening in these shots: four workers are walking their routes and all four cameras are healthy.</p>
+<div class='shot'>
+<h3>The whole page</h3>
+<figure><img src='explainer_shots/01_fullpage.png' alt='The whole page'><figcaption>The whole technical view at rest. <span style='opacity:.7'>— captured 12.6s into the run</span></figcaption></figure>
+<h4>What you are looking at</h4><p>Left column: the floor map, the centralized comparison system, the resolved identity table, and identity conflicts. Right column: the scripted demo tour, the fault-injection controls, the four node processes, the query box, and an event log.</p>
+<h4>What the numbers mean</h4><p>The layout is fixed; the two columns are independent. Everything updates on a timer (once per second by default).</p>
+<h4>Live values at the moment of this screenshot</h4><div class='vals'>sim t = 11.2 s   ·   claims heard = 210   ·   nodes live = 4
+
+convergence: CONVERGED   spread = 17   gaps = 0
+
+node 0: LIVE, honest, claims=203, gaps=0, rejected=0/52, reputation=1.00
+node 1: LIVE, honest, claims=203, gaps=0, rejected=0/50, reputation=1.00
+node 2: LIVE, honest, claims=187, gaps=0, rejected=0/50, reputation=1.00
+node 3: LIVE, honest, claims=186, gaps=0, rejected=0/50, reputation=1.00
+
+centralized comparison: HEALTHY tracking 4 · Starling tracking 4 · actually present 4
+
+mean position error = 0.3 m</div>
+<h4>How it works underneath</h4><p>Served by <code>apps/demo_dashboard/server.py</code> at <code>/engineer</code>. It is a read-only observer: it subscribes to the same gossip the nodes send each other and has no privileged access to any node's database. If you deleted the dashboard, the network would carry on unchanged.</p>
+<h4>If the examiner asks</h4>
+<div class='qa'><div class='q'>Is the dashboard part of the system?</div><div class='a'>No. It is a passive gossip subscriber — <code>apps/dashboard/observer.py</code> is SUB-only and never participates in anti-entropy. It is a window, not a component. That is a stated architectural rule, not an accident.</div></div>
+</div>
+<div class='shot'>
+<h3>The health strip</h3>
+<figure><img src='explainer_shots/02_header.png' alt='The health strip'><figcaption>The always-on health strip. <span style='opacity:.7'>— captured 12.7s into the run</span></figcaption></figure>
+<h4>What you are looking at</h4><p>A single line across the top that tells you whether the system is alive.</p>
+<h4>What the numbers mean</h4><p><b>nodes live</b> — how many of the four node processes are responding. <b>sim t</b> — media time in seconds, i.e. the time the footage depicts, not the wall clock. <b>claims heard</b> — how many claim records the dashboard has overheard in total. <b>mean position error</b> — average distance in metres between where the network thinks each person is and where the simulator actually put them. <b>tick</b> — the dashboard's own refresh counter.</p>
+<h4>Live values at the moment of this screenshot</h4><div class='vals'>sim t = 11.2 s   ·   claims heard = 210   ·   nodes live = 4
+
+convergence: CONVERGED   spread = 17   gaps = 0
+
+node 0: LIVE, honest, claims=203, gaps=0, rejected=0/52, reputation=1.00
+node 1: LIVE, honest, claims=203, gaps=0, rejected=0/50, reputation=1.00
+node 2: LIVE, honest, claims=187, gaps=0, rejected=0/50, reputation=1.00
+node 3: LIVE, honest, claims=186, gaps=0, rejected=0/50, reputation=1.00
+
+centralized comparison: HEALTHY tracking 4 · Starling tracking 4 · actually present 4
+
+mean position error = 0.3 m</div>
+<h4>How it works underneath</h4><p>Media time matters more than it looks. The original V1 system processed cameras one after another, so camera 1's timestamps were always later than camera 0's regardless of what actually happened — which made transit times and reachability windows impossible to compute. Every timestamp in the identity path now comes from media time via <code>starling_net/timebase.py</code>, never <code>time.time()</code>.</p>
+<h4>If the examiner asks</h4>
+<div class='qa'><div class='q'>Why is mean position error a fair measure?</div><div class='a'>It is computed against the simulator's ground truth by the dashboard only, for display. It never feeds back into the system. It is a scoreboard, not an input.</div></div>
+<div class='qa'><div class='q'>What is 'media time'?</div><div class='a'>The timestamp of the moment the frame depicts. Two nodes replaying the same scenario share a <code>stream_epoch</code> so their media times sit on one timeline. Wall-clock reads are banned from the identity path; the one sanctioned exception is logging a human operator's action, which genuinely happens 'now'.</div></div>
+</div>
+<div class='shot'>
+<h3>The floor map</h3>
+<figure><img src='explainer_shots/03_map.png' alt='The floor map'><figcaption>Believed positions vs simulator ground truth. <span style='opacity:.7'>— captured 12.8s into the run</span></figcaption></figure>
+<h4>What you are looking at</h4><p>The warehouse from above. Dashed green rectangles are the four camera zones (amber if that camera has gone silent). Dark grey blocks are racking — solid obstacles. The red dashed box in the middle is floor that <b>no camera covers</b>. Solid coloured dots are where the network believes each person is; the faint dashed rings are the simulator's ground truth, drawn for comparison only.</p>
+<h4>What the numbers mean</h4><p>Each identity keeps one colour for as long as it stays one identity. If a dot changes colour, the resolver decided that is a different person. The thin trailing line is that identity's recent path.</p>
+<h4>Live values at the moment of this screenshot</h4><div class='vals'>sim t = 11.2 s   ·   claims heard = 210   ·   nodes live = 4
+
+convergence: CONVERGED   spread = 17   gaps = 0
+
+node 0: LIVE, honest, claims=203, gaps=0, rejected=0/52, reputation=1.00
+node 1: LIVE, honest, claims=203, gaps=0, rejected=0/50, reputation=1.00
+node 2: LIVE, honest, claims=187, gaps=0, rejected=0/50, reputation=1.00
+node 3: LIVE, honest, claims=186, gaps=0, rejected=0/50, reputation=1.00
+
+centralized comparison: HEALTHY tracking 4 · Starling tracking 4 · actually present 4
+
+mean position error = 0.3 m</div>
+<h4>How it works underneath</h4><p>The floor is a 2D navmesh — a grid of 0.25 m cells marked walkable or not, built from GeoJSON by <code>NavMesh.from_geojson</code> in <code>packages/starling_geometry/navmesh.py</code>. Distances are geodesic over that grid (8-connected Dijkstra), so a route around a rack is longer than the straight line through it. This is deliberately 2D only — there is no 3D reconstruction anywhere in the project.</p>
+<h4>If the examiner asks</h4>
+<div class='qa'><div class='q'>Why 2D and not 3D?</div><div class='a'>A pre-committed scope decision. Everything the system needs — reachability, candidate regions, transit times — works on a floor plan. 3D reconstruction was explicitly excluded, not attempted and abandoned.</div></div>
+<div class='qa'><div class='q'>Why 0.25 m cells?</div><div class='a'>It sets the resolution of every area and distance. One cell is 0.0625 m&sup2;, so reported areas are quantised to that. It also appears inside the reachability slack term, so a coarser grid makes the system more permissive — which is the safe direction for a search tool.</div></div>
+</div>
+<div class='shot'>
+<h3>Resolved identities</h3>
+<figure><img src='explainer_shots/04_identities.png' alt='Resolved identities'><figcaption>One row per identity the resolver produced. <span style='opacity:.7'>— captured 12.9s into the run</span></figcaption></figure>
+<h4>What you are looking at</h4><p>One row per identity the resolver currently believes in.</p>
+<h4>What the numbers mean</h4><p><b>identity</b> — the internal reference. <b>&asymp; ground-truth</b> — a display-only label. <b>status</b> — seen or unseen. <b>position</b> — believed position in metres. <b>age</b> — seconds since the last claim for this identity. <b>via node</b> — which camera contributed that last claim. <b>claims</b> — how many claims are bound to this identity. <b>error</b> — distance from ground truth. <b>candidate region</b> — if unseen, the area they could still be in.</p>
+<h4>Live values at the moment of this screenshot</h4><div class='vals'>sim t = 11.2 s   ·   claims heard = 210   ·   nodes live = 4
+
+convergence: CONVERGED   spread = 17   gaps = 0
+
+node 0: LIVE, honest, claims=203, gaps=0, rejected=0/52, reputation=1.00
+node 1: LIVE, honest, claims=203, gaps=0, rejected=0/50, reputation=1.00
+node 2: LIVE, honest, claims=187, gaps=0, rejected=0/50, reputation=1.00
+node 3: LIVE, honest, claims=186, gaps=0, rejected=0/50, reputation=1.00
+
+centralized comparison: HEALTHY tracking 4 · Starling tracking 4 · actually present 4
+
+mean position error = 0.3 m</div>
+<h4>How it works underneath</h4><p>This table is the output of <code>resolve()</code> in <code>packages/starling_crdt/resolver.py</code>. It makes one forward pass over the claims in a fixed total order and binds each claim to an identity. Two rules matter: a claim is only allowed to join an identity if that position is physically reachable from where that identity last was (a hard gate that runs <i>before</i> any appearance comparison), and if the best match is not clearly better than the runner-up, the claim is bound to nothing rather than guessed.</p>
+<h4>If the examiner asks</h4>
+<div class='qa'><div class='q'>Isn't the '&asymp; ground-truth' column cheating?</div><div class='a'>It is the single most important thing to be able to answer. It is computed by <code>_update_names</code> in the dashboard's engine: each identity is matched to the nearest simulator worker, and only after several consistent votes. It exists so a human can read the table. It is never passed to the resolver, never gossiped and never influences an assignment. Delete it and the system behaves identically.</div></div>
+<div class='qa'><div class='q'>What does an identity with no name mean?</div><div class='a'>A real outcome. A track that fragmented — for instance after a long occlusion — starts a new identity that has not yet collected enough votes to be labelled. The system refusing to put a name to it is correct behaviour, not a bug.</div></div>
+<div class='qa'><div class='q'>Why would a claim be bound to nothing?</div><div class='a'>Because two identities scored too similarly. The threshold pair is <code>sim_threshold</code> (is the best match good enough?) and <code>margin_threshold</code> (is it clearly better than the second best?). Both must pass. Ambiguity is surfaced, not resolved by a thin margin.</div></div>
+</div>
+<div class='shot'>
+<h3>The four nodes</h3>
+<figure><img src='explainer_shots/05_nodes.png' alt='The four nodes'><figcaption>The four node processes and their replicas. <span style='opacity:.7'>— captured 13.0s into the run</span></figcaption></figure>
+<h4>What you are looking at</h4><p>One card per camera node. Each is a separate operating-system process with its own SQLite database and its own network socket.</p>
+<h4>What the numbers mean</h4><p><b>partitioned</b> — is this node currently cut off. <b>claims held</b> — how many claims are in its replica. <b>gaps</b> — how many claims it knows it is missing. <b>behaviour</b> — honest or lying. <b>rejected</b> — how many of its claims failed a plausibility check, out of how many were evaluated. <b>reputation</b> — what the <i>other</i> nodes think of it, 0 to 1. Above the cards: <b>convergence</b>, <b>claim-count spread</b> and total <b>gaps</b>.</p>
+<h4>Live values at the moment of this screenshot</h4><div class='vals'>sim t = 11.2 s   ·   claims heard = 210   ·   nodes live = 4
+
+convergence: CONVERGED   spread = 17   gaps = 0
+
+node 0: LIVE, honest, claims=203, gaps=0, rejected=0/52, reputation=1.00
+node 1: LIVE, honest, claims=203, gaps=0, rejected=0/50, reputation=1.00
+node 2: LIVE, honest, claims=187, gaps=0, rejected=0/50, reputation=1.00
+node 3: LIVE, honest, claims=186, gaps=0, rejected=0/50, reputation=1.00
+
+centralized comparison: HEALTHY tracking 4 · Starling tracking 4 · actually present 4
+
+mean position error = 0.3 m</div>
+<h4>How it works underneath</h4><p>A node is a process, never a thread, and no module may read another node's database. Claims spread two ways: live gossip pushes new ones to a <i>configured neighbour set</i> (never a full mesh — that would be a coordinator in disguise), and anti-entropy repairs what gossip missed. Convergence is declared when the spread in claim counts is within tolerance <b>and</b> the total gap count is exactly zero.</p>
+<h4>If the examiner asks</h4>
+<div class='qa'><div class='q'>How do you know these are really separate processes?</div><div class='a'>They are launched as separate OS processes by <code>scripts/run_demo.py</code>, each with its own database file and port. There is a test — <code>test_node_process_writes_only_its_own_db</code> — that runs a node as a subprocess and asserts it created no other node's directory.</div></div>
+<div class='qa'><div class='q'>What exactly is a 'gap'?</div><div class='a'>Each node numbers its own claims 0, 1, 2, … A neighbour might hold 0–2 and 7–9 but be missing 3–6. A simple 'highest number I've seen' summary cannot express that, so nodes exchange <i>runs</i> of sequence numbers, and the spaces between runs are the gaps. Convergence requires zero.</div></div>
+<div class='qa'><div class='q'>Why must gaps be exactly zero but claim spread only within tolerance?</div><div class='a'>Because the simulator keeps producing claims while you measure. A small spread just means some claims are still in flight. A gap means something was genuinely lost, so no tolerance is allowed.</div></div>
+</div>
+<div class='shot'>
+<h3>The fault injection controls</h3>
+<figure><img src='explainer_shots/06_controls.png' alt='The fault injection controls'><figcaption>Every fault this demo can inject, by hand. <span style='opacity:.7'>— captured 13.1s into the run</span></figcaption></figure>
+<h4>What you are looking at</h4><p>Every failure this demo can cause, on demand.</p>
+<h4>What the numbers mean</h4><p><b>Partition</b> cuts nodes {2,3} off from {0,1}. <b>Heal</b> reconnects them. <b>Conflict</b> stages two look-alike people, in a resolvable and an ambiguous variant. <b>Dead zone</b> walks someone into the uncovered middle, either with all cameras healthy or with camera 1 blinded. <b>Make node lie</b> turns a chosen node Byzantine.</p>
+<h4>Live values at the moment of this screenshot</h4><div class='vals'>sim t = 12.2 s   ·   claims heard = 221   ·   nodes live = 4
+
+convergence: CONVERGED   spread = 4   gaps = 0
+
+node 0: LIVE, honest, claims=203, gaps=0, rejected=0/57, reputation=1.00
+node 1: LIVE, honest, claims=203, gaps=0, rejected=0/54, reputation=1.00
+node 2: LIVE, honest, claims=207, gaps=0, rejected=0/55, reputation=1.00
+node 3: LIVE, honest, claims=207, gaps=0, rejected=0/55, reputation=1.00
+
+centralized comparison: HEALTHY tracking 4 · Starling tracking 4 · actually present 4
+
+mean position error = 0.11 m</div>
+<h4>How it works underneath</h4><p>The partition is an application-level receive-side drop set, not real packet loss — a cut node simply discards messages from the other side. The lying node runs an attack injector that alters its claims <i>before</i> they are signed, so its lies carry a perfectly valid signature from its real enrolled key.</p>
+<h4>If the examiner asks</h4>
+<div class='qa'><div class='q'>If the lies are correctly signed, what is the point of signatures?</div><div class='a'>Signatures stop node A forging a claim that appears to come from node B. They do nothing about node B itself being compromised and lying with its own key. That gap is precisely why reputation and plausibility checking exist — as the code comment puts it, if signatures were sufficient, reputation would be unnecessary.</div></div>
+</div>
+<div class='shot'>
+<h3>The built-in tour</h3>
+<figure><img src='explainer_shots/07_demo_script.png' alt='The built-in tour'><figcaption>The scripted tour built into the page. <span style='opacity:.7'>— captured 13.2s into the run</span></figcaption></figure>
+<h4>What you are looking at</h4><p>Nine scripted moments with a button each, in the order you would present them.</p>
+<h4>What the numbers mean</h4><p>Each step says what to watch for before you press it.</p>
+<h4>Live values at the moment of this screenshot</h4><div class='vals'>sim t = 12.2 s   ·   claims heard = 221   ·   nodes live = 4
+
+convergence: CONVERGED   spread = 4   gaps = 0
+
+node 0: LIVE, honest, claims=203, gaps=0, rejected=0/57, reputation=1.00
+node 1: LIVE, honest, claims=203, gaps=0, rejected=0/54, reputation=1.00
+node 2: LIVE, honest, claims=207, gaps=0, rejected=0/55, reputation=1.00
+node 3: LIVE, honest, claims=207, gaps=0, rejected=0/55, reputation=1.00
+
+centralized comparison: HEALTHY tracking 4 · Starling tracking 4 · actually present 4
+
+mean position error = 0.11 m</div>
+<h4>How it works underneath</h4><p>This is the same sequence the automated review harness (<code>scripts/review_demo.py</code>) drives, which is how the eleven review moments are checked without a human clicking.</p>
+<h4>If the examiner asks</h4>
+<div class='qa'><div class='q'>Did you verify these by hand?</div><div class='a'>No. <code>scripts/review_demo.py</code> drives a real demo in a headless browser, measures each moment against a numeric criterion and writes a PASS/FAIL verdict with screenshots into <code>review/review.html</code>. The last clean run passed all eleven.</div></div>
+</div>
+<div class='shot'>
+<h3>The event log</h3>
+<figure><img src='explainer_shots/08_events.png' alt='The event log'><figcaption>What the system did, in order. <span style='opacity:.7'>— captured 13.3s into the run</span></figcaption></figure>
+<h4>What you are looking at</h4><p>A running list of what the system decided, newest last.</p>
+<h4>What the numbers mean</h4><p>Entries appear when an identity is created, goes unseen, is re-seen as the same identity, or when a fork opens.</p>
+<h4>Live values at the moment of this screenshot</h4><div class='vals'>sim t = 12.2 s   ·   claims heard = 221   ·   nodes live = 4
+
+convergence: CONVERGED   spread = 4   gaps = 0
+
+node 0: LIVE, honest, claims=203, gaps=0, rejected=0/57, reputation=1.00
+node 1: LIVE, honest, claims=203, gaps=0, rejected=0/54, reputation=1.00
+node 2: LIVE, honest, claims=207, gaps=0, rejected=0/55, reputation=1.00
+node 3: LIVE, honest, claims=207, gaps=0, rejected=0/55, reputation=1.00
+
+centralized comparison: HEALTHY tracking 4 · Starling tracking 4 · actually present 4
+
+mean position error = 0.11 m</div>
+<h4>How it works underneath</h4><p>Useful during a demo for the 're-seen as the same identity' line: that is the system re-attaching a person to the identity they had before they disappeared, rather than inventing a new one.</p>
+</div>
+<h2 id='c4'>2. Negative evidence — reasoning from what nobody saw</h2>
+<p>This is the flagship contribution (C4) and the part most worth being able to explain. The question it answers: <b>when a person walks out of every camera's view, what can you still say about where they are?</b> The naive answer is 'anywhere they could have walked to'. Starling does better — it rules out the areas that healthy cameras positively attest were empty.</p>
+<div class='shot'>
+<h3>Someone disappears, all cameras healthy</h3>
+<figure><img src='explainer_shots/10_map_region_healthy.png' alt='Someone disappears, all cameras healthy'><figcaption>Worker-2 is inside the uncovered block; the region stays inside it. <span style='opacity:.7'>— captured 174.5s into the run</span></figcaption></figure>
+<h4>What you are looking at</h4><p>A worker has walked into the uncovered middle block. The coloured shading is the <b>candidate region</b> — everywhere they could still be. The fainter grey area is what plain reachability would have allowed. Notice the coloured region stays essentially inside the uncovered block.</p>
+<h4>What the numbers mean</h4><p>The label on the region reads 'could be here: N m&sup2;'. Compare it with the grey area: the ratio is the headline C4 result. In the run below the search area is <b>69 m&sup2; against 819 m&sup2; of plain reachability — 8%</b>, and every one of those 69 m&sup2; lies inside the uncovered block. The overlap with camera zones is empty: all four cameras are healthy, so every zone is ruled out.</p>
+<h4>Live values at the moment of this screenshot</h4><div class='vals'>sim t = 171.4 s   ·   claims heard = 3390   ·   nodes live = 4
+
+convergence: CONVERGED   spread = 15   gaps = 0
+
+node 0: LIVE, honest, claims=3383, gaps=0, rejected=1/901, reputation=1.00
+node 1: LIVE, honest, claims=3383, gaps=0, rejected=0/820, reputation=1.00
+node 2: LIVE, honest, claims=3368, gaps=0, rejected=0/828, reputation=1.00
+node 3: LIVE, honest, claims=3368, gaps=0, rejected=0/830, reputation=1.00
+
+candidate region P-005: 69.0 m² vs 819.6 m² reachable (8%), unseen 15.8 s
+  in uncovered block: 69.0 m² · healthy cameras: [0, 1, 2, 3] · silent: []
+  zone overlap: {}
+  &quot;worker-2 unseen 16 s. Cameras 0, 1, 2, 3 are healthy and saw nobody, so their zones are ruled out. Search area 69 m² instead of 820 m² reachable.&quot;
+
+centralized comparison: HEALTHY tracking 4 · Starling tracking 4 · actually present 5
+
+mean position error = 0.17 m</div>
+<h4>How it works underneath</h4><p>The belief starts as a single grid cell at the last confirmed position and grows each tick by geodesic dilation — every cell within <code>v_max &times; dt</code> walking distance, routed around obstacles, never through walls. Then every camera zone whose node sent a fresh, high-confidence 'my zone was covered and I saw nobody cross' attestation is removed. Crucially those zones are made <i>impassable</i>, not merely subtracted, so the person cannot be assumed to have sneaked through them either.</p>
+<h4>If the examiner asks</h4>
+<div class='qa'><div class='q'>How is this different from just 'they could be anywhere within walking distance'?</div><div class='a'>That is exactly the grey control area drawn alongside it, and the coloured region is measured against it. The difference is the contribution. The system runs both arms simultaneously — the same dilation with negative evidence switched off — so the comparison is not a claim, it is a measurement.</div></div>
+<div class='qa'><div class='q'>What stops the region shrinking to nothing incorrectly?</div><div class='a'>If removing covered zones would empty the belief entirely — because the last sighting was inside a zone that is now attested empty, meaning the person must have left it — the belief is re-seeded at the nearest uncovered cells. Without that, a correct attestation would produce a 0 m&sup2; region, which is a false exclusion: telling a search team someone cannot be somewhere they actually are.</div></div>
+<div class='qa'><div class='q'>Why does the region never leave the uncovered block here?</div><div class='a'>Because all four cameras are healthy and attesting. Every zone the person might have escaped into is ruled out by a positive statement from the camera watching it. The uncovered block is the irreducible part — no attestation can ever remove it, because no camera watches it.</div></div>
+</div>
+<div class='shot'>
+<h3>The numbers behind the shaded area</h3>
+<figure><img src='explainer_shots/11_region_card_healthy.png' alt='The numbers behind the shaded area'><figcaption>The negative-evidence numbers behind that shaded area. <span style='opacity:.7'>— captured 174.7s into the run</span></figcaption></figure>
+<h4>What you are looking at</h4><p>The card under the map, with a small graph showing both areas over time.</p>
+<h4>What the numbers mean</h4><p><b>search area</b> vs <b>reachable without negative evidence</b>, and the percentage between them — the smaller, the better. <b>inside the blind block</b> — how much lies in genuinely uncovered floor. <b>inside healthy cameras' zones</b> — should be near zero; it is a self-check, because healthy zones are supposed to be fully excluded. The graph: solid line is the search area, dashed grey is what it would have been without negative evidence.</p>
+<h4>Live values at the moment of this screenshot</h4><div class='vals'>sim t = 171.4 s   ·   claims heard = 3398   ·   nodes live = 4
+
+convergence: CONVERGED   spread = 5   gaps = 0
+
+node 0: LIVE, honest, claims=3383, gaps=0, rejected=1/906, reputation=1.00
+node 1: LIVE, honest, claims=3383, gaps=0, rejected=0/824, reputation=1.00
+node 2: LIVE, honest, claims=3387, gaps=0, rejected=0/833, reputation=1.00
+node 3: LIVE, honest, claims=3388, gaps=0, rejected=0/835, reputation=1.00
+
+candidate region P-005: 69.0 m² vs 819.6 m² reachable (8%), unseen 15.8 s
+  in uncovered block: 69.0 m² · healthy cameras: [0, 1, 2, 3] · silent: []
+  zone overlap: {}
+  &quot;worker-2 unseen 16 s. Cameras 0, 1, 2, 3 are healthy and saw nobody, so their zones are ruled out. Search area 69 m² instead of 820 m² reachable.&quot;
+
+centralized comparison: HEALTHY tracking 4 · Starling tracking 4 · actually present 5
+
+mean position error = 0.44 m</div>
+<h4>How it works underneath</h4><p>Every number here is computed from grid cell counts on the navmesh, and the explanation sentence underneath is assembled mechanically from which nodes were healthy, which were silent, and where the region overlaps — no scenario-specific text is hardcoded.</p>
+<h4>If the examiner asks</h4>
+<div class='qa'><div class='q'>The two lines diverge over time. Why?</div><div class='a'>Plain reachability grows without bound — the longer someone is missing, the further they could have walked. The negative-evidence area converges instead, because the attested zones keep being removed. That gap widening <i>is</i> the result.</div></div>
+</div>
+<div class='shot'>
+<h3>The same walk, but one camera is blinded</h3>
+<figure><img src='explainer_shots/12_map_region_occluded.png' alt='The same walk, but one camera is blinded'><figcaption>Same walk, camera 1 occluded: the region leaks into its zone only. <span style='opacity:.7'>— captured 311.6s into the run</span></figcaption></figure>
+<h4>What you are looking at</h4><p>Identical scenario, except camera 1's view is blocked. Its zone outline turns amber and is marked silent. The candidate region now <b>leaks into that zone and only that zone</b>.</p>
+<h4>What the numbers mean</h4><p>The search area is larger than in the healthy case. Do the arithmetic with the numbers below, because it is the clearest thing you can show an examiner: with all cameras healthy the area was <b>69 m&sup2;</b>; with camera 1 blinded it is <b>174 m&sup2;</b>, and the region's overlap with camera 1's zone is <b>105 m&sup2;</b>. 69 + 105 = 174. The region grew by <i>exactly</i> the zone that went dark, and by nothing else — the other three zones are still ruled out because those cameras are still attesting.</p>
+<h4>Live values at the moment of this screenshot</h4><div class='vals'>sim t = 307.2 s   ·   claims heard = 6531   ·   nodes live = 4
+
+convergence: CONVERGED   spread = 4   gaps = 0
+
+node 0: LIVE, honest, claims=6513, gaps=0, rejected=17/1904, reputation=1.00
+node 1: LIVE, honest, claims=6513, gaps=0, rejected=0/1481, reputation=1.00
+node 2: LIVE, honest, claims=6517, gaps=0, rejected=1/1554, reputation=1.00
+node 3: LIVE, honest, claims=6517, gaps=0, rejected=1/1585, reputation=1.00
+
+candidate region P-010: 174.0 m² vs 882.3 m² reachable (20%), unseen 18.2 s
+  in uncovered block: 69.0 m² · healthy cameras: [0, 2, 3] · silent: [1] · occluded: [1]
+  zone overlap: {&#x27;1&#x27;: 105.0}
+  &quot;worker-2 unseen 18 s. Cameras 0, 2, 3 are healthy and saw nobody, so their zones are ruled out. camera 1 is silent (occluded, no healthy attestation): its silence is not counted as evidence. The region therefore leaks into camera 1&#x27;s zone. Search area 174 m² instead of 882 m² reachable.&quot;
+
+centralized comparison: HEALTHY tracking 4 · Starling tracking 4 · actually present 5
+
+mean position error = 0.13 m</div>
+<h4>How it works underneath</h4><p>This is the rule 'silence is never evidence of absence' made visible. A camera that sends nothing is not saying 'nobody is here' — it is saying nothing at all. So its zone cannot be ruled out, and the person might be in it. The region grows by exactly the area of the zone that went dark, and not by more.</p>
+<h4>If the examiner asks</h4>
+<div class='qa'><div class='q'>Why not assume a silent camera's zone is empty? It usually is.</div><div class='a'>Because that is the assumption that gets people hurt. A camera is silent precisely when something is wrong — it is blocked, crashed, or cut off. Those are the moments you are least entitled to assume its area is clear. The system treats absence of evidence as absence of evidence.</div></div>
+<div class='qa'><div class='q'>Where is that rule enforced in the code?</div><div class='a'>In four independent places, deliberately redundantly: the camera refuses to emit an attestation below the confidence threshold; the gossip layer refuses to admit one; the belief re-checks the conditions itself at the exact point where it is about to erase area; and the zone-mask builder requires the attestation to be the node's latest, fresh, above threshold, and to name its own zone. Any one failing means the zone contributes nothing.</div></div>
+<div class='qa'><div class='q'>How do you know it leaked into <i>only</i> that zone?</div><div class='a'>The region card reports the overlap with each camera zone separately. The automated review checks this numerically — it asserts the region overlapped camera 1's zone and no other.</div></div>
+</div>
+<div class='shot'>
+<h3>Silence, stated explicitly</h3>
+<figure><img src='explainer_shots/13_region_card_occluded.png' alt='Silence, stated explicitly'><figcaption>Silence is listed, and explicitly not counted as evidence. <span style='opacity:.7'>— captured 311.7s into the run</span></figcaption></figure>
+<h4>What you are looking at</h4><p>The same card, now naming the silent camera.</p>
+<h4>What the numbers mean</h4><p>The generated sentence reads something like: 'camera 1 is silent (occluded, no healthy attestation): its silence is not counted as evidence'.</p>
+<h4>Live values at the moment of this screenshot</h4><div class='vals'>sim t = 307.2 s   ·   claims heard = 6531   ·   nodes live = 4
+
+convergence: CONVERGED   spread = 4   gaps = 0
+
+node 0: LIVE, honest, claims=6513, gaps=0, rejected=17/1904, reputation=1.00
+node 1: LIVE, honest, claims=6513, gaps=0, rejected=0/1481, reputation=1.00
+node 2: LIVE, honest, claims=6517, gaps=0, rejected=1/1554, reputation=1.00
+node 3: LIVE, honest, claims=6517, gaps=0, rejected=1/1585, reputation=1.00
+
+candidate region P-010: 174.0 m² vs 882.3 m² reachable (20%), unseen 18.2 s
+  in uncovered block: 69.0 m² · healthy cameras: [0, 2, 3] · silent: [1] · occluded: [1]
+  zone overlap: {&#x27;1&#x27;: 105.0}
+  &quot;worker-2 unseen 18 s. Cameras 0, 2, 3 are healthy and saw nobody, so their zones are ruled out. camera 1 is silent (occluded, no healthy attestation): its silence is not counted as evidence. The region therefore leaks into camera 1&#x27;s zone. Search area 174 m² instead of 882 m² reachable.&quot;
+
+centralized comparison: HEALTHY tracking 4 · Starling tracking 4 · actually present 5
+
+mean position error = 0.13 m</div>
+<h4>How it works underneath</h4><p>That sentence is built from the actual healthy and silent node lists, not written in advance. If a different camera went dark, a different sentence would appear.</p>
+<h4>If the examiner asks</h4>
+<div class='qa'><div class='q'>What makes an attestation 'healthy'?</div><div class='a'>Four conditions, all required: it names its own zone; it is that node's most recent attestation; its confidence is at or above the threshold; and it is fresh enough. Confidence itself is the <i>minimum</i> of one-minus-occlusion, illumination and detector health — a node is only as trustworthy as its worst faculty. A minimum, not an average, deliberately.</div></div>
+</div>
+<h2 id='partition'>3. Partition tolerance — cutting the network in half</h2>
+<p>The claim is that Starling has no coordinator. The test is to cut the network and see whether anything stops working.</p>
+<div class='shot'>
+<h3>Before the cut</h3>
+<figure><img src='explainer_shots/20_nodes_before.png' alt='Before the cut'><figcaption>Before the cut: four replicas in step. <span style='opacity:.7'>— captured 324.3s into the run</span></figcaption></figure>
+<h4>What you are looking at</h4><p>Four nodes, claim counts close together, no gaps, convergence reads CONVERGED.</p>
+<h4>What the numbers mean</h4><p>Claim counts will not be identical — claims are still in flight — but the spread is small and gaps are zero.</p>
+<h4>Live values at the moment of this screenshot</h4><div class='vals'>sim t = 319.2 s   ·   claims heard = 6795   ·   nodes live = 4
+
+convergence: CONVERGED   spread = 9   gaps = 0
+
+node 0: LIVE, honest, claims=6783, gaps=0, rejected=17/1963, reputation=1.00
+node 1: LIVE, honest, claims=6779, gaps=0, rejected=0/1543, reputation=1.00
+node 2: LIVE, honest, claims=6787, gaps=0, rejected=1/1614, reputation=1.00
+node 3: LIVE, honest, claims=6788, gaps=0, rejected=1/1666, reputation=1.00
+
+centralized comparison: HEALTHY tracking 5 · Starling tracking 5 · actually present 5
+
+mean position error = 0.65 m</div>
+</div>
+<div class='shot'>
+<h3>During the partition</h3>
+<figure><img src='explainer_shots/21_nodes_partitioned.png' alt='During the partition'><figcaption>Cut {2,3} from {0,1}: the replicas drift apart. <span style='opacity:.7'>— captured 339.1s into the run</span></figcaption></figure>
+<h4>What you are looking at</h4><p>Nodes 2 and 3 are cut from 0 and 1. Every card reports partitioned. The claim counts on the two sides drift apart, because neither side is hearing the other's claims.</p>
+<h4>What the numbers mean</h4><p>Watch the spread grow. Convergence reads PARTITIONED. Critically, <b>both halves keep tracking the people they can see</b> — nothing waits for permission.</p>
+<h4>Live values at the moment of this screenshot</h4><div class='vals'>sim t = 334.4 s   ·   claims heard = 7153   ·   nodes live = 4
+
+convergence: PARTITIONED   spread = 62   gaps = 0
+
+node 0: LIVE, honest, claims=6939, gaps=0, rejected=17/2031, reputation=1.00
+node 1: LIVE, honest, claims=6940, gaps=0, rejected=0/1613, reputation=1.00
+node 2: LIVE, honest, claims=7000, gaps=0, rejected=1/1684, reputation=1.00
+node 3: LIVE, honest, claims=7001, gaps=0, rejected=1/1806, reputation=1.00
+
+centralized comparison: PARTIAL tracking 2 · Starling tracking 5 · actually present 5
+
+mean position error = 0.25 m</div>
+<h4>How it works underneath</h4><p>Nodes detect the partition themselves with no heartbeat service: each counts rounds since it last heard from each configured neighbour. Every log line carries a <code>coverage_completeness</code> figure, so a node always knows and always states how blind it currently is.</p>
+<h4>If the examiner asks</h4>
+<div class='qa'><div class='q'>Why doesn't one side stop, or elect a leader?</div><div class='a'>Because there is nothing to elect. No node has authority the others lack. The claim set is grow-only, so both sides can keep adding to it independently without any possibility of conflict — union is the only operation.</div></div>
+<div class='qa'><div class='q'>Doesn't the drift mean they disagree?</div><div class='a'>They hold different <i>evidence</i>, not different <i>conclusions</i>. Each side correctly computes the answer implied by what it knows. When the evidence merges, the answers converge, because the assignment is a pure function of the claim set.</div></div>
+</div>
+<div class='shot'>
+<h3>The same partition, on a centralized system</h3>
+<figure><img src='explainer_shots/22_central_partitioned.png' alt='The same partition, on a centralized system'><figcaption>The centralized comparison loses the cut-off cameras&#x27; workers. <span style='opacity:.7'>— captured 339.2s into the run</span></figcaption></figure>
+<h4>What you are looking at</h4><p>The comparison panel — one server, one shared identity table, exactly the architecture this project argues against.</p>
+<h4>What the numbers mean</h4><p>It reports PARTIAL and tracks fewer workers, naming the cameras that can no longer reach it and counting observations that were never delivered.</p>
+<h4>Live values at the moment of this screenshot</h4><div class='vals'>sim t = 334.4 s   ·   claims heard = 7153   ·   nodes live = 4
+
+convergence: PARTITIONED   spread = 62   gaps = 0
+
+node 0: LIVE, honest, claims=6939, gaps=0, rejected=17/2031, reputation=1.00
+node 1: LIVE, honest, claims=6940, gaps=0, rejected=0/1613, reputation=1.00
+node 2: LIVE, honest, claims=7000, gaps=0, rejected=1/1684, reputation=1.00
+node 3: LIVE, honest, claims=7001, gaps=0, rejected=1/1806, reputation=1.00
+
+centralized comparison: PARTIAL tracking 2 · Starling tracking 5 · actually present 5
+
+mean position error = 0.25 m</div>
+<h4>How it works underneath</h4><p>This is a real second system running alongside, not a mock-up. It uses the original V1 matcher, preserved as the experimental control for the whole project.</p>
+<h4>If the examiner asks</h4>
+<div class='qa'><div class='q'>Is the comparison fair?</div><div class='a'>It is the original system this project started from, unmodified, which is the strongest form of the comparison — it is the actual baseline, not a strawman built to lose. Its behaviour was deliberately never changed.</div></div>
+</div>
+<div class='shot'>
+<h3>After healing</h3>
+<figure><img src='explainer_shots/23_nodes_healed.png' alt='After healing'><figcaption>After healing: converged again, no gaps. <span style='opacity:.7'>— captured 345.2s into the run</span></figcaption></figure>
+<h4>What you are looking at</h4><p>Reconnected. Claim counts converge, gaps return to zero, convergence reads CONVERGED again.</p>
+<h4>What the numbers mean</h4><p>The time from pressing Heal to CONVERGED is measured by the review harness.</p>
+<h4>Live values at the moment of this screenshot</h4><div class='vals'>sim t = 340.4 s   ·   claims heard = 7294   ·   nodes live = 4
+
+convergence: CONVERGED   spread = 10   gaps = 0
+
+node 0: LIVE, honest, claims=7263, gaps=0, rejected=17/2059, reputation=1.00
+node 1: LIVE, honest, claims=7267, gaps=0, rejected=0/1639, reputation=1.00
+node 2: LIVE, honest, claims=7273, gaps=0, rejected=1/1723, reputation=1.00
+node 3: LIVE, honest, claims=7272, gaps=0, rejected=1/1849, reputation=1.00
+
+centralized comparison: HEALTHY tracking 5 · Starling tracking 5 · actually present 5
+
+mean position error = 0.1 m</div>
+<h4>How it works underneath</h4><p>Live gossip only reaches whoever is listening at the moment of broadcast, so a reconnecting node would otherwise stay permanently behind. Anti-entropy fixes that: nodes exchange a summary of which sequence ranges they hold, and each sends back what the other is missing, in bounded chunks so a long partition heals over several rounds instead of one enormous message.</p>
+<h4>If the examiner asks</h4>
+<div class='qa'><div class='q'>How do you know the replicas are genuinely identical afterwards?</div><div class='a'>Unit tests assert it directly — four nodes over a lossy link are driven until their claim sets are byte-identical. On the dashboard, gaps returning to exactly zero is the live signal.</div></div>
+<div class='qa'><div class='q'>Is this a Merkle tree / CRDT delta sync?</div><div class='a'>Deliberately not a Merkle tree. At this scale a full version-range diff is enough and much easier to defend. It is honestly a simpler design than the literature default, chosen on purpose.</div></div>
+</div>
+<h2 id='byzantine'>4. A lying camera — Byzantine robustness</h2>
+<p>A camera can be compromised. It still holds a valid signing key, so everything it says is correctly signed. The question is what happens when it starts inventing sightings.</p>
+<div class='shot'>
+<h3>All four honest</h3>
+<figure><img src='explainer_shots/30_nodes_honest.png' alt='All four honest'><figcaption>All four nodes honest; reputation at 1.00. <span style='opacity:.7'>— captured 345.3s into the run</span></figcaption></figure>
+<h4>What you are looking at</h4><p>Every reputation bar full, at 1.00. Rejected counts low.</p>
+<h4>What the numbers mean</h4><p>Reputation is shown per node, 0 to 1.</p>
+<h4>Live values at the moment of this screenshot</h4><div class='vals'>sim t = 340.4 s   ·   claims heard = 7294   ·   nodes live = 4
+
+convergence: CONVERGED   spread = 10   gaps = 0
+
+node 0: LIVE, honest, claims=7263, gaps=0, rejected=17/2059, reputation=1.00
+node 1: LIVE, honest, claims=7267, gaps=0, rejected=0/1639, reputation=1.00
+node 2: LIVE, honest, claims=7273, gaps=0, rejected=1/1723, reputation=1.00
+node 3: LIVE, honest, claims=7272, gaps=0, rejected=1/1849, reputation=1.00
+
+centralized comparison: HEALTHY tracking 5 · Starling tracking 5 · actually present 5
+
+mean position error = 0.1 m</div>
+</div>
+<div class='shot'>
+<h3>Node 2 fabricates sightings</h3>
+<figure><img src='explainer_shots/31_nodes_lying.png' alt='Node 2 fabricates sightings'><figcaption>Node 2 fabricates sightings: reputation falls, rejections climb. <span style='opacity:.7'>— captured 350.9s into the run</span></figcaption></figure>
+<h4>What you are looking at</h4><p>Node 2's card turns amber and reads LYING. Its reputation bar falls; its rejected count climbs quickly. The other three are unaffected.</p>
+<h4>What the numbers mean</h4><p><b>rejected</b> is 'how many of its claims failed the check, out of how many were checked'. It is <b>cumulative</b>, so it never falls — what matters is how fast it climbs. <b>reputation</b> is the <i>median of what the other nodes think</i>, not this dashboard's own opinion. In the run below node 2 goes from reputation 1.00 with 1 rejection in 1723 claims, to 0.69 with 18 rejections, in about five seconds.</p>
+<h4>Live values at the moment of this screenshot</h4><div class='vals'>sim t = 345.4 s   ·   claims heard = 7452   ·   nodes live = 4
+
+convergence: CONVERGED   spread = 13   gaps = 0
+
+node 0: LIVE, honest, claims=7426, gaps=0, rejected=17/2085, reputation=1.00
+node 1: LIVE, honest, claims=7433, gaps=0, rejected=0/1667, reputation=1.00
+node 2: LIVE, LYING(fabricate), claims=7438, gaps=0, rejected=18/1797, reputation=0.69
+node 3: LIVE, honest, claims=7439, gaps=0, rejected=1/1875, reputation=1.00
+
+centralized comparison: HEALTHY tracking 5 · Starling tracking 5 · actually present 5
+
+mean position error = 0.47 m</div>
+<h4>How it works underneath</h4><p>A fabricated claim places a person at a random point on the floor. The plausibility check asks first: could this person physically have got there from where they last were, in the time available, walking around the racking? A teleport fails that outright and is rejected before appearance is even considered. Three further graded checks — speed, corroboration by other cameras, and freshness — are blended into a score.</p>
+<h4>If the examiner asks</h4>
+<div class='qa'><div class='q'>Why is reputation a median of peers rather than one number?</div><div class='a'>Because a single global reputation score would be a coordinator by the back door — someone would have to own it. Each node keeps its own opinion of every other node and gossips it. The figure shown is the median across peers, and the median is itself resistant to a minority of liars.</div></div>
+<div class='qa'><div class='q'>Does a bad reputation get a node banned?</div><div class='a'>No. There is no blacklist, no quarantine, no revocation. Reputation is a weight, and it has a floor above zero so a repaired node can always climb back. Be careful to claim only that.</div></div>
+<div class='qa'><div class='q'>How does the system detect a camera that stays silent about someone it should see?</div><div class='a'>That is the interesting one, because plausibility checking cannot see a claim that was never sent. It is caught by contradiction: the node keeps attesting 'my zone was healthy and nobody crossed' while two or more <i>other</i> nodes corroborate a crossing in the same window. Be precise here — the code detects and emits that signal, but wiring it into the reputation update is not built.</div></div>
+</div>
+<div class='shot'>
+<h3>It stops lying</h3>
+<figure><img src='explainer_shots/32_nodes_recovered.png' alt='It stops lying'><figcaption>It stops lying and its reputation recovers. <span style='opacity:.7'>— captured 353.9s into the run</span></figcaption></figure>
+<h4>What you are looking at</h4><p>Reputation climbs back toward 1.00 on its own.</p>
+<h4>What the numbers mean</h4><p>Recovery takes tens of observations, not instantly.</p>
+<h4>Live values at the moment of this screenshot</h4><div class='vals'>sim t = 348.4 s   ·   claims heard = 7526   ·   nodes live = 4
+
+convergence: CONVERGED   spread = 9   gaps = 0
+
+node 0: LIVE, honest, claims=7506, gaps=0, rejected=17/2105, reputation=1.00
+node 1: LIVE, honest, claims=7509, gaps=0, rejected=0/1687, reputation=1.00
+node 2: LIVE, honest, claims=7515, gaps=0, rejected=24/1841, reputation=0.89
+node 3: LIVE, honest, claims=7515, gaps=0, rejected=1/1893, reputation=1.00
+
+centralized comparison: HEALTHY tracking 5 · Starling tracking 5 · actually present 5
+
+mean position error = 0.52 m</div>
+<h4>How it works underneath</h4><p>Reputation is an exponentially weighted moving average. Each honest claim nudges it back up by a fixed fraction. There is no forgiveness timer and no manual reset — recovery is simply the average running forward with good inputs.</p>
+<h4>If the examiner asks</h4>
+<div class='qa'><div class='q'>Isn't automatic forgiveness a vulnerability?</div><div class='a'>It is a trade-off, and worth stating as one. A permanently condemned node cannot be repaired and returned to service, which in a warehouse is the common case — a camera gets knocked, cleaned, and works again. The floor above zero exists for exactly that.</div></div>
+</div>
+<h2 id='forks'>5. Identity conflicts — when the system refuses to guess</h2>
+<p>This is the behaviour most likely to impress, because it is the opposite of what most systems do. When the evidence genuinely supports two incompatible stories, Starling keeps both open rather than picking the higher-scoring one.</p>
+<div class='shot'>
+<h3>A conflict that physics can settle</h3>
+<figure><img src='explainer_shots/41_forks_resolvable.png' alt='A conflict that physics can settle'><figcaption>The resolvable conflict, as the resolver reports it. <span style='opacity:.7'>— captured 445.3s into the run</span></figcaption></figure>
+<h4>What you are looking at</h4><p>The network was split, and each side attached the same face identity to a different person. After healing, the resolver sees one identity bound to two incompatible trajectories — a <b>fork</b>. The one to read here is <b>face id P-100</b>, marked RESOLVED (reachability). Note the panel may list <i>two</i> forks: the ambiguous conflict from the previous scenario (face P-101) is still inside the resolver's memory window and correctly remains OPEN. Always check the face id before reading a verdict — that is a genuine trap, and it caught this document's own screenshot tooling once.</p>
+<h4>What the numbers mean</h4><p>The explanation names the speed: one branch would have required something like 6.7 m/s over 4.2 s, which exceeds the 1.6 m/s walking limit. On the map the kept branch is solid, the rejected one is crossed out.</p>
+<h4>Live values at the moment of this screenshot</h4><div class='vals'>sim t = 438.8 s   ·   claims heard = 10680   ·   nodes live = 4
+
+convergence: CONVERGED   spread = 17   gaps = 0
+
+node 0: LIVE, honest, claims=10651, gaps=0, rejected=31/3569, reputation=1.00
+node 1: LIVE, honest, claims=10641, gaps=0, rejected=0/2122, reputation=1.00
+node 2: LIVE, honest, claims=10648, gaps=0, rejected=24/2281, reputation=1.00
+node 3: LIVE, honest, claims=10658, gaps=0, rejected=59/2708, reputation=0.83
+
+candidate region P-048: 8.1 m² vs 11.1 m² reachable (73%), unseen 1.6 s
+  in uncovered block: 8.1 m² · healthy cameras: [0, 1, 2, 3] · silent: []
+  zone overlap: {}
+  &quot;worker-8 unseen 2 s. Cameras 0, 1, 2, 3 are healthy and saw nobody, so their zones are ruled out. Search area 8 m² instead of 11 m² reachable.&quot;
+
+fork on P-028: OPEN
+  &quot;Both trajectories are physically possible from the identity&#x27;s last confirmed anchor, so the system does NOT pick one (never by score). It is an ambiguity for a human: branch 0 at (5.08, 21.61) OR branch 1 at (33.32, 12.48).&quot;
+  branches: #0 at (5.08, 21.61) with 125 claims, #1 at (33.32, 12.48) with 1 claims
+
+fork on P-049: RESOLVED_REACHABILITY
+  &quot;Resolved by reachability: branch 0 kept. Rejected: branch 1 requires 6.7 m/s over 4.2 s, exceeds v_max 1.6 m/s.&quot;
+  branches: #0 at (9.82, 12.53) with 157 claims, #1 at (33.36, 12.55) with 1 claims
+
+centralized comparison: HEALTHY tracking 7 · Starling tracking 7 · actually present 7
+
+mean position error = 3.66 m</div>
+<h4>How it works underneath</h4><p>Each branch is tested for reachability from the identity's last <i>confirmed</i> position. If exactly one branch survives, the fork closes with a stated reason. The reason is never a bare 'rejected' — it always names the implied speed, so the decision is auditable.</p>
+<h4>If the examiner asks</h4>
+<div class='qa'><div class='q'>Why test from the last confirmed position rather than the most recent one?</div><div class='a'>Because each individual step is valid, so the most recent tip is always reachable from the previous one — testing there would never detect anything. The last <i>anchored</i> position is the last point the system actually knew who this was, and that is where genuine ambiguity shows up.</div></div>
+</div>
+<div class='shot'>
+<h3>The same conflict on the floor</h3>
+<figure><img src='explainer_shots/41_map_resolvable.png' alt='The same conflict on the floor'><figcaption>The resolvable conflict&#x27;s branches drawn on the floor. <span style='opacity:.7'>— captured 445.4s into the run</span></figcaption></figure>
+<h4>What you are looking at</h4><p>Two diamond markers. The kept branch is filled; the rejected one is outlined and struck through.</p>
+<h4>Live values at the moment of this screenshot</h4><div class='vals'>sim t = 438.8 s   ·   claims heard = 10680   ·   nodes live = 4
+
+convergence: CONVERGED   spread = 17   gaps = 0
+
+node 0: LIVE, honest, claims=10651, gaps=0, rejected=31/3569, reputation=1.00
+node 1: LIVE, honest, claims=10641, gaps=0, rejected=0/2122, reputation=1.00
+node 2: LIVE, honest, claims=10648, gaps=0, rejected=24/2281, reputation=1.00
+node 3: LIVE, honest, claims=10658, gaps=0, rejected=59/2708, reputation=0.83
+
+candidate region P-048: 8.1 m² vs 11.1 m² reachable (73%), unseen 1.6 s
+  in uncovered block: 8.1 m² · healthy cameras: [0, 1, 2, 3] · silent: []
+  zone overlap: {}
+  &quot;worker-8 unseen 2 s. Cameras 0, 1, 2, 3 are healthy and saw nobody, so their zones are ruled out. Search area 8 m² instead of 11 m² reachable.&quot;
+
+fork on P-028: OPEN
+  &quot;Both trajectories are physically possible from the identity&#x27;s last confirmed anchor, so the system does NOT pick one (never by score). It is an ambiguity for a human: branch 0 at (5.08, 21.61) OR branch 1 at (33.32, 12.48).&quot;
+  branches: #0 at (5.08, 21.61) with 125 claims, #1 at (33.32, 12.48) with 1 claims
+
+fork on P-049: RESOLVED_REACHABILITY
+  &quot;Resolved by reachability: branch 0 kept. Rejected: branch 1 requires 6.7 m/s over 4.2 s, exceeds v_max 1.6 m/s.&quot;
+  branches: #0 at (9.82, 12.53) with 157 claims, #1 at (33.36, 12.55) with 1 claims
+
+centralized comparison: HEALTHY tracking 7 · Starling tracking 7 · actually present 7
+
+mean position error = 3.66 m</div>
+</div>
+<div class='shot'>
+<h3>A conflict that physics cannot settle</h3>
+<figure><img src='explainer_shots/40_forks_ambiguous.png' alt='A conflict that physics cannot settle'><figcaption>The ambiguous conflict, as the resolver reports it. <span style='opacity:.7'>— captured 399.5s into the run</span></figcaption></figure>
+<h4>What you are looking at</h4><p>The same setup, but both branches are physically possible. The fork is marked <b>OPEN</b> and stays open.</p>
+<h4>What the numbers mean</h4><p>Both branches are listed with verdict 'possible'. Neither is chosen. The identity gets no candidate region, because there is no single last position to reason from.</p>
+<h4>Live values at the moment of this screenshot</h4><div class='vals'>sim t = 393.6 s   ·   claims heard = 8944   ·   nodes live = 4
+
+convergence: CONVERGED   spread = 12   gaps = 0
+
+node 0: LIVE, honest, claims=8918, gaps=0, rejected=30/2763, reputation=1.00
+node 1: LIVE, honest, claims=8911, gaps=0, rejected=0/1906, reputation=1.00
+node 2: LIVE, honest, claims=8914, gaps=0, rejected=24/2066, reputation=1.00
+node 3: LIVE, honest, claims=8923, gaps=0, rejected=2/2209, reputation=1.00
+
+candidate region P-010: 69.0 m² vs 932.5 m² reachable (7%), unseen 31.4 s
+  in uncovered block: 69.0 m² · healthy cameras: [0, 1, 2, 3] · silent: []
+  zone overlap: {}
+  &quot;worker-2 unseen 31 s. Cameras 0, 1, 2, 3 are healthy and saw nobody, so their zones are ruled out. Search area 69 m² instead of 932 m² reachable.&quot;
+
+candidate region P-047: 69.0 m² vs 923.4 m² reachable (8%), unseen 28.0 s
+  in uncovered block: 69.0 m² · healthy cameras: [0, 1, 2, 3] · silent: []
+  zone overlap: {}
+  &quot;P-047 unseen 28 s. Cameras 0, 1, 2, 3 are healthy and saw nobody, so their zones are ruled out. Search area 69 m² instead of 923 m² reachable.&quot;
+
+fork on P-028: OPEN
+  &quot;Both trajectories are physically possible from the identity&#x27;s last confirmed anchor, so the system does NOT pick one (never by score). It is an ambiguity for a human: branch 0 at (5.08, 21.61) OR branch 1 at (33.32, 12.48).&quot;
+  branches: #0 at (5.08, 21.61) with 125 claims, #1 at (33.32, 12.48) with 1 claims
+
+centralized comparison: HEALTHY tracking 6 · Starling tracking 4 · actually present 7
+
+mean position error = 6.77 m</div>
+<h4>How it works underneath</h4><p>When zero or more than one branch survives the reachability test, the fork stays open. There is no tie-break by score anywhere in the code. It can later be closed by a new face anchor that positively continues one branch, or by an operator — but never by the system picking a winner on confidence.</p>
+<h4>If the examiner asks</h4>
+<div class='qa'><div class='q'>Isn't refusing to answer just a cop-out?</div><div class='a'>For a safety system it is the correct failure mode. If two stories are equally consistent with the evidence, picking one at, say, 51% confidence means being confidently wrong half the time — and a search team acts on that answer. Surfacing 'these two are both possible, go and look' is more useful and more honest.</div></div>
+<div class='qa'><div class='q'>Would it ever merge two different people?</div><div class='a'>That is the failure mode measured in the ablation, and it was effectively zero everywhere except under the deliberately punishing 'harsh' profile. The system splits identities under pressure far more readily than it merges them, which for a safety tool is the right way round to fail.</div></div>
+<div class='qa'><div class='q'>How can two replicas agree on a fork with no coordinator?</div><div class='a'>A fork's id is a hash of the identity plus its branches' claim ids, sorted first. Two nodes holding the same claims compute the same id independently — the same trick as the assignment itself.</div></div>
+</div>
+<div class='shot'>
+<h3>Both possibilities drawn</h3>
+<figure><img src='explainer_shots/40_map_ambiguous.png' alt='Both possibilities drawn'><figcaption>The ambiguous conflict&#x27;s branches drawn on the floor. <span style='opacity:.7'>— captured 399.7s into the run</span></figcaption></figure>
+<h4>What you are looking at</h4><p>Two open diamonds, both dashed, both labelled with a question mark. The system is showing you its uncertainty instead of hiding it.</p>
+<h4>Live values at the moment of this screenshot</h4><div class='vals'>sim t = 393.6 s   ·   claims heard = 8944   ·   nodes live = 4
+
+convergence: CONVERGED   spread = 12   gaps = 0
+
+node 0: LIVE, honest, claims=8918, gaps=0, rejected=30/2763, reputation=1.00
+node 1: LIVE, honest, claims=8911, gaps=0, rejected=0/1906, reputation=1.00
+node 2: LIVE, honest, claims=8914, gaps=0, rejected=24/2066, reputation=1.00
+node 3: LIVE, honest, claims=8923, gaps=0, rejected=2/2209, reputation=1.00
+
+candidate region P-010: 69.0 m² vs 932.5 m² reachable (7%), unseen 31.4 s
+  in uncovered block: 69.0 m² · healthy cameras: [0, 1, 2, 3] · silent: []
+  zone overlap: {}
+  &quot;worker-2 unseen 31 s. Cameras 0, 1, 2, 3 are healthy and saw nobody, so their zones are ruled out. Search area 69 m² instead of 932 m² reachable.&quot;
+
+candidate region P-047: 69.0 m² vs 923.4 m² reachable (8%), unseen 28.0 s
+  in uncovered block: 69.0 m² · healthy cameras: [0, 1, 2, 3] · silent: []
+  zone overlap: {}
+  &quot;P-047 unseen 28 s. Cameras 0, 1, 2, 3 are healthy and saw nobody, so their zones are ruled out. Search area 69 m² instead of 923 m² reachable.&quot;
+
+fork on P-028: OPEN
+  &quot;Both trajectories are physically possible from the identity&#x27;s last confirmed anchor, so the system does NOT pick one (never by score). It is an ambiguity for a human: branch 0 at (5.08, 21.61) OR branch 1 at (33.32, 12.48).&quot;
+  branches: #0 at (5.08, 21.61) with 125 claims, #1 at (33.32, 12.48) with 1 claims
+
+centralized comparison: HEALTHY tracking 6 · Starling tracking 4 · actually present 7
+
+mean position error = 6.77 m</div>
+</div>
+<h2 id='query'>6. Asking questions, and being refused</h2>
+<p>A minimal structured query interface. Its interesting property is not what it answers but what it declines to answer, and why.</p>
+<div class='shot'>
+<h3>A question it will answer</h3>
+<figure><img src='explainer_shots/50_query_answered.png' alt='A question it will answer'><figcaption>A valid query: confirmed and inferred kept apart. <span style='opacity:.7'>— captured 447.4s into the run</span></figcaption></figure>
+<h4>What you are looking at</h4><p>The answer is split into <b>Confirmed</b> and <b>Inferred</b>, kept visibly apart.</p>
+<h4>What the numbers mean</h4><p>Confirmed: last actually seen at a position, by a named camera, how long ago, with what confidence. Inferred: if currently unseen, the candidate region area. It also reports how many nodes responded and which were unreachable.</p>
+<h4>Live values at the moment of this screenshot</h4><div class='vals'>sim t = 440.6 s   ·   claims heard = 10750   ·   nodes live = 4
+
+convergence: CONVERGED   spread = 12   gaps = 0
+
+node 0: LIVE, honest, claims=10722, gaps=0, rejected=31/3596, reputation=1.00
+node 1: LIVE, honest, claims=10715, gaps=0, rejected=0/2131, reputation=1.00
+node 2: LIVE, honest, claims=10718, gaps=0, rejected=24/2290, reputation=1.00
+node 3: LIVE, honest, claims=10727, gaps=0, rejected=59/2726, reputation=0.93
+
+candidate region P-048: 22.2 m² vs 56.4 m² reachable (39%), unseen 3.4 s
+  in uncovered block: 22.2 m² · healthy cameras: [0, 1, 2, 3] · silent: []
+  zone overlap: {}
+  &quot;worker-8 unseen 3 s. Cameras 0, 1, 2, 3 are healthy and saw nobody, so their zones are ruled out. Search area 22 m² instead of 56 m² reachable.&quot;
+
+fork on P-028: OPEN
+  &quot;Both trajectories are physically possible from the identity&#x27;s last confirmed anchor, so the system does NOT pick one (never by score). It is an ambiguity for a human: branch 0 at (5.08, 21.61) OR branch 1 at (33.32, 12.48).&quot;
+  branches: #0 at (5.08, 21.61) with 125 claims, #1 at (33.32, 12.48) with 1 claims
+
+fork on P-108: RESOLVED_REACHABILITY
+  &quot;Resolved by reachability: branch 0 kept. Rejected: branch 1 requires 6.7 m/s over 4.2 s, exceeds v_max 1.6 m/s.&quot;
+  branches: #0 at (7.18, 14.13) with 1 claims, #1 at (33.36, 12.55) with 1 claims
+
+centralized comparison: HEALTHY tracking 7 · Starling tracking 7 · actually present 7
+
+mean position error = 0.35 m</div>
+<h4>How it works underneath</h4><p>Separating confirmed from inferred is the whole point. A single blended answer would let a guess masquerade as an observation.</p>
+<h4>If the examiner asks</h4>
+<div class='qa'><div class='q'>Why report unreachable nodes in the answer?</div><div class='a'>So the answer carries its own caveat. If two cameras could not be reached, the answer is based on partial evidence and says so, rather than quietly presenting itself as complete.</div></div>
+</div>
+<div class='shot'>
+<h3>Refused — nobody by that name</h3>
+<figure><img src='explainer_shots/51_query_refused_unknown.png' alt='Refused — nobody by that name'><figcaption>Nobody by that name: refused, with the reason. <span style='opacity:.7'>— captured 449.3s into the run</span></figcaption></figure>
+<h4>What you are looking at</h4><p>REFUSED, with a stated reason.</p>
+<h4>Live values at the moment of this screenshot</h4><div class='vals'>sim t = 442.8 s   ·   claims heard = 10820   ·   nodes live = 4
+
+convergence: CONVERGED   spread = 13   gaps = 0
+
+node 0: LIVE, honest, claims=10792, gaps=0, rejected=31/3626, reputation=1.00
+node 1: LIVE, honest, claims=10785, gaps=0, rejected=0/2141, reputation=1.00
+node 2: LIVE, honest, claims=10788, gaps=0, rejected=24/2300, reputation=1.00
+node 3: LIVE, honest, claims=10798, gaps=0, rejected=59/2746, reputation=0.97
+
+candidate region P-048: 40.9 m² vs 138.8 m² reachable (30%), unseen 5.6 s
+  in uncovered block: 40.9 m² · healthy cameras: [0, 1, 2, 3] · silent: []
+  zone overlap: {}
+  &quot;worker-8 unseen 6 s. Cameras 0, 1, 2, 3 are healthy and saw nobody, so their zones are ruled out. Search area 41 m² instead of 139 m² reachable.&quot;
+
+fork on P-028: OPEN
+  &quot;Both trajectories are physically possible from the identity&#x27;s last confirmed anchor, so the system does NOT pick one (never by score). It is an ambiguity for a human: branch 0 at (5.08, 21.61) OR branch 1 at (33.32, 12.48).&quot;
+  branches: #0 at (5.08, 21.61) with 125 claims, #1 at (33.32, 12.48) with 1 claims
+
+fork on P-108: RESOLVED_REACHABILITY
+  &quot;Resolved by reachability: branch 0 kept. Rejected: branch 1 requires 6.7 m/s over 4.2 s, exceeds v_max 1.6 m/s.&quot;
+  branches: #0 at (7.18, 14.13) with 1 claims, #1 at (33.36, 12.55) with 1 claims
+
+centralized comparison: HEALTHY tracking 6 · Starling tracking 7 · actually present 7
+
+mean position error = 0.32 m</div>
+<h4>How it works underneath</h4><p>It does not invent a plausible answer or return the nearest match.</p>
+</div>
+<div class='shot'>
+<h3>Refused — wrong purpose</h3>
+<figure><img src='explainer_shots/52_query_refused_purpose.png' alt='Refused — wrong purpose'><figcaption>Same question, wrong purpose: refused. <span style='opacity:.7'>— captured 451.3s into the run</span></figcaption></figure>
+<h4>What you are looking at</h4><p>The same question that was answered a moment ago, now refused because the query carries a 'productivity' purpose instead of 'safety'.</p>
+<h4>Live values at the moment of this screenshot</h4><div class='vals'>sim t = 444.8 s   ·   claims heard = 10887   ·   nodes live = 4
+
+convergence: CONVERGED   spread = 11   gaps = 0
+
+node 0: LIVE, honest, claims=10861, gaps=0, rejected=31/3655, reputation=1.00
+node 1: LIVE, honest, claims=10854, gaps=0, rejected=0/2151, reputation=1.00
+node 2: LIVE, honest, claims=10857, gaps=0, rejected=24/2310, reputation=1.00
+node 3: LIVE, honest, claims=10865, gaps=0, rejected=59/2764, reputation=0.99
+
+candidate region P-048: 55.9 m² vs 223.2 m² reachable (25%), unseen 7.6 s
+  in uncovered block: 55.9 m² · healthy cameras: [0, 1, 2, 3] · silent: []
+  zone overlap: {}
+  &quot;worker-8 unseen 8 s. Cameras 0, 1, 2, 3 are healthy and saw nobody, so their zones are ruled out. Search area 56 m² instead of 223 m² reachable.&quot;
+
+fork on P-028: OPEN
+  &quot;Both trajectories are physically possible from the identity&#x27;s last confirmed anchor, so the system does NOT pick one (never by score). It is an ambiguity for a human: branch 0 at (5.08, 21.61) OR branch 1 at (33.32, 12.48).&quot;
+  branches: #0 at (5.08, 21.61) with 125 claims, #1 at (33.32, 12.48) with 1 claims
+
+fork on P-108: RESOLVED_REACHABILITY
+  &quot;Resolved by reachability: branch 0 kept. Rejected: branch 1 requires 6.7 m/s over 4.2 s, exceeds v_max 1.6 m/s.&quot;
+  branches: #0 at (7.18, 14.13) with 1 claims, #1 at (33.36, 12.55) with 1 claims
+
+centralized comparison: HEALTHY tracking 6 · Starling tracking 7 · actually present 7
+
+mean position error = 0.37 m</div>
+<h4>How it works underneath</h4><p>Queries are capability-scoped: the token states a purpose, and a location query that is legitimate for safety is refused for productivity monitoring. This is a deliberate design position about what the system is for.</p>
+<h4>If the examiner asks</h4>
+<div class='qa'><div class='q'>Is this enforced or cosmetic?</div><div class='a'>It is enforced at the query layer, and it is a small scope — be honest that it is a structured CLI-style stub, not a full natural-language interface. A full LLM query interface was explicitly excluded from scope.</div></div>
+</div>
+<h2 id='central'>7. Why not just use one server?</h2>
+<p>The comparison that justifies the entire architecture.</p>
+<div class='shot'>
+<h3>The centralized system, working</h3>
+<figure><img src='explainer_shots/60_central_healthy.png' alt='The centralized system, working'><figcaption>The centralized baseline, working normally. <span style='opacity:.7'>— captured 451.4s into the run</span></figcaption></figure>
+<h4>What you are looking at</h4><p>When nothing is wrong, it works fine — and that is worth conceding immediately.</p>
+<h4>What the numbers mean</h4><p>It tracks roughly the right number of workers — though note in the capture below it reports 6 while 7 people are actually present, so it was already imperfect before anything was broken. Say that out loud rather than overselling the comparison.</p>
+<h4>Live values at the moment of this screenshot</h4><div class='vals'>sim t = 444.8 s   ·   claims heard = 10887   ·   nodes live = 4
+
+convergence: CONVERGED   spread = 11   gaps = 0
+
+node 0: LIVE, honest, claims=10861, gaps=0, rejected=31/3655, reputation=1.00
+node 1: LIVE, honest, claims=10854, gaps=0, rejected=0/2151, reputation=1.00
+node 2: LIVE, honest, claims=10857, gaps=0, rejected=24/2310, reputation=1.00
+node 3: LIVE, honest, claims=10865, gaps=0, rejected=59/2764, reputation=0.99
+
+candidate region P-048: 55.9 m² vs 223.2 m² reachable (25%), unseen 7.6 s
+  in uncovered block: 55.9 m² · healthy cameras: [0, 1, 2, 3] · silent: []
+  zone overlap: {}
+  &quot;worker-8 unseen 8 s. Cameras 0, 1, 2, 3 are healthy and saw nobody, so their zones are ruled out. Search area 56 m² instead of 223 m² reachable.&quot;
+
+fork on P-028: OPEN
+  &quot;Both trajectories are physically possible from the identity&#x27;s last confirmed anchor, so the system does NOT pick one (never by score). It is an ambiguity for a human: branch 0 at (5.08, 21.61) OR branch 1 at (33.32, 12.48).&quot;
+  branches: #0 at (5.08, 21.61) with 125 claims, #1 at (33.32, 12.48) with 1 claims
+
+fork on P-108: RESOLVED_REACHABILITY
+  &quot;Resolved by reachability: branch 0 kept. Rejected: branch 1 requires 6.7 m/s over 4.2 s, exceeds v_max 1.6 m/s.&quot;
+  branches: #0 at (7.18, 14.13) with 1 claims, #1 at (33.36, 12.55) with 1 claims
+
+centralized comparison: HEALTHY tracking 6 · Starling tracking 7 · actually present 7
+
+mean position error = 0.37 m</div>
+<h4>If the examiner asks</h4>
+<div class='qa'><div class='q'>So the centralized system is fine?</div><div class='a'>When the network is healthy, yes — and saying so makes the rest of the argument credible. The difference only appears under failure, which is exactly when a safety system matters.</div></div>
+</div>
+<div class='shot'>
+<h3>The server is killed</h3>
+<figure><img src='explainer_shots/61_central_down.png' alt='The server is killed'><figcaption>Server killed: it tracks nobody. Starling is unaffected. <span style='opacity:.7'>— captured 461.3s into the run</span></figcaption></figure>
+<h4>What you are looking at</h4><p>Status DOWN. It tracks nobody at all.</p>
+<h4>What the numbers mean</h4><p>Tracked drops to zero.</p>
+<h4>Live values at the moment of this screenshot</h4><div class='vals'>sim t = 454.8 s   ·   claims heard = 11221   ·   nodes live = 4
+
+convergence: CONVERGED   spread = 13   gaps = 0
+
+node 0: LIVE, honest, claims=11201, gaps=0, rejected=31/3792, reputation=1.00
+node 1: LIVE, honest, claims=11194, gaps=0, rejected=0/2197, reputation=1.00
+node 2: LIVE, honest, claims=11198, gaps=0, rejected=24/2353, reputation=1.00
+node 3: LIVE, honest, claims=11207, gaps=0, rejected=60/2854, reputation=0.95
+
+candidate region P-048: 69.0 m² vs 640.1 m² reachable (11%), unseen 17.6 s
+  in uncovered block: 69.0 m² · healthy cameras: [0, 1, 2, 3] · silent: []
+  zone overlap: {}
+  &quot;worker-8 unseen 18 s. Cameras 0, 1, 2, 3 are healthy and saw nobody, so their zones are ruled out. Search area 69 m² instead of 640 m² reachable.&quot;
+
+fork on P-028: OPEN
+  &quot;Both trajectories are physically possible from the identity&#x27;s last confirmed anchor, so the system does NOT pick one (never by score). It is an ambiguity for a human: branch 0 at (5.08, 21.61) OR branch 1 at (33.32, 12.48).&quot;
+  branches: #0 at (5.08, 21.61) with 125 claims, #1 at (33.32, 12.48) with 1 claims
+
+fork on P-108: RESOLVED_REACHABILITY
+  &quot;Resolved by reachability: branch 0 kept. Rejected: branch 1 requires 6.7 m/s over 4.2 s, exceeds v_max 1.6 m/s.&quot;
+  branches: #0 at (7.18, 14.13) with 1 claims, #1 at (33.36, 12.55) with 1 claims
+
+centralized comparison: DOWN tracking 0 · Starling tracking 7 · actually present 7
+
+mean position error = 0.23 m</div>
+<h4>How it works underneath</h4><p>One process held all the state; killing it destroys the service.</p>
+</div>
+<div class='shot'>
+<h3>Starling at the same instant</h3>
+<figure><img src='explainer_shots/62_nodes_while_central_down.png' alt='Starling at the same instant'><figcaption>The same instant on Starling&#x27;s side. <span style='opacity:.7'>— captured 461.4s into the run</span></figcaption></figure>
+<h4>What you are looking at</h4><p>Unaffected. Still converged, still tracking everyone, claim count still climbing.</p>
+<h4>What the numbers mean</h4><p>Compare the claim total with the previous shot's — it keeps growing while the centralized system is dead.</p>
+<h4>Live values at the moment of this screenshot</h4><div class='vals'>sim t = 454.8 s   ·   claims heard = 11228   ·   nodes live = 4
+
+convergence: CONVERGED   spread = 13   gaps = 0
+
+node 0: LIVE, honest, claims=11201, gaps=0, rejected=31/3792, reputation=1.00
+node 1: LIVE, honest, claims=11194, gaps=0, rejected=0/2197, reputation=1.00
+node 2: LIVE, honest, claims=11198, gaps=0, rejected=24/2353, reputation=1.00
+node 3: LIVE, honest, claims=11207, gaps=0, rejected=60/2854, reputation=0.95
+
+candidate region P-048: 69.0 m² vs 640.1 m² reachable (11%), unseen 17.6 s
+  in uncovered block: 69.0 m² · healthy cameras: [0, 1, 2, 3] · silent: []
+  zone overlap: {}
+  &quot;worker-8 unseen 18 s. Cameras 0, 1, 2, 3 are healthy and saw nobody, so their zones are ruled out. Search area 69 m² instead of 640 m² reachable.&quot;
+
+fork on P-028: OPEN
+  &quot;Both trajectories are physically possible from the identity&#x27;s last confirmed anchor, so the system does NOT pick one (never by score). It is an ambiguity for a human: branch 0 at (5.08, 21.61) OR branch 1 at (33.32, 12.48).&quot;
+  branches: #0 at (5.08, 21.61) with 125 claims, #1 at (33.32, 12.48) with 1 claims
+
+fork on P-108: RESOLVED_REACHABILITY
+  &quot;Resolved by reachability: branch 0 kept. Rejected: branch 1 requires 6.7 m/s over 4.2 s, exceeds v_max 1.6 m/s.&quot;
+  branches: #0 at (7.18, 14.13) with 1 claims, #1 at (33.36, 12.55) with 1 claims
+
+centralized comparison: DOWN tracking 0 · Starling tracking 7 · actually present 7
+
+mean position error = 0.34 m</div>
+<h4>How it works underneath</h4><p>There is no equivalent process to kill. Every node holds a full replica and computes the answer itself.</p>
+<h4>If the examiner asks</h4>
+<div class='qa'><div class='q'>What is the equivalent single point of failure in Starling?</div><div class='a'>There isn't one for the identity function — but be precise rather than triumphant. This demo has a simulator process feeding all four nodes, and the dashboard is a single page. Neither is part of the identity path, but in a real deployment the cameras would be the sources and both would be absent.</div></div>
+</div>
+<h2 id='limits'>8. What is <i>not</i> built, and honest weaknesses</h2>
+
+<p>An examiner will trust you more for volunteering these than for being caught by them. Every item
+here was verified against the code, not guessed.</p>
+
+<h3>Things that are built but not wired in</h3>
+<ul>
+<li><b>The four aggregation methods</b> (unweighted, reputation-weighted, trimmed-mean, Krum) are
+implemented and measured by the Byzantine sweep, but they are <b>not used in the live node loop</b>.
+They exist to be ablated against each other, and the results are in <code>docs/results_c2.md</code>.
+Do not claim the running system uses Krum.</li>
+<li><b>Reputation is not fed into the running node's identity resolution.</b> Nodes compute and
+gossip reputation, and the dashboard uses it when it resolves, but there is no call path from a
+node's own reputation table into its own <code>resolve()</code>.</li>
+<li><b>The attestation reputation floor is inert</b> — its threshold defaults to 0.0.</li>
+<li><b>Detecting a lie by omission</b> emits a signal, but nothing consumes it to update reputation.</li>
+<li><b>Incremental resolution</b> exists and is tested, but has no production caller; the live code
+resolves over its own window instead.</li>
+</ul>
+
+<h3>Honest weaknesses in the approach</h3>
+<ul>
+<li><b>Claims are pruned after a retention window.</b> That weakens the guarantee from unconditional
+strong eventual consistency to <i>eventual consistency within the retention window</i>: two replicas
+separated for longer than the window may never fully re-converge. It is a deliberate trade-off that
+doubles as a privacy measure, but state it as a limitation, not a feature.</li>
+<li><b>The candidate belief is an indicator, not a probability density.</b> Each cell is in or out;
+there is no Bayesian weighting. Every number reported depends only on which cells are in the set, so
+this is sound, but do not describe it as a particle filter — it is not one.</li>
+<li><b>Signature verification does not happen on the dashboard's belief path.</b> The belief re-checks
+confidence and freshness itself, but not the signature.</li>
+<li><b>Sybil attacks are explicitly out of scope.</b> Keys are enrolled out of band at commissioning.
+The scheme defends against an enrolled node lying, not against an attacker who can mint new
+identities.</li>
+<li><b>Identity fragmentation under realistic conditions is real.</b> Measured at about 3.4 identities
+per worker, with 97.5% of a worker's claims still on one identity — the rest are short-lived
+splinters after occlusions. About 38% of claims are left unassigned, which is the resolver correctly
+refusing to guess, but it is a large fraction.</li>
+</ul>
+
+<h3>An inconsistency to fix or be ready to explain</h3>
+<p>The match threshold was calibrated from a measured ROC curve to <b>0.32</b>, and the configs the
+demo actually loads carry that value with a <code>threshold_source</code> recording how it was
+derived. However the <i>class default</i> in <code>packages/starling_node/config.py</code> still reads
+<code>0.60</code> with <code>threshold_source: "UNCALIBRATED-GUESS"</code>. An examiner who greps the
+code will find the stale string and it will look like the calibration never happened. The running
+system uses 0.32; the default is simply out of date.</p>
+
+<h3>Scope that was deliberately never attempted</h3>
+<ul>
+<li>3D reconstruction — 2D navmesh only, pre-committed.</li>
+<li>Uniform-invariant re-identification (C7) — explicitly cut.</li>
+<li>A full natural-language query interface — a structured stub only.</li>
+</ul>
+
+<h2 id='glossary'>9. Glossary</h2>
+<table><tr><th>Term</th><th>Meaning</th></tr>
+<tr><td><b>Claim</b></td><td>One signed record: a camera saw a person at a position at a media time, with an appearance vector. The only thing that travels between nodes.</td></tr>
+<tr><td><b>Grow-only set (G-Set)</b></td><td>A set that only ever has things added. Merging is union, so it is idempotent, commutative and associative — you can merge in any order, any number of times, and get the same result. That is why partitions are harmless.</td></tr>
+<tr><td><b>CRDT</b></td><td>Conflict-free replicated data type. A structure that can be updated independently on many machines and merged without conflict resolution. Here it is the claim set.</td></tr>
+<tr><td><b>Resolver</b></td><td>The pure function that turns a set of claims into identity assignments. Same claims in, same answer out, on every node.</td></tr>
+<tr><td><b>Anchor</b></td><td>A claim carrying a positive identification (a face), which binds an identity directly rather than by appearance similarity.</td></tr>
+<tr><td><b>Fork</b></td><td>One identity bound to two trajectories that cannot both be one person's walk.</td></tr>
+<tr><td><b>HLC (hybrid logical clock)</b></td><td>A timestamp combining a physical millisecond count with a logical counter, so ordering stays consistent even if clocks disagree or go backwards.</td></tr>
+<tr><td><b>Media time</b></td><td>The time the footage depicts, as opposed to the wall clock. All identity-path timestamps use it.</td></tr>
+<tr><td><b>Anti-entropy</b></td><td>The repair protocol: nodes compare which sequence ranges they hold and send each other what is missing.</td></tr>
+<tr><td><b>Gap / hole</b></td><td>A missing run of sequence numbers in a node's replica. Convergence requires zero.</td></tr>
+<tr><td><b>Attestation</b></td><td>A signed statement from a camera: 'my zone was covered and healthy for this interval, and nobody crossed'. The basis of negative evidence.</td></tr>
+<tr><td><b>Candidate region</b></td><td>The area an unseen person could still be in, after ruling out zones that healthy cameras attest were empty.</td></tr>
+<tr><td><b>Navmesh</b></td><td>The floor as a grid of walkable cells, used for geodesic distance and reachability.</td></tr>
+<tr><td><b>Reachability gate</b></td><td>A hard check: could this person physically have got here from where they were, in the time available? Runs before any appearance comparison.</td></tr>
+<tr><td><b>Plausibility check</b></td><td>The Byzantine filter applied to incoming claims: reachability (hard fail), then speed, corroboration and freshness blended into a score.</td></tr>
+<tr><td><b>Reputation</b></td><td>Each node's own opinion of each other node, gossiped. The displayed figure is the median of peers' opinions.</td></tr>
+</table>
+<h2 id='closing'>10. The five questions to rehearse</h2>
+<p>If you can answer these five without notes, you can hold a conversation about this project with anyone.</p>
+<div class='qa'><div class='q'>In one sentence, what is novel here?</div><div class='a'>Identity is treated as a conflict-free replicated data type where only evidence is replicated and the assignment is recomputed identically everywhere — and on top of that, the system reasons from attested absence, so it can narrow down where a person is using cameras that saw nothing.</div></div>
+<div class='qa'><div class='q'>Where is the coordinator hiding?</div><div class='a'>Nowhere, and the way to show it is to name what a coordinator would have to own: the identity assignment. That is precisely the one thing never transmitted. Gossip goes to a configured neighbour set rather than a full mesh for the same reason — a full mesh is a coordinator in disguise.</div></div>
+<div class='qa'><div class='q'>What would break this system?</div><div class='a'>A partition lasting longer than the claim retention window, because pruned claims can no longer be exchanged. Also an attacker able to enrol new keys, which is out of scope by design. And identity fragmentation degrades badly under camera conditions worse than published re-identification benchmarks.</div></div>
+<div class='qa'><div class='q'>How do you know any of this works?</div><div class='a'>Three independent layers. Unit and property tests, including randomised tests that assert the resolver gives the same answer under any claim ordering. An automated review that drives a real four-process demo in a browser and scores eleven scenarios with numeric criteria. And offline experiments with written-up results for the Byzantine sweep, the negative-evidence measurements and the threshold calibration.</div></div>
+<div class='qa'><div class='q'>What is the weakest part?</div><div class='a'>Answer this one honestly and it will help you. Several components are measured in harnesses rather than wired into the live node loop — the aggregation methods especially. And the identity resolver fragments tracks under realistic camera conditions more than it should.</div></div>
+<footer>Screenshots captured automatically by <code>scripts/capture_explainer.py</code> against a live four-process demo; this page assembled by <code>scripts/build_explainer.py</code>. Re-run both to refresh it. The verdict file for the eleven review moments is <code>review/review.html</code>, which this document does not replace.</footer>
+</div></body></html>
