@@ -28,6 +28,7 @@ from starling_sim.config import SimulatorConfig, load_simulator_config
 from starling_sim.coverage import compute_boundary_crossings, coverage_state_for_node
 from starling_sim.messages import GROUND_TRUTH_TOPIC, node_topic
 from starling_sim.perception import PerceptionSimConfig, obs_to_dict, observe_zone
+from starling_sim.realism import PROFILES, build_camera_models, get_profile, zone_reach
 from starling_sim.scenario import load_scenario
 from starling_sim.transport import SimPublisher
 from starling_sim.world import World, load_camera_zones
@@ -60,6 +61,12 @@ class SimulatorRunner:
         # noise and movement noise are independently seeded, reproducible
         # streams.
         self._rng = np.random.default_rng(cfg.seed + 1)
+        # How realistically each camera behaves (see starling_sim.realism).
+        # "demo" builds models whose every effect is a no-op, so the historical
+        # behaviour is bit-for-bit preserved.
+        self.realism = get_profile(cfg.realism)
+        self.cameras = build_camera_models(zones, self.realism, cfg.embed_dim, cfg.seed)
+        self._zone_reach = zone_reach(zones)
         self._prev_positions = self.world.positions()
         self.tick_count = 0
         self.auto_enabled = cfg.auto
@@ -125,7 +132,15 @@ class SimulatorRunner:
 
         per_node: dict[int, dict[str, Any]] = {}
         for node_id in self.world.zones:
-            observations = observe_zone(self.world, node_id, self.perception_cfg, self._rng)
+            observations = observe_zone(
+                self.world,
+                node_id,
+                self.perception_cfg,
+                self._rng,
+                camera=self.cameras.get(node_id),
+                tick=self.tick_count,
+                zone_reach_m=self._zone_reach.get(node_id, 0.0),
+            )
             coverage = coverage_state_for_node(self.world, node_id)
             per_node[node_id] = {
                 "type": "sim_tick",
@@ -234,6 +249,8 @@ def main(argv: Optional[list] = None) -> None:
     parser.add_argument("--config", required=True, type=Path)
     parser.add_argument("--speed", type=float, default=None)
     parser.add_argument("--no-auto", action="store_true", help="do not run the scenario's automatic episodes")
+    parser.add_argument("--realism", choices=sorted(PROFILES), default=None,
+                        help="how realistically the cameras behave (default: the config's own value)")
     args = parser.parse_args(argv)
 
     cfg = load_simulator_config(args.config)
@@ -241,6 +258,8 @@ def main(argv: Optional[list] = None) -> None:
         cfg.speed = args.speed
     if args.no_auto:
         cfg.auto = False
+    if args.realism is not None:
+        cfg.realism = args.realism
 
     SimulatorRunner(cfg).run()
 

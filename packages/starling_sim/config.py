@@ -37,6 +37,10 @@ class SimulatorConfig(BaseModel):
     quality_min: float = 0.5
     quality_max: float = 0.95
     seed: int = 1234
+    # How realistically the simulated cameras behave: 'demo' (clean, the
+    # historical default), 'realistic' (calibrated to published multi-camera
+    # re-ID separability), or 'harsh'. See starling_sim.realism.
+    realism: str = "demo"
     # HTTP control endpoint of the simulator (scripts / manual occlusion), the
     # dashboard's "demo script" buttons call it. 0 disables it.
     control_port: int = 6560

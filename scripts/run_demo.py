@@ -51,10 +51,16 @@ CENTRAL_PIDFILE = REPO / "data" / "demo" / "central.pid"
 
 class DemoLauncher:
     def __init__(
-        self, speed: Optional[float] = None, port: Optional[int] = None, log_dir: Path = DEFAULT_LOG_DIR, auto: bool = True
+        self,
+        speed: Optional[float] = None,
+        port: Optional[int] = None,
+        log_dir: Path = DEFAULT_LOG_DIR,
+        auto: bool = True,
+        realism: Optional[str] = None,
     ) -> None:
         self.speed = speed
         self.auto = auto  # False = presenter mode: no automatic dead-zone episodes
+        self.realism = realism  # None = whatever configs/sim/warehouse.yaml says
         self.dash_cfg = load_demo_config(DASHBOARD_CONFIG)
         if port is not None:
             self.dash_cfg.http_port = port
@@ -126,6 +132,8 @@ class DemoLauncher:
             sim_args += ["--speed", str(self.speed)]
         if not self.auto:
             sim_args.append("--no-auto")
+        if self.realism is not None:
+            sim_args += ["--realism", self.realism]
         self._spawn("simulator", sim_args)
         self._spawn("central", self._central_args())
         for n in NODE_IDS:
@@ -214,9 +222,11 @@ def main(argv: Optional[list] = None) -> int:
     ap.add_argument("--speed", type=float, default=None, help="simulator speed multiplier (1.0 = real time)")
     ap.add_argument("--port", type=int, default=None, help="dashboard HTTP port (default from configs/demo_dashboard.yaml)")
     ap.add_argument("--presenter", action="store_true", help="no automatic episodes: trigger every moment from the dashboard's demo-script panel")
+    ap.add_argument("--realism", choices=["demo", "realistic", "harsh"], default=None,
+                    help="how realistically the simulated cameras behave (default: demo)")
     args = ap.parse_args(argv)
 
-    launcher = DemoLauncher(speed=args.speed, port=args.port, auto=not args.presenter)
+    launcher = DemoLauncher(speed=args.speed, port=args.port, auto=not args.presenter, realism=args.realism)
     launcher.prepare()
     print("starting simulator, 4 nodes and the dashboard ...", flush=True)
     launcher.start()

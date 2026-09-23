@@ -17,7 +17,16 @@ perception:
   embed_dim: 64
 
 match:
-  sim_threshold: 0.60
+  # CALIBRATED, not guessed: scripts/calibrate_match_threshold.py sweeps the
+  # ROC of same-person vs different-person cross-camera scores for the
+  # simulator's embeddings and takes the Youden-J optimum (AUC 0.920).
+  # The old 0.60 was inherited from the video path and only ever worked
+  # because the `demo` realism profile makes same-person similarity ~0.86;
+  # under the `realistic` profile it admits just 1.5 % of genuine
+  # same-person pairs, so identities silently break at every zone boundary.
+  # At 0.32: demo TPR 1.000 / FPR 0.001, realistic TPR 0.791 / FPR 0.114.
+  sim_threshold: 0.32
+  threshold_source: "ROC-CALIBRATED (scripts/calibrate_match_threshold.py, realistic profile, 2026-09-23)"
   margin_threshold: 0.10
   lost_threshold_s: 120.0
   ema_alpha: 0.10
