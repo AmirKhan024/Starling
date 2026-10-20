@@ -65,6 +65,26 @@ class MatchConfig(BaseModel):
     # spawned, and it tied with the real identity forever (ambiguity is
     # never broken on a thin margin). The simulator demo sets ~0.5.
     gate_extra_slack_m: float = 0.0
+    # Anchor adoption (`starling_crdt.resolver._adopt_unanchored`): a
+    # FACE_ANCHOR claim for identity R absorbs an UNANCHORED (AUTO-)
+    # hypothesis that is the same person — its live tip within this radius
+    # (+ the claim's pos_sigma) of the anchor, extended no longer than
+    # `anchor_adopt_max_age_s` before it, and matching the anchor's
+    # appearance above `sim_threshold` with `margin_threshold` over any other
+    # such candidate. Without it, a person tracked for a few frames BEFORE
+    # being verified ends up as two near-identical hypotheses, every later
+    # claim is a thin-margin tie between them, and both freeze. 0 = disabled
+    # (the original behaviour); the live 3D world sets it.
+    anchor_adopt_radius_m: float = 0.0
+    anchor_adopt_max_age_s: float = 10.0
+    # Extra distance (m) within which a face anchor still continues its
+    # identity's live branch: two cameras naming the same person at the same
+    # instant disagree by their combined measurement error (each camera's
+    # floor position is uncertain, and so is the branch tip the new anchor is
+    # compared with — `is_reachable` only adds the NEW claim's sigma). 0 keeps
+    # the strict check; the live world sets it from measured cross-camera
+    # disagreement (docs/results_world_perception.md: p90 error 0.65 m per camera).
+    anchor_continue_slack_m: float = 0.0
 
 
 class NetConfig(BaseModel):
@@ -179,6 +199,28 @@ class PlausibilityConfig(BaseModel):
     # Overall graded score floor for PlausibilityResult.passed (the s_ij in
     # Appendix A.5 that reputation.py's EWMA update consumes).
     pass_score_threshold: float = 0.5
+    # C2 x C4 (starling_consensus.contradiction): a claim inside ANOTHER
+    # camera's zone that that camera confidently attested as covered and
+    # empty (it made no claim within `contradiction_radius_m` /
+    # `contradiction_window_s`) fails hard. Off by default; the live 3D world
+    # turns it on. Zones are inset by `contradiction_zone_inset_m` so a
+    # person on a zone boundary is never "inside" the neighbour's zone, and a
+    # claim is only graded once `contradiction_settle_s` of newer claims
+    # exist, so a neighbour's corroborating claim still in flight counts.
+    attested_absence_check: bool = False
+    contradiction_radius_m: float = 2.0
+    contradiction_window_s: float = 4.0
+    contradiction_zone_inset_m: float = 0.5
+    contradiction_settle_s: float = 4.0
+    # The "someone was really there" tolerance grows with both claims' own
+    # stated position uncertainty: radius + k * (sigma_claim + sigma_other).
+    contradiction_sigma_k: float = 2.0
+    # One honest disagreement is one piece of evidence: further contradictions
+    # of the SAME source track within this window do not lower reputation again
+    # (a camera that missed someone for a few seconds would otherwise make an
+    # honest neighbour look like a liar). Every fabricated claim carries a
+    # fresh track id, so each lie still counts.
+    contradiction_track_cooldown_s: float = 15.0
 
 
 class ReputationConfig(BaseModel):
@@ -279,6 +321,91 @@ class SimNodeConfig(BaseModel):
     connect_endpoint: str = "tcp://127.0.0.1:5560"
 
 
+class WorldGateConfig(BaseModel):
+    """The entrance gate a world-camera node verifies employees at (floor metres)."""
+
+    x: float
+    y: float
+    radius_m: float = 1.5
+
+
+class WorldNodeConfig(BaseModel):
+    """Only meaningful when `NodeConfig.source == "world"`: this node's
+    camera is one of the live 3D world's virtual cameras. It receives JPEG
+    frames on its own topic (starling_world.frames) and runs real perception
+    on them (starling_perception.world_pipeline): person detection and
+    tracking, an appearance signature, the calibrated floor homography and,
+    at the gate, employee verification against the enrolled registry.
+    """
+
+    connect_endpoint: str = "tcp://127.0.0.1:5570"
+    fps: float = 5.0  # the camera's nominal frame rate (detector-health baseline)
+    imgsz: int = 512  # detector input size (yolo11s @512: docs/results_world_perception.md)
+    torch_threads: int = 3  # per node process; four nodes share one machine
+    # Exponential smoothing of a track's floor position (1 = raw foot point).
+    pos_smoothing_alpha: float = 0.55
+    # Claims are only made for people within this many metres of this
+    # camera's own zone (further away the foot point is too coarse to trust).
+    claim_zone_margin_m: float = 2.0
+    min_person_px: float = 34.0  # smaller detections are ignored
+    # Crop quality (resolver score = similarity x quality) reaches 1.0 at this
+    # person height in pixels — the typical size in this camera layout
+    # (docs/world_coverage.png: median 72-91 px inside the zones).
+    quality_ref_px: float = 72.0
+    # Height of the top of a standing person's box (head + hard hat), used to
+    # locate someone from the head when their feet are hidden.
+    person_top_height_m: float = 1.80
+    # A box shorter than this fraction of a standing person's expected height
+    # at its foot point has its feet hidden: it is located from the head.
+    min_box_height_ratio: float = 0.82
+    # Background model used for the person's foreground mask (appearance).
+    bg_alpha: float = 0.03
+    fg_threshold: float = 38.0
+    # The coverage self-assessment runs on a downscaled copy of the frame.
+    coverage_scale: float = 0.25
+    # Employee verification at the gate (registry from scripts/enroll_employees.py).
+    registry_path: str | None = None
+    gate: WorldGateConfig | None = None
+    verify_threshold: float = 0.80
+    verify_margin: float = 0.06
+    gate_min_frames: int = 3  # signatures averaged before a decision
+    gate_max_frames: int = 14  # no decision by then -> "unverified person at the gate"
+    anchor_cooldown_s: float = 30.0  # one verification per pass through the gate
+    # Away from the gate, every camera also recognises enrolled employees
+    # (stricter: several frames, a high bar and a wide margin), and re-anchors
+    # a recognised employee at most once per `reanchor_interval_s`. This keeps
+    # every resolver window named, e.g. after a dashboard restart.
+    recognise: bool = True
+    recognise_threshold: float = 0.80
+    recognise_margin: float = 0.12
+    recognise_min_frames: int = 4
+    reanchor_interval_s: float = 8.0
+    # Signatures from crops below this quality are not used for identity decisions.
+    identify_min_quality: float = 0.45
+    preview_enabled: bool = True  # GET /preview.jpg and /perception on the control endpoint
+
+
+class ReplicaQueryConfig(BaseModel):
+    """`GET /replica` on a node's operator endpoint: "ask this camera
+    directly". The node resolves its OWN replica (its own SQLite claim set,
+    nothing else) over a media-time window and reports who it believes is
+    where, plus a fingerprint of the resolved assignment — identical on
+    every replica that holds the same claims (C1)."""
+
+    # Media seconds of claims resolved when the caller does not say.
+    window_s: float = 60.0
+    # Upper bound a caller may ask for (resolve() is O(claims x identities)).
+    max_window_s: float = 300.0
+    # Hex characters of the assignment fingerprint shown to people.
+    fingerprint_chars: int = 8
+    # The same question (same window) asked again within this many wall
+    # seconds is answered from the last result.
+    cache_s: float = 2.0
+    # Rows this far outside the window are read too, then filtered on their
+    # canonical (millisecond) media time.
+    window_margin_s: float = 1.0
+
+
 class NodeConfig(BaseModel):
     node_id: int
     name: str
@@ -295,6 +422,8 @@ class NodeConfig(BaseModel):
     # video-path config — harmless, since apps/node.py never looks at it
     # unless source == "sim".
     sim: SimNodeConfig = Field(default_factory=SimNodeConfig)
+    # Only read when source == "world" (the live 3D world's virtual camera).
+    world: WorldNodeConfig = Field(default_factory=WorldNodeConfig)
     # D-03 (starling_net.timebase.MediaClock): unix seconds marking t=0 of
     # this node's recorded source. ALL nodes replaying the same scenario
     # must share the same stream_epoch, or their media times sit on
@@ -314,6 +443,7 @@ class NodeConfig(BaseModel):
     attack: AttackConfig = Field(default_factory=AttackConfig)
     aggregate: AggregateConfig = Field(default_factory=AggregateConfig)
     topology: TopologyConfig = Field(default_factory=TopologyConfig)
+    replica: ReplicaQueryConfig = Field(default_factory=ReplicaQueryConfig)
 
     @staticmethod
     def write_template(path: Path, node_id: int) -> None:

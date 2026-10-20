@@ -61,6 +61,7 @@ a bug in this module, not in Part 1.
 
 from __future__ import annotations
 
+import math
 import random
 from dataclasses import dataclass, field
 from typing import Any, Mapping, Optional, Protocol
@@ -264,6 +265,78 @@ def _public_branches(hyp: _Hypothesis) -> tuple[Branch, ...]:
     )
 
 
+def _adopt_unanchored(
+    state: dict[str, _Hypothesis],
+    ref: str,
+    claim: dict[str, Any],
+    emb: Optional[np.ndarray],
+    claim_pos: tuple[float, float],
+    cfg: MatchConfig,
+    identity_of: dict[str, Optional[str]],
+    confidence: dict[str, float],
+    order_index: dict[str, int],
+) -> Optional[str]:
+    """Anchor adoption (`MatchConfig.anchor_adopt_radius_m`): before a face
+    anchor for `ref` is applied, absorb the one UNANCHORED hypothesis that is
+    plainly the same person — recent, co-located with the anchor, and
+    matching its appearance unambiguously. Its claims are re-attributed to
+    `ref` (a new name for evidence already in the set, not a new decision
+    about it), so the person does not continue as two near-identical
+    hypotheses that tie on every later claim.
+
+    Deterministic like the rest of the sweep: candidates are scanned in
+    sorted order and ranked by (score desc, ref asc). Nothing is absorbed if
+    the best match is below `sim_threshold` or within `margin_threshold` of
+    the runner-up (an ambiguity is left alone, never guessed), or if `ref`
+    has an open fork (an open conflict is never papered over). Returns the
+    absorbed hypothesis' ref, or None.
+    """
+    target = state.get(ref)
+    if target is not None and len(target.branches) > 1:
+        return None
+    t = claim["t_media"]
+    radius = cfg.anchor_adopt_radius_m + (claim.get("pos_sigma") or 0.0)
+    scored: list[tuple[str, float]] = []
+    for other in sorted(state):
+        if not other.startswith(_AUTO_IDENTITY_PREFIX):
+            continue
+        hyp = state[other]
+        if len(hyp.branches) != 1:
+            continue
+        br = hyp.branches[0]
+        if br.last_position is None or br.last_t_media > t or t - br.last_t_media > cfg.anchor_adopt_max_age_s:
+            continue
+        if math.hypot(br.last_position[0] - claim_pos[0], br.last_position[1] - claim_pos[1]) > radius:
+            continue
+        scored.append((other, _gallery_score(emb, br.gallery)))
+    if not scored:
+        return None
+    scored.sort(key=lambda kv: (-kv[1], kv[0]))
+    best, best_score = scored[0]
+    second = scored[1][1] if len(scored) > 1 else _NEG_INF
+    if best_score < cfg.sim_threshold or (best_score - second) < cfg.margin_threshold:
+        return None
+
+    auto = state.pop(best)
+    src = auto.branches[0]
+    if target is None:
+        auto.identity_ref = ref
+        state[ref] = auto
+    else:
+        live = _live_branch(target)
+        live.claim_ids = sorted(live.claim_ids + src.claim_ids, key=lambda cid: order_index[cid])
+        if src.last_t_media >= live.last_t_media:
+            live.last_position = src.last_position
+            live.last_t_media = src.last_t_media
+            live.last_node_id = src.last_node_id
+            live.last_hlc = src.last_hlc
+        live.gallery = (live.gallery + src.gallery)[-cfg.gallery_size:]
+    for cid in src.claim_ids:
+        identity_of[cid] = ref
+    confidence.pop(best, None)
+    return best
+
+
 def resolve(
     claims: ClaimSet,
     geometry: Optional[ReachabilityModel],
@@ -291,6 +364,8 @@ def resolve(
 
         if claim.get("anchor_type") == "FACE_ANCHOR" and claim.get("identity_ref"):
             ref = claim["identity_ref"]
+            if cfg.anchor_adopt_radius_m > 0 and claim_pos is not None:
+                _adopt_unanchored(state, ref, claim, emb, claim_pos, cfg, identity_of, confidence, order_index)
             hyp = state.get(ref)
 
             if hyp is None:
@@ -326,7 +401,8 @@ def resolve(
             pos_sigma = claim.get("pos_sigma") or 0.0
             dt_from_tip = max(0.0, claim["t_media"] - live.last_t_media)
             continues_live = live.last_position is not None and geometry.is_reachable(
-                live.last_position, claim_pos, dt_from_tip, pos_sigma
+                live.last_position, claim_pos, dt_from_tip, pos_sigma,
+                extra_slack_m=cfg.anchor_continue_slack_m,
             )
 
             if continues_live:

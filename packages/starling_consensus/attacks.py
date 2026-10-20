@@ -28,7 +28,8 @@ import json
 import random
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from typing import Any, Optional
+from typing import Any, Callable, Optional
+from urllib.parse import parse_qs
 
 import numpy as np
 from ulid import ULID
@@ -225,7 +226,15 @@ class PartitionControl:
 
 # ── control endpoint ──────────────────────────────────────────────────────
 
-def _handler_for(injector: AttackInjector, partition: Optional[PartitionControl]) -> type:
+def _handler_for(
+    injector: AttackInjector,
+    partition: Optional[PartitionControl],
+    extra_get: Optional[dict[str, Callable[[dict[str, str]], tuple[str, bytes]]]] = None,
+    extra_post: Optional[dict[str, Callable[[dict[str, Any]], dict[str, Any]]]] = None,
+) -> type:
+    extra = dict(extra_get or {})
+    extra_p = dict(extra_post or {})
+
     class _Handler(BaseHTTPRequestHandler):
         def log_message(self, fmt: str, *args: Any) -> None:  # noqa: A003
             # Silence http.server's default stderr access log — structured
@@ -250,6 +259,22 @@ def _handler_for(injector: AttackInjector, partition: Optional[PartitionControl]
             return payload
 
         def do_GET(self) -> None:  # noqa: N802 — http.server's own naming convention
+            path, _, qs = self.path.partition("?")
+            route = extra.get(path)
+            if route is not None:
+                query = {k: v[-1] for k, v in parse_qs(qs).items()}
+                try:
+                    content_type, body = route(query)
+                except Exception as exc:  # a diagnostics route must never take the node down
+                    self._respond_json(500, {"error": repr(exc)})
+                    return
+                self.send_response(200 if body else 204)
+                self.send_header("Content-Type", content_type)
+                self.send_header("Content-Length", str(len(body)))
+                self.send_header("Cache-Control", "no-store")
+                self.end_headers()
+                self.wfile.write(body)
+                return
             if self.path != "/status":
                 self._respond_json(404, {"error": "not found"})
                 return
@@ -277,6 +302,14 @@ def _handler_for(injector: AttackInjector, partition: Optional[PartitionControl]
                     return
                 partition.set_dropped(payload.get("drop_node_ids", []))
                 self._respond_json(200, self._status_payload())
+                return
+
+            post_route = extra_p.get(self.path)
+            if post_route is not None:
+                try:
+                    self._respond_json(200, post_route(payload))
+                except Exception as exc:  # an operator route must never take the node down
+                    self._respond_json(500, {"error": repr(exc)})
                 return
 
             self._respond_json(404, {"error": "not found"})
@@ -309,10 +342,17 @@ class ControlServer:
         port: int,
         host: str = "127.0.0.1",
         partition: Optional[PartitionControl] = None,
+        extra_get: Optional[dict[str, Callable[[dict[str, str]], tuple[str, bytes]]]] = None,
+        extra_post: Optional[dict[str, Callable[[dict[str, Any]], dict[str, Any]]]] = None,
     ) -> None:
         self.injector = injector
         self.partition = partition
-        self._server = ThreadingHTTPServer((host, port), _handler_for(injector, partition))
+        # Optional diagnostics routes: GET path -> (query dict) -> (content
+        # type, body), e.g. a world-camera node's /perception, /preview.jpg
+        # and /replica; POST path -> (JSON body) -> JSON reply (/shutdown).
+        self._server = ThreadingHTTPServer(
+            (host, port), _handler_for(injector, partition, extra_get, extra_post)
+        )
         self._thread = threading.Thread(
             target=self._server.serve_forever, daemon=True, name=f"control-{injector.node_id}"
         )

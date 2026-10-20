@@ -346,3 +346,62 @@ def test_resolve_incremental_matches_full_resolve_on_the_same_window():
 
     assert incremental_assignment.identity_of == full_assignment.identity_of
     assert incremental_assignment.trajectories == full_assignment.trajectories
+
+
+# ── anchor adoption (MatchConfig.anchor_adopt_radius_m) ──────────────────────
+
+
+def _adopt_cfg(**kw) -> MatchConfig:
+    return MatchConfig(sim_threshold=0.6, margin_threshold=0.1, anchor_adopt_radius_m=2.0, anchor_adopt_max_age_s=10.0, **kw)
+
+
+def _tracked_then_anchored() -> list[dict[str, Any]]:
+    """A person tracked for a few frames BEFORE being verified at a gate."""
+    early = [_claim(0, k, t_media=k * 0.33, world_xy=(1.0 + 0.3 * k, 5.0)) for k in range(4)]
+    anchor = _claim(0, 4, t_media=1.4, world_xy=(2.3, 5.0), anchor_type="FACE_ANCHOR", identity_ref="EMP-1")
+    later = [_claim(0, 5 + k, t_media=1.8 + k * 0.33, world_xy=(2.6 + 0.3 * k, 5.0)) for k in range(4)]
+    return early + [anchor] + later
+
+
+def test_without_adoption_a_late_anchor_leaves_two_hypotheses_that_tie():
+    cs = _claim_set(_tracked_then_anchored())
+    a, _ = resolve(cs, ReachabilityModel(_open_room()), None, None, MatchConfig(sim_threshold=0.6, margin_threshold=0.1))
+    later = [f"C-0-{k}" for k in range(5, 9)]
+    assert all(a.identity_of[c] is None for c in later), "the documented failure adoption exists to fix"
+
+
+def test_adoption_names_the_already_tracked_person():
+    cs = _claim_set(_tracked_then_anchored())
+    a, _ = resolve(cs, ReachabilityModel(_open_room()), None, None, _adopt_cfg())
+    assert set(a.trajectories) == {"EMP-1"}
+    assert all(a.identity_of[f"C-0-{k}"] == "EMP-1" for k in range(9))
+
+
+def test_adoption_never_absorbs_an_ambiguous_or_different_looking_track():
+    other = (0.0, 1.0, 0.0, 0.0)
+    claims = [_claim(0, k, t_media=k * 0.33, world_xy=(1.0, 5.0), embedding=other) for k in range(4)]
+    claims.append(_claim(0, 4, t_media=1.4, world_xy=(1.5, 5.0), anchor_type="FACE_ANCHOR", identity_ref="EMP-1"))
+    a, _ = resolve(_claim_set(claims), ReachabilityModel(_open_room()), None, None, _adopt_cfg())
+    assert any(ref.startswith("AUTO-") for ref in a.trajectories), "a different-looking person must stay separate"
+
+
+def test_adoption_is_deterministic():
+    assert_deterministic(_tracked_then_anchored(), ReachabilityModel(_open_room()), None, None, _adopt_cfg())
+
+
+def test_two_cameras_naming_one_person_at_once_is_not_a_conflict_within_measurement_error():
+    """Two cameras anchor the same employee at the same instant, 1.5 m apart (each
+    camera's floor position carries its own error). With the measured
+    cross-camera slack that is one person, not a fork; beyond it, it still forks."""
+    geo = ReachabilityModel(_open_room(), v_max_m_s=1.6)
+    base = [
+        _claim(0, 0, 10.0, world_xy=(10.0, 10.0), pos_sigma=0.2, anchor_type="FACE_ANCHOR", identity_ref="EMP-1"),
+        _claim(0, 1, 11.0, world_xy=(10.5, 10.0), pos_sigma=0.2),
+    ]
+    near = base + [_claim(1, 0, 11.0, world_xy=(12.0, 10.0), pos_sigma=0.2, anchor_type="FACE_ANCHOR", identity_ref="EMP-1")]
+    far = base + [_claim(1, 0, 11.0, world_xy=(16.0, 10.0), pos_sigma=0.2, anchor_type="FACE_ANCHOR", identity_ref="EMP-1")]
+    strict = MatchConfig()
+    tolerant = MatchConfig(anchor_continue_slack_m=2.0)
+    assert resolve(_claim_set(near), geo, None, None, strict)[1].all_forks()
+    assert not resolve(_claim_set(near), geo, None, None, tolerant)[1].all_forks()
+    assert resolve(_claim_set(far), geo, None, None, tolerant)[1].all_forks()

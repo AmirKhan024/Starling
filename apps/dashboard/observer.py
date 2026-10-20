@@ -31,6 +31,7 @@ from __future__ import annotations
 
 import threading
 import time
+from collections import deque
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
@@ -54,6 +55,7 @@ logger = get_logger(__name__)
 _POLL_TIMEOUT_MS = 200
 _MAX_ATTESTATIONS = 5000  # bounded buffer — an observer that ran for days must not grow unboundedly
 _OBSERVER_NODE_ID = -1  # never enrolled as a real peer; used only as this process's own label
+_FEED_SIZE = 4000  # recent overheard envelopes kept for the live network animation
 
 
 @dataclass
@@ -104,6 +106,9 @@ class GossipObserver:
         self.catchup_ids: set[str] = set()  # claims that arrived in anti-entropy deltas
         self._last_seen: dict[int, float] = {}
         self._start_time: Optional[float] = None
+        # (seq, wall s since start, sender, kind, bytes, claims carried, origin node of a claim)
+        self._feed: deque[tuple[int, float, int, str, int, int, int]] = deque(maxlen=_FEED_SIZE)
+        self._feed_seq = 0
 
     def start(self) -> None:
         for node_id, addr in self.peers.items():
@@ -176,6 +181,13 @@ class GossipObserver:
             self._bytes_by_sender[envelope.sender_node_id] = (
                 self._bytes_by_sender.get(envelope.sender_node_id, 0) + len(raw)
             )
+            n_claims = len(envelope.vv_delta.claims) if payload_kind == "vv_delta" else int(payload_kind == "claim")
+            origin = envelope.claim.node_id if payload_kind == "claim" else envelope.sender_node_id
+            self._feed_seq += 1
+            self._feed.append((
+                self._feed_seq, round(time.monotonic() - (self._start_time or 0.0), 3),
+                envelope.sender_node_id, payload_kind, len(raw), n_claims, origin,
+            ))
 
         if payload_kind == "claim":
             self.claims.add(claim_proto_to_record(envelope.claim))
@@ -236,6 +248,29 @@ class GossipObserver:
             )
             for node_id, vv in digests.items()
         }
+
+    def feed_since(self, seq: int) -> dict:
+        """Envelopes overheard after `seq` (for the live network animation):
+        who published what kind of message, and how big it was."""
+        with self._lock:
+            items = [f for f in self._feed if f[0] > seq]
+            last = self._feed_seq
+        now = round(time.monotonic() - (self._start_time or 0.0), 3)
+        return {
+            "seq": last,
+            "now": now,
+            "events": [
+                {"seq": q, "t": t, "from": s, "kind": k, "bytes": b, "claims": c, "origin": o}
+                for q, t, s, k, b, c, o in items
+            ],
+        }
+
+    def bytes_by_sender(self) -> dict[int, int]:
+        """`{node_id: total gossip bytes overheard from that node}` (every
+        envelope it published: claims, attestations, reputation, digests,
+        deltas) — read-only tally for the bandwidth meter."""
+        with self._lock:
+            return dict(self._bytes_by_sender)
 
     def stats(self) -> dict:
         """Same shape as `starling_net.gossip.GossipNode.stats()` (recv

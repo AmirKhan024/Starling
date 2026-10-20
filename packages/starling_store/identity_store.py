@@ -690,6 +690,12 @@ class LocalStore:
         missing.sort(key=lambda r: (r["node_id"], r["seq"]))
         return missing
 
+    def max_t_media(self) -> float:
+        """Media time of the newest claim in this store (0.0 when empty)."""
+        with self._lock:
+            row = self._conn.execute("SELECT MAX(t_media) FROM claims").fetchone()
+        return float(row[0]) if row and row[0] is not None else 0.0
+
     def count_claims(self) -> int:
         """Total number of claims in this store (`ClaimSet.__len__`)."""
         with self._lock:
