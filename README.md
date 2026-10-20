@@ -12,9 +12,16 @@ same answer from the claims it has merged. The network keeps working when it is
 cut in two, keeps reasoning about people it cannot currently see, and stays
 robust when one node lies.
 
-This repository ships a **simulator-driven demo** (no cameras, no GPU, no
-PyTorch) that runs on an ordinary laptop and shows all of this live on a
-dashboard.
+This repository ships two demos:
+
+* **The live 3D world demo** (recommended) — a virtual warehouse with four
+  animated employees, forklifts and four cameras. The cameras film it; each
+  node receives only its own camera's frames and runs real perception on them
+  (person detector, tracker, floor homography, appearance signature, employee
+  verification at the entrance gate). A manager view and a technical
+  "behind the scenes" view show the result. See [docs/LIVE_WORLD.md](docs/LIVE_WORLD.md).
+* **The 2D simulator demo** — no cameras, no GPU, no PyTorch: nodes receive
+  ready-made observations. Lighter, and still shows every research idea.
 
 ## What is new here (the research ideas the demo shows)
 
@@ -26,7 +33,40 @@ dashboard.
 | C4 | **Negative evidence** — reasoning from *attested* absence. Silence is never evidence of absence; only a confident attestation shrinks the "could be here" region. | Moment 2 |
 | C5 | Calibrated, capability-scoped query that separates confirmed from inferred and names unreachable nodes. | Moment 5 |
 
-## Install (demo)
+## Live 3D world demo
+
+```bash
+pip install -r requirements-world.txt
+python -m playwright install chromium
+python scripts/run_world_demo.py            # opens the 3D world, the manager view and the guided tour
+python scripts/run_world_demo.py --fast     # lighter detector for slower machines
+python scripts/run_world_demo.py --light    # cameras at 2 frames/s for a crowded laptop (automatic when memory is low)
+```
+
+The launcher starts, each as its own OS process: the world server, the camera
+rig (a headless browser that renders the four camera views), four camera nodes
+and the dashboard. The shift starts once every camera node is ready: the four
+employees arrive one by one and are verified at the entrance gate.
+
+Every page shares one header with five tabs:
+
+| Tab | What it shows |
+|---|---|
+| **Live monitor** `/` | The warehouse floor: who is where, hidden people's search areas, unknown people, alerts. **Ask Starling** ("Where is Priya?", "Is anyone in Packing?") and the **emergency roll call**. A strip under the map, *What is happening behind this picture*, lights up the six stages (see, place, recognise, share, agree, reason) as real notes flow: object detection is only stage one |
+| **Inside the system** `/inside` | The four cameras talking: every dot is a real note between cameras; each camera's own answer (all four agree); a note "opened up" next to the size of a video frame; buttons to cut the network, make a camera lie, switch a camera off |
+| **What if…** `/compare` | A traditional central-server system next to Starling, same cameras, same moment, with buttons for a failing server room, a cut network, a covered camera and a stranger |
+| **How it works** `/how` | Seven animated diagrams, one sentence each, plus the measured scaling chart and honest limits |
+| **Present** `/tour` | The guided presentation: 10 short steps, each with one action and one live check that turns green. Presenter notes are hidden behind a toggle. Playbook: [docs/JUDGE_DEMO.md](docs/JUDGE_DEMO.md) |
+
+`/engineer` keeps every internal number for technical questions, and the 3D
+world itself is at `http://127.0.0.1:8770`.
+
+Measured perception: [docs/results_world_perception.md](docs/results_world_perception.md).
+Measured scaling (4–64 node processes): [docs/results_scale.md](docs/results_scale.md).
+Automated end-to-end review: `python scripts/review_world_demo.py` →
+`review/world/review_summary.md`.
+
+## Install (2D simulator demo)
 
 Needs Python 3.10 or newer. The demo needs no GPU and no PyTorch.
 
@@ -43,7 +83,7 @@ the path itself. (To run the test suite as well:
 `pip install -e . --no-deps pytest hypothesis`.) Node keys are generated
 automatically on first run (`configs/keys/`, git-ignored).
 
-## Run
+## Run (2D simulator demo)
 
 ```bash
 python scripts/run_demo.py            # opens the dashboard in your browser
@@ -57,7 +97,7 @@ camera nodes, and the dashboard (default `http://127.0.0.1:8765`). It waits
 until the dashboard answers, prints the URL, and stops everything cleanly on
 **Ctrl+C**. Per-process logs are written to `data/demo/logs/`.
 
-## Demo script — the moments
+## 2D demo script — the moments
 
 Open the dashboard. The map is the warehouse floor: **solid coloured dots** are
 where the network *believes* each worker is (one colour per resolved identity);
@@ -110,7 +150,10 @@ drive everything by hand).
 * `packages/starling_attest` — coverage attestations and negative evidence
 * `packages/starling_geometry` — navmesh and reachability
 * `packages/starling_query` — capability tokens and the query layer
-* `packages/starling_sim` — the simulator (workers, noisy per-zone perception)
+* `packages/starling_sim` — the 2D simulator (workers, noisy per-zone perception)
+* `packages/starling_world` — the live 3D world: layout, camera model and zones, routines, AGVs, frame topics
+* `packages/starling_perception/world_pipeline.py` — a world-camera node's perception (detector, tracker, homography, appearance, gate verification)
+* `apps/world/` — the world server, the camera rig and the 3D pages (three.js, vendored)
 * `apps/node.py` — one node process; `apps/demo_dashboard/` — the dashboard
 * `apps/central_server_sim.py` — the deliberately centralized comparison server (not part of Starling)
 

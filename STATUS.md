@@ -14,6 +14,119 @@ independently derives the same answer to "who is where" from the claims it
 has merged, with no central server. The system keeps working when the
 network partitions and stays robust when a node lies.
 
+## 1b. Latest — the live 3D world demo (2026-10-19)
+
+The simulator-fed demo (nodes received ready-made positions and random
+identity vectors) is now complemented by a **live 3D world**: a virtual
+warehouse (`packages/starling_world`, `apps/world`) with four animated
+employees, two AGVs and four corner cameras. A headless-Chromium camera rig
+renders each camera's view; each node (`source: "world"`) receives only its
+own camera's JPEGs and runs real perception on them
+(`starling_perception.world_pipeline`: YOLO11s + ByteTrack, calibrated
+homography with a head-ray fallback, a clothing-colour appearance signature,
+employee verification at the entrance gate against an enrolled registry).
+New dashboard pages: a manager view (`/`) and a technical view (`/engineer`)
+in world mode (`apps/demo_dashboard/world_view.py`).
+
+Run: `python scripts/run_world_demo.py` (see docs/LIVE_WORLD.md).
+Measured: docs/results_world_perception.md (calibration) and
+`scripts/evaluate_world_run.py` (whole-run grading against replayed truth).
+Automated review: `python scripts/review_world_demo.py` → review/world/.
+
+Core changes, each off by default (2D demo and its tests unchanged):
+anchor adoption in the resolver (`MatchConfig.anchor_adopt_radius_m`), the
+C2 × C4 attested-absence contradiction check
+(`PlausibilityConfig.attested_absence_check`, nodes now merge gossiped
+attestations), and optional read-only diagnostics routes on a node's control
+endpoint (`/perception`, `/preview.jpg`).
+
+Known limits: a world node needs ~2 GB of commit memory (torch) and the four
+nodes share the CPU at 3 frames/s each; lies placed inside the liar's own
+zone are not detectable by the contradiction check; the appearance signature
+is tuned for distinct uniforms, not general re-identification.
+
+## 1c. Latest — judge-facing showcase (2026-10-20)
+
+Goal: make the idea *visible* to judges who do not read code. Everything below
+is driven by the real running system; nothing is scripted on the page side.
+
+* **Guided tour** (`/tour`, `apps/demo_dashboard/static/world_tour.html`): 15
+  chapters — plain words, a "say this" line, live action buttons, live proofs
+  that turn green. Presenter playbook + judge Q&A: `docs/JUDGE_DEMO.md`.
+* **Ask Starling** on the manager view (`apps/demo_dashboard/showcase.py`,
+  `POST /api/ask`): where is X / is anyone in <area> (answered with ATTESTED
+  negative evidence; a camera-less area is never declared empty) / unknown
+  people / arrival / roll call. Purpose-limited: the token is verified by the
+  query layer AND by every camera node (`apps/node.py _check_capability`).
+* **Ask every camera** (`GET /replica` on each node's operator endpoint,
+  `ReplicaAnswerer`): each node resolves ITS OWN replica over a pinned window
+  and returns a fingerprint of the assignment. Found and fixed a real C1 bug
+  doing this: a node held its own claims at full precision while peers held
+  the gossiped float32/millisecond form, so the same claim set resolved
+  differently on the origin node. The replica answer now resolves the canonical
+  wire form (regression test `test_full_precision_and_gossiped_copies_give_the_same_answer`).
+* **Unknown person** (`VisitorSim`, world button / `POST /api/world/visitor`):
+  enters through a dock door, never verified; flagged as "Unknown #N", followed
+  across cameras, kept (with a search region) while out of view. Wears teal: in
+  charcoal its track merged with Marcus's grey shirt at a crossing (clothing-
+  colour signature limit, documented).
+* **Emergency roll call** (manager view button, `GET /api/rollcall`).
+* **Camera network page** (`/network`): live gossip animation from the
+  observer's feed (`GossipObserver.feed_since`), per-camera answers, bytes on
+  the wire vs measured video, a REAL centralised ingest process
+  (`apps/world/central_ingest.py`, port 7010, NOT Starling) with kill/restart,
+  node power off/on (`POST /shutdown` on a node; restart from
+  `data/demo/world/launch.json`).
+* **Scale** (`scripts/run_scale_experiment.py`, `apps/bench_node.py`,
+  `docs/results_scale.md`): 4–64 real node processes, degree 4; all replicas
+  identical; p50 latency 0.7 s → 2.2 s; busiest node 80–120× below a central
+  ingest; honest crossover of TOTAL traffic at ~80–110 cameras (full
+  replication) — scoped replication is future work.
+* **Traditional vs Starling** page (`/compare`, `Showcase.compare`): two live
+  maps from the same detections — a central-server view (which cameras it can
+  see comes from the real ingest process; no attested absence) vs Starling —
+  with "what if" buttons and a live scoreboard.
+* **Demo-machine robustness** (found in a live run where the gate missed
+  Marcus): numpy's OpenBLAS reserved ~740 MB per node (one buffer per core),
+  so on a 16 GB laptop with an editor and browser open the nodes were paged
+  out and ran at ~1.5 of 3 fps. Fixed: `OPENBLAS_NUM_THREADS=1` in every
+  node (1232 -> 491 MB commit each); the launcher warns when free memory is
+  low; the dashboard shows an "overloaded" banner from the nodes' own frame
+  rates; "where is X" for an employee with no check-in points at the
+  unverified person who may be them instead of saying "not arrived".
+* **Recognition only ran on the gate camera** (found the same way): `_run_world`
+  loaded the employee registry only when a node had a gate configured, so
+  cameras 1–3 never recognised anyone, despite their configs and the measured
+  41/41 recognition result. A name lost to a track break could therefore only
+  come back at the entrance camera, leaving employees "missing" and their
+  tracks flagged as unknown people. Fixed: every camera with a `registry_path`
+  loads it. Review moment 14 checks that every camera recognises someone.
+* **How it works** page (`/how`) and review moments 9–14 in
+  `scripts/review_world_demo.py`.
+
+## 1d. Latest — presentation polish (2026-10-20)
+
+Feedback: the pages were too wordy for a non-technical audience, and
+buttons seemed to do nothing. Rebuilt the dashboard as one app:
+`static/app.css` and `static/app.js` hold a shared header with five tabs
+(Live monitor `/`, Inside the system `/inside`, What if `/compare`, How it
+works `/how`, Present `/tour`), SVG icons (no emoji), toasts, and buttons
+that show a busy state and then a confirmation. Every page was rewritten
+around pictures and animation, with one sentence of text each. The Live
+monitor now carries a live six-stage strip (detection is stage one of six).
+The engineer view keeps all the numbers in the same style.
+
+Fixes found on the way:
+* **Split and heal:** these now go to all nodes in parallel and retry once.
+  A slow `/perception` reply no longer marks a node unreachable.
+* **The resolver opened false conflicts** when two cameras named the same
+  person at the same instant 0.6–2.3 m apart (combined measurement error).
+  New setting `MatchConfig.anchor_continue_slack_m` (default 0; 2.0 for the
+  world, set identically on nodes and dashboard). Regression test in
+  `tests/test_resolver.py`.
+* **The comparison page** now counts someone missed for under 10 s as still
+  placed on both sides, so detector flicker does not dominate it.
+
 ## 2. History so far
 
 - **Origin**: the repo began as `multicam-reid`, an open-source centralized

@@ -36,3 +36,10 @@ configs/keys/
 # tracked in this repo, the archive itself is not project material.
 *.zip
 data/demo/
+
+# Intel GPU driver shader-compiler dump, written to the working directory when
+# the camera rig (headless Chromium) renders with the GPU. Harmless.
+kernel.errors.txt
+
+# Scalability experiment scratch (scripts/run_scale_experiment.py): replicas, keys, logs
+data/scale/
