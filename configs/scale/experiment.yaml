@@ -1,0 +1,37 @@
+# Scalability experiment (scripts/run_scale_experiment.py, docs/results_scale.md).
+# Every value has the same documented default in ExperimentConfig; this file
+# only exists so a run's settings are visible and editable without code.
+
+ns: [4, 8, 16, 32, 48, 64]   # N values; an N whose projected node RSS exceeds max_total_rss_mb is skipped
+degree: 4                    # ring +-1 plus one deterministic chord pair (+-k); N <= degree+1 -> plain ring
+claims_per_node_per_s: 2.6   # live world node: 965 claims in ~370 s (review/world/review_summary.md)
+rate_jitter: 0.5             # inter-claim gap uniform in [0.5, 1.5] / rate
+embed_dim: 96                # world appearance descriptor (configs/nodes/world/*.yaml perception.embed_dim)
+ae_interval_s: 1.3333333     # apps/node.py world path: housekeeping every 4 frames at 3 fps
+
+warmup_s: 4.0                # after every node is up, before claims start (ZeroMQ connect handshakes)
+produce_s: 40.0              # claim production window that bandwidth/CPU are measured over
+settle_timeout_s: 90.0       # after production stops, wait at most this long for identical replicas
+ready_timeout_s: 120.0
+shutdown_grace_s: 15.0
+
+host: "127.0.0.1"
+base_port: 7600              # clear of the live demo's 5555-5558, 6555-6558, 5570, 7000, 8765, 8770
+port_stride: 100             # each run uses its own block of ports
+max_total_rss_mb: 8000.0
+scratch_root: "data/scale"
+node_log_level: "WARNING"
+
+partition:
+  enabled: true
+  n: 16
+  before_s: 10.0
+  partition_s: 15.0
+  after_s: 10.0
+
+central:
+  world_camera_tap_url: "http://127.0.0.1:8770/api/camera/{n}/latest.jpg"
+  tap_cameras: [0, 1, 2, 3]
+  tap_samples_per_camera: 12
+  assumed_jpeg_bytes: 120000.0      # used only if the live tap is unreachable
+  h264_1080p_bits_per_s: 4000000.0

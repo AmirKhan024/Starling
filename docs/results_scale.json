@@ -1,0 +1,368 @@
+{
+ "generated": "2026-10-20T06:09:44+00:00",
+ "machine": {
+  "platform": "Windows-11-10.0.26200-SP0",
+  "python": "3.12.1",
+  "processor": "Intel64 Family 6 Model 191 Stepping 2, GenuineIntel",
+  "logical_cpus": 24,
+  "ram_total_gb": 16.9,
+  "ram_available_gb_at_start": 4.0,
+  "cpu_busy_pct_at_start": 26.0
+ },
+ "config": {
+  "ns": [
+   4,
+   8,
+   16,
+   32,
+   48,
+   64
+  ],
+  "degree": 4,
+  "claims_per_node_per_s": 2.6,
+  "rate_jitter": 0.5,
+  "embed_dim": 96,
+  "ae_interval_s": 1.3333333,
+  "stats_interval_s": 0.5,
+  "warmup_s": 4.0,
+  "produce_s": 40.0,
+  "settle_timeout_s": 90.0,
+  "ready_timeout_s": 120.0,
+  "shutdown_grace_s": 15.0,
+  "poll_s": 0.25,
+  "host": "127.0.0.1",
+  "base_port": 7600,
+  "port_stride": 100,
+  "forbidden_ports": [
+   5555,
+   5556,
+   5557,
+   5558,
+   6555,
+   6556,
+   6557,
+   6558,
+   5570,
+   8765,
+   8770,
+   7000
+  ],
+  "max_total_rss_mb": 8000.0,
+  "scratch_root": "data/scale",
+  "out_json": "docs/results_scale.json",
+  "out_bandwidth_png": "docs/scale_bandwidth.png",
+  "out_latency_png": "docs/scale_latency.png",
+  "seed": 7,
+  "node_log_level": "WARNING",
+  "child_env": {
+   "OPENBLAS_NUM_THREADS": "1",
+   "OMP_NUM_THREADS": "1",
+   "MKL_NUM_THREADS": "1"
+  },
+  "partition": {
+   "enabled": true,
+   "n": 16,
+   "before_s": 10.0,
+   "partition_s": 15.0,
+   "after_s": 10.0
+  },
+  "central": {
+   "world_camera_tap_url": "http://127.0.0.1:8770/api/camera/{n}/latest.jpg",
+   "tap_cameras": [
+    0,
+    1,
+    2,
+    3
+   ],
+   "tap_samples_per_camera": 12,
+   "tap_interval_s": 0.4,
+   "tap_timeout_s": 2.0,
+   "world_config_path": "configs/world/warehouse.yaml",
+   "fallback_world_fps": 3.0,
+   "assumed_jpeg_bytes": 120000.0,
+   "h264_1080p_bits_per_s": 4000000.0
+  }
+ },
+ "runs": [
+  {
+   "n": 4,
+   "degree": 2,
+   "chord_offsets": [
+    1
+   ],
+   "diameter": 2,
+   "claims_per_node_per_s": 2.602857692129462,
+   "duration_s": 39.95608377456665,
+   "per_node_bytes_in_per_s": {
+    "mean": 8677.815851864449,
+    "max": 8734.724243360073
+   },
+   "per_node_bytes_out_per_s": {
+    "mean": 8684.70961921513,
+    "max": 8752.563357285018
+   },
+   "per_node_publish_bytes_per_s": {
+    "mean": 4342.354809607565,
+    "max": 4376.281678642509
+   },
+   "latency_ms": {
+    "p50": 684.1340065002441,
+    "p95": 1283.0555438995361,
+    "max": 1346.2965488433838
+   },
+   "replicas_identical": true,
+   "claims_total": 416,
+   "claims_missing_somewhere": 0,
+   "settle_after_stop_s": 0.9654772281646729,
+   "rss_mb_mean": 62.133248,
+   "rss_mb_max": 62.17728,
+   "cpu_pct_mean": 0.2835309662239729,
+   "cpu_pct_max": 0.3912285036470256,
+   "inbound_over_wire_outbound": 0.9992062178641612,
+   "publish_errors": 0
+  },
+  {
+   "n": 8,
+   "degree": 4,
+   "chord_offsets": [
+    1,
+    2
+   ],
+   "diameter": 2,
+   "claims_per_node_per_s": 2.5612545321673283,
+   "duration_s": 40.01945090293884,
+   "per_node_bytes_in_per_s": {
+    "mean": 33556.962900255035,
+    "max": 34342.633982331434
+   },
+   "per_node_bytes_out_per_s": {
+    "mean": 33573.83541981846,
+    "max": 35037.55663771774
+   },
+   "per_node_publish_bytes_per_s": {
+    "mean": 8393.458854954615,
+    "max": 8759.389159429435
+   },
+   "latency_ms": {
+    "p50": 805.9978485107422,
+    "p95": 1294.6094393730164,
+    "max": 1339.5659923553467
+   },
+   "replicas_identical": true,
+   "claims_total": 820,
+   "claims_missing_somewhere": 0,
+   "settle_after_stop_s": 1.4864106178283691,
+   "rss_mb_mean": 62.816768,
+   "rss_mb_max": 62.930944,
+   "cpu_pct_mean": 0.4148842243364097,
+   "cpu_pct_max": 0.5868138059623957,
+   "inbound_over_wire_outbound": 0.9994974503403485,
+   "publish_errors": 0
+  },
+  {
+   "n": 16,
+   "degree": 4,
+   "chord_offsets": [
+    1,
+    4
+   ],
+   "diameter": 3,
+   "claims_per_node_per_s": 2.576076044922961,
+   "duration_s": 40.05607683956623,
+   "per_node_bytes_in_per_s": {
+    "mean": 61705.248579369334,
+    "max": 66342.72231155237
+   },
+   "per_node_bytes_out_per_s": {
+    "mean": 61706.486176466075,
+    "max": 73999.49897959728
+   },
+   "per_node_publish_bytes_per_s": {
+    "mean": 15426.621544116519,
+    "max": 18499.87474489932
+   },
+   "latency_ms": {
+    "p50": 913.7632846832275,
+    "p95": 1475.578784942627,
+    "max": 1967.7174091339111
+   },
+   "replicas_identical": true,
+   "claims_total": 1651,
+   "claims_missing_somewhere": 0,
+   "settle_after_stop_s": 1.744546890258789,
+   "rss_mb_mean": 63.974144,
+   "rss_mb_max": 64.405504,
+   "cpu_pct_mean": 0.7338658956414413,
+   "cpu_pct_max": 1.0539435989076171,
+   "inbound_over_wire_outbound": 0.9999799438086103,
+   "publish_errors": 0
+  },
+  {
+   "n": 32,
+   "degree": 4,
+   "chord_offsets": [
+    1,
+    7
+   ],
+   "diameter": 4,
+   "claims_per_node_per_s": 2.6179012593766453,
+   "duration_s": 40.09652756154537,
+   "per_node_bytes_in_per_s": {
+    "mean": 127655.07898675483,
+    "max": 147733.7832963393
+   },
+   "per_node_bytes_out_per_s": {
+    "mean": 127658.06925885365,
+    "max": 159658.3476646103
+   },
+   "per_node_publish_bytes_per_s": {
+    "mean": 31914.517314713412,
+    "max": 39914.58691615258
+   },
+   "latency_ms": {
+    "p50": 1415.0960445404053,
+    "p95": 1981.6260576248167,
+    "max": 2433.969736099243
+   },
+   "replicas_identical": true,
+   "claims_total": 3359,
+   "claims_missing_somewhere": 0,
+   "settle_after_stop_s": 2.7663328647613525,
+   "rss_mb_mean": 65.717504,
+   "rss_mb_max": 66.039808,
+   "cpu_pct_mean": 2.6717022135282082,
+   "cpu_pct_max": 3.307025473611349,
+   "inbound_over_wire_outbound": 0.9999765759257039,
+   "publish_errors": 0
+  },
+  {
+   "n": 48,
+   "degree": 4,
+   "chord_offsets": [
+    1,
+    18
+   ],
+   "diameter": 5,
+   "claims_per_node_per_s": 2.604428144437173,
+   "duration_s": 40.1159720569849,
+   "per_node_bytes_in_per_s": {
+    "mean": 193825.77030914437,
+    "max": 213083.9668001951
+   },
+   "per_node_bytes_out_per_s": {
+    "mean": 193742.86171192734,
+    "max": 262279.8813785267
+   },
+   "per_node_publish_bytes_per_s": {
+    "mean": 48435.715427981835,
+    "max": 65569.97034463167
+   },
+   "latency_ms": {
+    "p50": 1677.3810386657715,
+    "p95": 2268.1886434555054,
+    "max": 2781.1007499694824
+   },
+   "replicas_identical": true,
+   "claims_total": 5015,
+   "claims_missing_somewhere": 0,
+   "settle_after_stop_s": 2.81650710105896,
+   "rss_mb_mean": 66.10013866666667,
+   "rss_mb_max": 66.4576,
+   "cpu_pct_mean": 4.3485933410771125,
+   "cpu_pct_max": 5.3753809273843975,
+   "inbound_over_wire_outbound": 1.0004279311066453,
+   "publish_errors": 0
+  },
+  {
+   "n": 64,
+   "degree": 4,
+   "chord_offsets": [
+    1,
+    10
+   ],
+   "diameter": 6,
+   "claims_per_node_per_s": 2.5097211548034704,
+   "duration_s": 40.928351663053036,
+   "per_node_bytes_in_per_s": {
+    "mean": 249888.8732322589,
+    "max": 282338.2511940222
+   },
+   "per_node_bytes_out_per_s": {
+    "mean": 249817.7074468785,
+    "max": 369187.18761992716
+   },
+   "per_node_publish_bytes_per_s": {
+    "mean": 62454.42686171963,
+    "max": 92296.79690498179
+   },
+   "latency_ms": {
+    "p50": 2165.9634113311768,
+    "p95": 2979.7110199928293,
+    "max": 4588.396310806274
+   },
+   "replicas_identical": true,
+   "claims_total": 6574,
+   "claims_missing_somewhere": 0,
+   "settle_after_stop_s": 2.8104379177093506,
+   "rss_mb_mean": 66.729792,
+   "rss_mb_max": 67.014656,
+   "cpu_pct_mean": 6.892114192301035,
+   "cpu_pct_max": 8.335500001948873,
+   "inbound_over_wire_outbound": 1.0002848708608676,
+   "publish_errors": 0
+  }
+ ],
+ "partition_test": {
+  "n": 16,
+  "partition_s": 15.051563262939453,
+  "heal_to_identical_s": 2.524648427963257,
+  "replicas_identical": true,
+  "split": [
+   [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7
+   ],
+   [
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15
+   ]
+  ],
+  "claims_made_during_partition": 631,
+  "cross_partition_leaks": 0,
+  "pre_heal_claims_missing_somewhere": 0,
+  "settle_after_stop_s": 1.9880492687225342,
+  "claims_total": 1486,
+  "diameter": 3
+ },
+ "central": {
+  "per_camera_bytes_per_s_world_demo": 360000.0,
+  "per_camera_bytes_per_s_h264_1080p": 500000.0,
+  "assumptions": [
+   "Centralised ingest is COMPUTED, not measured on a network: ingest = N x one camera's stream bitrate.",
+   "H.264 figure: industry-typical 1080p CCTV stream at 4 Mbit/s.",
+   "World-demo figure: ASSUMED 120 KB per 1280x720 JPEG (q 0.86) x 3 fps; the live camera tap was not reachable."
+  ],
+  "world_demo_source": "assumed",
+  "world_demo_mean_jpeg_bytes": 120000.0,
+  "world_demo_jpeg_samples": 0,
+  "world_demo_fps": 3.0
+ },
+ "notes": [
+  "Linear fit of mean per-node inbound gossip vs N: 4.00 KB/s per added node (intercept -2.07 KB/s); busiest node: 4.53 KB/s per added node.",
+  "Inbound bytes per claim delivered to a replica (all redundancy and anti-entropy overhead included), averaged over runs: 1433 B.",
+  "Aggregate network bytes cross over (world-demo JPEG): full replication moves ~N x 4.53 KB/s into each of N nodes (O(N^2) total) vs N x 360 KB/s into one server (O(N) total) \u2014 equal at N ~ 79 for the busiest-node slope, 90 for the mean.",
+  "Aggregate network bytes cross over (1080p H.264): full replication moves ~N x 4.53 KB/s into each of N nodes (O(N^2) total) vs N x 500 KB/s into one server (O(N) total) \u2014 equal at N ~ 110 for the busiest-node slope, 125 for the mean."
+ ]
+}
