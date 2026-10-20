@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Traditional vs Starling</title>
+<link rel="stylesheet" href="/static/app.css">
+<style>
+  :root { --trad: #e8590c; --star: #2f6fed; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --trad: #ff8a4c; --star: #6f9dff; } }
+  .bar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  .bar .lbl { color: var(--soft); font-size: 13px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; margin-right: 4px; }
+  .story { margin-top: 14px; padding: 14px 18px; border-radius: var(--radius); background: var(--panel); border: 1px solid var(--line); font-size: 18px; font-weight: 650; line-height: 1.45; display: flex; gap: 14px; align-items: center; min-height: 64px; }
+  .story .ic { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; background: var(--brand-soft); color: var(--brand); flex: none; }
+  .duo { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px; }
+  @media (max-width: 1000px) { .duo { grid-template-columns: 1fr; } }
+  .side { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
+  .side.trad { border-top: 5px solid var(--trad); } .side.star { border-top: 5px solid var(--star); }
+  .sh { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--line); }
+  .sh h2 { margin: 0; font-size: 17px; }
+  .sh p { margin: 0; color: var(--soft); font-size: 12.5px; }
+  .score { margin-left: auto; text-align: right; }
+  .score .v { font-size: 32px; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
+  .score .l { font-size: 12px; color: var(--soft); }
+  .trad .score .v { color: var(--trad); } .star .score .v { color: var(--star); }
+  .mapwrap { position: relative; }
+  .down { position: absolute; inset: 0; background: rgba(5, 8, 12, .84); display: none; place-items: center; text-align: center; color: #fff; }
+  .down.on { display: grid; }
+  .down b { display: block; font-size: 30px; letter-spacing: .04em; color: #ff6b61; }
+  .plist { padding: 6px 16px 12px; font-size: 13.5px; }
+  .plist div { display: flex; gap: 10px; align-items: center; padding: 6px 0; border-bottom: 1px dashed var(--line); }
+  .plist div:last-child { border-bottom: 0; }
+  .dot { width: 12px; height: 12px; border-radius: 50%; flex: none; }
+  table.sb { width: 100%; border-collapse: collapse; font-size: 15px; }
+  .sb th, .sb td { padding: 11px 16px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: middle; }
+  .sb th { font-size: 12px; letter-spacing: .07em; text-transform: uppercase; color: var(--soft); }
+  .sb td:first-child { font-weight: 650; width: 28%; }
+  .sb .t { color: var(--trad); } .sb .s { color: var(--star); font-weight: 650; }
+  .sb td .ico { margin-right: 6px; }
+</style>
+</head>
+<body>
+<main class="page">
+  <div class="bar" data-testid="scenarios"><span class="lbl">What if</span>
+    <button class="btn" id="b-server"></button><button class="btn" id="b-net"></button><button class="btn" id="b-cam"></button>
+    <button class="btn" id="b-stranger"></button><span class="grow"></span><button class="btn" id="b-reset"></button></div>
+  <div class="story" aria-live="polite"><span class="ic" id="story-ic"></span><span id="story-t">Loading</span></div>
+
+  <section class="duo">
+    <div class="side trad" data-testid="side-traditional">
+      <div class="sh"><div><h2>A traditional system</h2><p>All video goes to one central server.</p></div><span class="tag" id="t-chip">–</span>
+        <div class="score"><div class="v" id="t-score">–</div><div class="l">people it can place</div></div></div>
+      <div class="mapwrap"><svg class="floor" id="t-map" viewBox="-1.2 -1.8 32.4 23.6"><g class="st"></g><g class="ov"></g><g class="pp"></g></svg>
+        <div class="down" id="t-down"><div><b>SERVER DOWN</b><span>Every camera is blind. Nobody is tracked.</span></div></div></div>
+      <div class="plist" id="t-list"></div>
+    </div>
+    <div class="side star" data-testid="side-starling">
+      <div class="sh"><div><h2>Starling</h2><p>Cameras agree among themselves. No server.</p></div><span class="tag" id="s-chip">–</span>
+        <div class="score"><div class="v" id="s-score">–</div><div class="l">people it can place</div></div></div>
+      <div class="mapwrap"><svg class="floor" id="s-map" viewBox="-1.2 -1.8 32.4 23.6"><g class="st"></g><g class="ov"></g><g class="reg"></g><g class="pp"></g></svg></div>
+      <div class="plist" id="s-list"></div>
+    </div>
+  </section>
+
+  <div class="card" style="margin-top:16px"><table class="sb" data-testid="scoreboard"><thead><tr><th></th><th style="color:var(--trad)">Traditional</th><th style="color:var(--star)">Starling</th></tr></thead><tbody id="rows"></tbody></table></div>
+  <div class="footer-note"><span>Fair test: both sides get exactly the same camera detections. Only the design differs.</span><a href="/engineer">Engineer view</a></div>
+</main>
+
+<script src="/static/app.js"></script>
+<script>
+const S_ = Starling, $ = s => document.querySelector(s), esc = S_.esc, el = S_.el, ic = S_.icon;
+S_.shell('compare');
+let C, S = null, CMP = null; const COVER_CAM = 1;
+const STATE = { seen: ['ok', 'Seen'], located: ['brand', 'Located'], lost: ['bad', 'Lost'], blind: ['bad', 'Lost'], down: ['bad', 'Unknown'], left: ['mute', 'Left'], hidden: ['mute', 'Out of view'] };
+function centroid(n) { const c = C.world.cameras.find(c => c.node_id === n); const W = C.world.building.width_m, D = C.world.building.depth_m; return [c.mount[0] < W / 2 ? 5.5 : W - 5.5, c.mount[1] < D / 2 ? 4.2 : D - 4.2]; }
+function people(svg, list) {
+  const g = svg.querySelector('.pp'); g.innerHTML = '';
+  for (const p of list) {
+    if (p.x == null || ['left', 'down'].includes(p.state)) continue;
+    const m = el('g', { class: 'mk', transform: `translate(${p.x},${p.y})` }, g);
+    if (p.state === 'lost' || p.state === 'blind') {
+      el('circle', { r: 0.72, fill: 'var(--panel)', stroke: 'var(--faint)', 'stroke-width': 0.12, 'stroke-dasharray': '0.3 0.2' }, m);
+      const q = el('text', { 'font-size': 0.8, 'font-weight': 900, 'text-anchor': 'middle', y: 0.28, fill: 'var(--faint)' }, m); q.textContent = '?';
+      const l = el('text', { 'font-size': 0.52, 'font-weight': 800, 'text-anchor': 'middle', y: 1.42, fill: 'var(--bad)', 'paint-order': 'stroke', stroke: 'var(--floor)', 'stroke-width': 0.2 }, m); l.textContent = `${p.name.split(' ')[0]}: LOST`;
+      continue;
+    }
+    const h = p.state !== 'seen';
+    el('circle', { r: 0.68, fill: h ? 'var(--panel)' : p.colour, stroke: h ? p.colour : '#111', 'stroke-width': h ? 0.16 : 0.06, 'stroke-dasharray': h ? '0.35 0.25' : 'none' }, m);
+    const t = el('text', { 'font-size': 0.48, 'font-weight': 800, 'text-anchor': 'middle', y: 0.17, fill: h ? p.colour : '#111' }, m); t.textContent = S_.initials(p.name);
+    const l = el('text', { 'font-size': 0.55, 'font-weight': 700, 'text-anchor': 'middle', y: 1.38, fill: 'var(--ink)', 'paint-order': 'stroke', stroke: 'var(--floor)', 'stroke-width': 0.2 }, m); l.textContent = p.name.split(' ')[0];
+  }
+}
+function unknowns(svg, list, show) {
+  const g = svg.querySelector('.pp');
+  for (const u of list) { if (!show(u)) continue; const m = el('g', { transform: `translate(${u.x},${u.y})` }, g); el('circle', { r: 0.68, fill: 'var(--bad)', stroke: '#fff', 'stroke-width': 0.08 }, m); const q = el('text', { 'font-size': 0.7, 'font-weight': 900, 'text-anchor': 'middle', y: 0.25, fill: '#fff' }, m); q.textContent = '?'; }
+}
+function render() {
+  if (!S || !CMP) return;
+  const c = CMP, up = c.central.status === 'UP';
+  $('#story-t').textContent = c.narration;
+  $('#story-ic').innerHTML = ic(!up ? 'server' : c.starling.split ? 'scissors' : c.starling.not_vouching.length ? 'cover' : 'eye');
+  $('#t-chip').className = 'tag ' + (!up ? 'bad' : c.central.streams_up < c.central.cameras ? 'warn' : 'ok');
+  $('#t-chip').textContent = !up ? 'SERVER DOWN' : `${c.central.streams_up} of ${c.central.cameras} feeds`;
+  $('#s-chip').className = 'tag ' + (c.starling.split ? 'warn' : 'ok');
+  $('#s-chip').textContent = c.starling.split ? 'Split, both halves working' : `${c.starling.cameras_live} of ${c.starling.cameras} cameras`;
+  $('#t-score').textContent = `${c.score.traditional}/${c.score.on_site}`;
+  $('#s-score').textContent = `${c.score.starling}/${c.score.on_site}`;
+  $('#t-down').classList.toggle('on', !up);
+  const tov = $('#t-map .ov'); tov.innerHTML = '';
+  const cut = up ? C.node_ids.filter(n => c.central.cut.includes(n)) : [];
+  if (cut.length) {
+    const mask = el('mask', { id: 'nocov' }, tov);
+    for (const n of cut) el('path', { d: S_.zonePath(C, n), fill: '#fff' }, mask);
+    for (const n of C.node_ids.filter(n => !cut.includes(n))) el('path', { d: S_.zonePath(C, n), fill: '#000' }, mask);
+    el('rect', { x: -2, y: -2, width: 40, height: 30, fill: '#000', opacity: 0.55, mask: 'url(#nocov)' }, tov);
+    for (const n of cut) { const [x, y] = centroid(n); const t = el('text', { x, y, 'font-size': 0.6, 'font-weight': 800, 'text-anchor': 'middle', fill: 'var(--bad)', 'paint-order': 'stroke', stroke: 'var(--floor)', 'stroke-width': 0.2 }, tov); t.textContent = `NO VIDEO FROM CAMERA ${n}`; }
+  }
+  const sov = $('#s-map .ov'); sov.innerHTML = '';
+  for (const n of c.starling.not_vouching) {
+    el('path', { d: S_.zonePath(C, n), fill: 'url(#hatch)' }, sov);
+    const [x, y] = centroid(n); const t = el('text', { x, y, 'font-size': 0.55, 'font-weight': 800, 'text-anchor': 'middle', fill: 'var(--warn)', 'paint-order': 'stroke', stroke: 'var(--floor)', 'stroke-width': 0.2 }, sov); t.textContent = `CAMERA ${n} CANNOT SEE`;
+  }
+  const reg = $('#s-map .reg'); reg.innerHTML = '';
+  const byId = Object.fromEntries(c.starling_people.map(p => [p.id, p]));
+  for (const r of S.regions || []) { const p = byId[r.id]; if (p && p.state === 'located') el('path', { d: S_.regionPath(C, r), fill: p.colour, opacity: 0.38 }, reg); }
+  people($('#t-map'), c.traditional_people); people($('#s-map'), c.starling_people);
+  const streaming = new Set(Object.entries((S.central || {}).cameras || {}).filter(([, v]) => v.streaming).map(([k]) => +k));
+  unknowns($('#t-map'), c.unknown, u => up && u.status === 'visible' && (u.cameras || []).some(x => streaming.has(x)));
+  unknowns($('#s-map'), c.unknown, () => true);
+  const li = p => { const [k, t] = STATE[p.state]; return `<div><span class="dot" style="background:${p.colour}"></span><b style="min-width:56px">${esc(p.name.split(' ')[0])}</b><span class="tag ${k}">${t}</span><span class="muted">${esc(p.text)}</span></div>`; };
+  $('#t-list').innerHTML = c.traditional_people.map(li).join('') || '<div class="muted">Nobody on site yet.</div>';
+  $('#s-list').innerHTML = c.starling_people.map(li).join('') + c.unknown.map(u => `<div><span class="dot" style="background:var(--bad)"></span><b style="min-width:56px">${esc(u.label)}</b><span class="tag bad">Unknown</span><span class="muted">${esc(u.area)}</span></div>`).join('');
+  const keep = new Set(['People it can place right now', 'Someone no camera can see', 'Video crossing the network', 'If the server room fails', 'If the network is cut']);
+  $('#rows').innerHTML = c.rows.filter(r => keep.has(r.metric)).map(r => `<tr><td>${esc(r.metric)}</td><td class="t">${r.better === 'starling' ? ic('x') : ''}${esc(r.traditional)}</td><td class="s">${r.better === 'starling' ? ic('check') : ''}${esc(r.starling)}</td></tr>`).join('');
+  const blocked = (S.gt && S.gt.occluded_nodes) || [];
+  tog('#b-server', !up, 'server', 'The server room fails', 'Bring the server back');
+  tog('#b-net', c.starling.split, 'scissors', 'The network is cut', 'Reconnect the network');
+  tog('#b-cam', blocked.includes(COVER_CAM), 'cover', 'A camera is covered', 'Uncover the camera');
+}
+function tog(sel, on, icon, off, onTxt) { const b = $(sel); b.className = 'btn' + (on ? ' on' : ''); b.innerHTML = ic(icon) + (on ? onTxt : off); b.dataset.on = on ? '1' : ''; }
+
+(async () => {
+  C = await S_.config();
+  for (const id of ['#t-map', '#s-map']) {
+    const svg = $(id);
+    const defs = el('defs', {}); svg.insertBefore(defs, svg.firstChild);
+    const pat = el('pattern', { id: 'hatch', width: 0.6, height: 0.6, patternUnits: 'userSpaceOnUse', patternTransform: 'rotate(45)' }, defs);
+    el('rect', { width: 0.6, height: 0.6, fill: 'var(--warn)', opacity: 0.12 }, pat); el('line', { x1: 0, y1: 0, x2: 0, y2: 0.6, stroke: 'var(--warn)', 'stroke-width': 0.18, opacity: 0.6 }, pat);
+    S_.drawFloor(svg.querySelector('.st'), C, { zones: false });
+  }
+  $('#b-stranger').innerHTML = ic('walk') + 'A stranger walks in';
+  $('#b-reset').innerHTML = ic('refresh') + 'Back to normal';
+  $('#b-server').onclick = e => S_.act(e.currentTarget, e.currentTarget.dataset.on ? '/api/central/restart' : '/api/central/kill', {}, e.currentTarget.dataset.on ? ['Server restarting'] : ['The server room has failed', 'Watch the left side go dark.']);
+  $('#b-net').onclick = e => S_.act(e.currentTarget, e.currentTarget.dataset.on ? '/api/heal' : '/api/partition', {}, e.currentTarget.dataset.on ? ['Network reconnected'] : ['Network cut in half', 'The server can no longer see cameras 2 and 3.']);
+  $('#b-cam').onclick = e => S_.act(e.currentTarget, e.currentTarget.dataset.on ? '/api/world/unblock' : '/api/world/block', { node_id: COVER_CAM }, e.currentTarget.dataset.on ? ['Camera uncovered'] : [`Camera ${COVER_CAM} covered`, 'Nobody told the system. It has to notice.']);
+  $('#b-stranger').onclick = e => S_.act(e.currentTarget, '/api/world/visitor', {}, ['A stranger is walking in', 'Through the middle loading dock.']);
+  $('#b-reset').onclick = async e => { const b = e.currentTarget; b.classList.add('busy'); await S_.post('/api/heal'); await S_.post('/api/world/unblock', {}); if (CMP && CMP.central.status !== 'UP') await S_.post('/api/central/restart'); b.classList.remove('busy'); S_.toast('Back to normal', '', 'ok', 2500); };
+  S_.onState(async s => { S = s; try { CMP = await (await fetch('/api/compare', { cache: 'no-store' })).json(); } catch {} render(); });
+})();
+</script>
+</body>
+</html>

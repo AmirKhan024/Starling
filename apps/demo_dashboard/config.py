@@ -58,6 +58,9 @@ class DemoDashboardConfig(DashboardConfig):
     # The query is asked "from" this node's side of any partition.
     query_vantage_node: int = 0
     query_window_s: float = 600.0
+    # The configured gossip links (drawn by the technical view; static
+    # deployment topology, the same pairs as the nodes' `net.neighbours`).
+    topology_edges: list[list[int]] = Field(default_factory=list)
     # Partition button: these two groups are cut from each other.
     partition_groups: list[list[int]] = Field(default_factory=lambda: [[0, 1], [2, 3]])
     lie_attack: str = "fabricate"
@@ -79,6 +82,82 @@ class DemoDashboardConfig(DashboardConfig):
     # is O(claims x identities); a demo runs for many minutes). Labels stay
     # stable across windows via claim overlap.
     resolve_window_s: float = 45.0
+    # "sim" = the 2D simulator demo; "world" = the live 3D world demo
+    # (apps/world): identities are named by employee verification at the
+    # entrance gate, never from ground truth (see world_view.py).
+    mode: str = "sim"
+    world_config_path: str = "configs/world/warehouse.yaml"
+    # The world server (physical-world controls: cover a lens, send on break).
+    world_url: str = "http://127.0.0.1:8770"
+    # Manager view: an employee last seen this close to the staff door, and
+    # unseen for this long, has left the building.
+    door_exit_radius_m: float = 3.0
+    # An anchor by the gate camera within the gate radius + this is a check-in.
+    gate_match_slack_m: float = 0.75
+    left_after_s: float = 6.0
+    # ...and one unseen this long anywhere else is reported missing.
+    lost_after_s: float = 90.0
+    # A gap shorter than this between sightings is not shown to a manager.
+    manager_unseen_grace_s: float = 3.0
+    # An identity no gate ever verified is reported once it has this many claims.
+    unverified_min_claims: int = 30
+    # ...and stays listed (out of view) this many media seconds after its last sighting.
+    unknown_keep_s: float = 45.0
+    # ...but only while its search region is still at least this big (a region attested
+    # down to nothing means a stale fragment, not a hidden person).
+    unknown_min_region_m2: float = 1.0
+    # An unnamed identity within this distance of a named employee, at the same moment
+    # (media s), is the same body tracked twice — not a stranger.
+    unknown_split_radius_m: float = 1.5
+    unknown_split_window_s: float = 2.0
+    # Someone this close to the entrance gate is about to be verified, not a stranger.
+    # (covers the walk in from the staff door to the gate)
+    gate_approach_radius_m: float = 5.5
+    # A re-formed unknown track inherits the number of one last listed this recently
+    # (media s), if it is within slack + walking speed x elapsed of where that one was.
+    unknown_inherit_s: float = 30.0
+    unknown_inherit_slack_m: float = 3.0
+    unknown_walk_speed_m_s: float = 1.6
+    # ...and such a re-formed track is listed after this many claims, not unverified_min_claims.
+    unknown_reform_min_claims: int = 8
+    # A camera whose peer-reported reputation falls below this is flagged.
+    # Honest world nodes stay at ~1.0; a liar cannot fall much below ~0.7,
+    # because lies placed inside its OWN zone contradict nobody.
+    lying_reputation_alert: float = 0.85
+    # ── showcase (apps/demo_dashboard/showcase.py) ──────────────────────
+    # Gossip bytes/s per node are averaged over this many wall seconds.
+    bandwidth_window_s: float = 10.0
+    # "Ask every camera": each node resolves its own replica over the window
+    # ending this many media seconds before the newest claim (so claims still
+    # travelling round the ring by anti-entropy have arrived everywhere).
+    replica_settle_s: float = 6.0
+    replica_window_s: float = 60.0
+    replica_timeout_s: float = 3.0
+    # An unanchored identity in a node's answer counts as an unknown person
+    # if it was seen within this many media seconds of the window's end.
+    replica_unknown_recent_s: float = 10.0
+    # A "where is" answer shows each camera's own view if "ask every camera"
+    # ran within this many wall seconds.
+    ask_reuse_s: float = 20.0
+    # Out of view with at least this fraction of the search area inside the
+    # camera-less aisles = "in the aisles" (and provably still inside).
+    aisles_fraction_for_inside: float = 0.6
+    # A camera node processing below this fraction of its target frame rate means
+    # the demo machine is overloaded (the pages say so: people can be missed).
+    overload_fps_fraction: float = 0.7
+    # Comparison page: someone unseen this briefly (media s) still counts as placed on both sides.
+    compare_recent_s: float = 10.0
+    # The site's named camera-less aisles (configs/world/warehouse.yaml `areas`).
+    aisles_area_name: str = "Storage aisles"
+    # "Is anyone in <area>": the area is reported EMPTY only if healthy
+    # attestations cover at least this fraction of it.
+    area_clear_coverage: float = 0.85
+    # A hidden person "could be" in an area if their search region overlaps it by this much.
+    area_maybe_min_m2: float = 1.0
+    # Written by scripts/run_world_demo.py: the exact command lines of each
+    # camera node and of the central comparison server, so a node whose plug
+    # was pulled can be powered back on from the dashboard.
+    launch_manifest: str = "data/demo/world/launch.json"
     negative_evidence: NegativeEvidenceConfig = Field(default_factory=NegativeEvidenceConfig)
     plausibility: PlausibilityConfig = Field(default_factory=PlausibilityConfig)
 

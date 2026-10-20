@@ -16,7 +16,7 @@ from pathlib import Path
 from starling_net.keys import load_keys
 from starling_query.capability import issue
 
-DEMO_PURPOSES = ("safety", "productivity")
+DEMO_PURPOSES = ("safety", "incident", "productivity")
 TOKEN_VALIDITY_S = 24 * 3600.0
 
 

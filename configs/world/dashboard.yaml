@@ -1,0 +1,64 @@
+# Dashboard config for the LIVE 3D WORLD demo (scripts/run_world_demo.py).
+# Same read-only gossip observer as the 2D demo (apps/demo_dashboard), in
+# "world" mode: identities are named by employee verification at the
+# entrance gate. Every field has a documented default in
+# apps/demo_dashboard/config.py.
+mode: "world"
+world_config_path: "configs/world/warehouse.yaml"
+world_url: "http://127.0.0.1:8770"
+
+peers:
+  0: "127.0.0.1:5555"
+  1: "127.0.0.1:5556"
+  2: "127.0.0.1:5557"
+  3: "127.0.0.1:5558"
+
+# The ring the nodes gossip on (configs/nodes/world/node-0N.yaml net.neighbours).
+topology_edges: [[0, 1], [1, 3], [3, 2], [2, 0]]
+# The partition button cuts the north cameras from the south ones.
+partition_groups: [[0, 1], [2, 3]]
+
+keys_dir: "configs/keys"
+navmesh_path: "data/floorplan/warehouse_world.geojson"
+geometry:
+  cell_size_m: 0.25
+
+# The world server's PUB socket: the dashboard subscribes to its
+# ground-truth topic only (used solely for the technical view's error metric).
+sim_endpoint: "tcp://127.0.0.1:5570"
+token_dir: "data/demo/tokens"
+http_host: "127.0.0.1"
+http_port: 8765
+
+match:
+  # Must match the world nodes' own ROC-calibrated values
+  # (configs/nodes/world/node-0N.yaml, docs/results_world_perception.md).
+  sim_threshold: 0.70
+  threshold_source: "ROC-CALIBRATED (scripts/calibrate_world_appearance.py, live 3D world)"
+  margin_threshold: 0.10
+  gate_extra_slack_m: 0.6
+  anchor_adopt_radius_m: 2.0
+  anchor_adopt_max_age_s: 10.0
+  anchor_continue_slack_m: 2.0   # must match the nodes (same recipe, same answer)
+
+# Cameras deliver 3 frames/s and a detector misses the odd frame: an identity
+# is "unseen" only after this many media seconds without a claim.
+unseen_after_s: 2.5
+min_identity_claims: 8
+hide_unseen_after_s: 60.0
+resolve_window_s: 60.0
+converge_tolerance_claims: 40
+
+# The dashboard's own plausibility pass uses the same C2 x C4 contradiction
+# check as the nodes (starling_consensus.contradiction).
+plausibility:
+  attested_absence_check: true
+
+stale_after_s: 4.0
+control_port_offset: 1000
+
+# The centralised comparison (apps/world/central_ingest.py, NOT Starling):
+# it ingests every camera's video; the dashboard shows its bandwidth and what
+# happens when it is killed or cut off by a network split.
+central_url: "http://127.0.0.1:7010"
+central_port: 7010

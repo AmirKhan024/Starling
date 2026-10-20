@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Live Monitor</title>
+<link rel="stylesheet" href="/static/app.css">
+<style>
+  .grid { display: grid; grid-template-columns: minmax(0, 1fr) 390px; gap: 16px; margin-top: 16px; align-items: start; }
+  @media (max-width: 1150px) { .grid { grid-template-columns: 1fr; } }
+  .side > * + * { margin-top: 16px; }
+  .seg { display: inline-flex; background: var(--panel-2); border: 1px solid var(--line); border-radius: 9px; padding: 2px; margin-left: auto; }
+  .seg button { font: inherit; font-size: 12.5px; font-weight: 650; color: var(--soft); background: none; border: 0; border-radius: 7px; padding: 5px 11px; cursor: pointer; }
+  .seg button.on { background: var(--panel); color: var(--ink); box-shadow: var(--shadow); }
+  .stagewrap { display: grid; grid-template-columns: 1fr; }
+  .stagewrap.both { grid-template-columns: 1fr 1fr; }
+  #live3d { display: none; width: 100%; aspect-ratio: 30 / 21; border: 0; background: #0b0f15; }
+  .stagewrap.both #live3d { display: block; }
+  .legend { display: flex; gap: 18px; flex-wrap: wrap; padding: 9px 16px; border-top: 1px solid var(--line); color: var(--soft); font-size: 12.5px; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  /* ask */
+  .ask { display: flex; gap: 8px; }
+  .ask input { flex: 1; min-width: 0; font: inherit; font-size: 15px; padding: 10px 12px; border-radius: 10px; border: 1.5px solid var(--line); background: var(--panel-2); color: var(--ink); outline: none; }
+  .ask input:focus { border-color: var(--brand); }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  .chips button { font: inherit; font-size: 12.5px; font-weight: 600; color: var(--brand); background: var(--brand-soft); border: 0; border-radius: 999px; padding: 4px 11px; cursor: pointer; }
+  .chips button.refuse { color: var(--bad); background: var(--bad-soft); }
+  .answer { margin-top: 12px; padding: 12px 14px; border-radius: 12px; background: var(--brand-soft); display: none; }
+  .answer.on { display: block; }
+  .answer.refused { background: var(--bad-soft); }
+  .answer .h { font-weight: 700; font-size: 16px; line-height: 1.35; }
+  .answer .agree { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--ok); font-weight: 650; margin-top: 8px; }
+  .answer .agree i { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+  .answer details { margin-top: 8px; font-size: 13px; }
+  .answer summary { cursor: pointer; color: var(--soft); font-weight: 650; }
+  .ev { display: flex; gap: 8px; margin-top: 6px; line-height: 1.4; }
+  /* people */
+  .person { display: flex; gap: 11px; align-items: center; padding: 10px 16px; border-bottom: 1px solid var(--line); cursor: pointer; }
+  .person:last-child { border-bottom: 0; }
+  .person:hover { background: var(--panel-2); }
+  .person.intruder { background: var(--bad-soft); }
+  .av { width: 36px; height: 36px; border-radius: 50%; flex: none; display: grid; place-items: center; font-weight: 800; font-size: 12.5px; color: #111; position: relative; }
+  .av.unk { background: var(--bad); color: #fff; }
+  .pn { font-weight: 650; display: flex; gap: 8px; align-items: center; }
+  .ps { font-size: 13px; color: var(--soft); line-height: 1.35; }
+  .alert { display: flex; gap: 10px; padding: 10px 16px; border-bottom: 1px solid var(--line); font-size: 13.5px; line-height: 1.4; }
+  .alert:last-child { border-bottom: 0; }
+  .alert.bad { color: var(--bad); } .alert.warn { color: var(--warn); }
+  .alert span { color: var(--ink); }
+  /* roll call */
+  .rtop { background: linear-gradient(135deg, #c9302c, #7f1d1d); color: #fff; padding: 18px 24px; display: flex; align-items: center; gap: 14px; }
+  .rtop h1 { margin: 0; font-size: 22px; }
+  .rtop p { margin: 2px 0 0; opacity: .85; font-size: 13.5px; }
+  .rbody { display: grid; grid-template-columns: 1fr 460px; gap: 18px; padding: 18px 24px 22px; align-items: start; }
+  @media (max-width: 1000px) { .rbody { grid-template-columns: 1fr; } }
+  .rrow { display: flex; gap: 12px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--line); }
+  .rrow:last-child { border-bottom: 0; }
+  .rhead { font-size: 20px; font-weight: 750; margin-bottom: 10px; }
+</style>
+</head>
+<body>
+<main class="page">
+  <section class="kpis" data-testid="kpis">
+    <div class="kpi"><div class="ic" id="ki-on"></div><div><div class="v" id="k-onsite">–</div><div class="l">People on site</div></div></div>
+    <div class="kpi good"><div class="ic" id="ki-seen"></div><div><div class="v" id="k-visible">–</div><div class="l">Seen by a camera now</div></div></div>
+    <div class="kpi"><div class="ic" id="ki-hid"></div><div><div class="v" id="k-hidden">–</div><div class="l">Hidden, but located</div></div></div>
+    <div class="kpi" id="kpi-unk"><div class="ic" id="ki-unk"></div><div><div class="v" id="k-unknown">0</div><div class="l">Unknown people</div></div></div>
+    <div class="kpi good"><div class="ic" id="ki-cam"></div><div><div class="v" id="k-cams">–</div><div class="l">Cameras working</div></div></div>
+  </section>
+
+  <div class="grid">
+    <section>
+      <div class="card">
+        <div class="card-h"><h2>Warehouse floor</h2>
+          <div class="seg" id="viewseg"><button data-v="map" class="on">Floor plan</button><button data-v="both">With live 3D</button></div></div>
+        <div class="stagewrap" id="stagewrap">
+          <svg id="map" class="floor" data-testid="map" viewBox="-1.2 -1.8 32.4 23.6" role="img" aria-label="Live floor plan">
+            <g id="l-static"></g><g id="l-focus"></g><g id="l-regions"></g><g id="l-unknown"></g><g id="l-people"></g>
+          </svg>
+          <iframe id="live3d" title="Live 3D view of the warehouse" loading="lazy"></iframe>
+        </div>
+        <div class="legend">
+          <span><svg width="14" height="14"><circle cx="7" cy="7" r="6" fill="var(--brand)"/></svg>Seen now</span>
+          <span><svg width="14" height="14"><circle cx="7" cy="7" r="5.5" fill="none" stroke="var(--brand)" stroke-width="1.6" stroke-dasharray="2.4 2"/></svg>Hidden: shaded area shows where they must be</span>
+          <span><svg width="14" height="14"><circle cx="7" cy="7" r="6" fill="var(--bad)"/></svg>Unknown person</span>
+          <span><svg width="14" height="14"><rect x="1" y="4" width="12" height="6" rx="1" fill="var(--rack)"/></svg>Racks (no cameras in the aisles)</span>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:16px" data-testid="behind">
+        <div class="card-h"><h2>What is happening behind this picture</h2><span class="grow"></span><a href="/how" class="faint" style="font-size:12.5px">How it works</a></div>
+        <div class="stages" id="stages">
+          <div class="bracket"><span>ORDINARY SYSTEMS STOP HERE</span></div>
+        </div>
+      </div>
+    </section>
+
+    <aside class="side">
+      <button class="btn alarm" id="sos" data-testid="rollcall-btn" style="width:100%;justify-content:center;padding:12px"></button>
+
+      <div class="card" data-testid="ask">
+        <div class="card-h"><h2>Ask Starling</h2><span class="grow"></span>
+          <select id="purpose" title="Why are you asking? Only safety, incident and audit questions are answered." style="font:inherit;font-size:12.5px;background:var(--panel-2);color:var(--soft);border:1px solid var(--line);border-radius:8px;padding:4px 6px">
+            <option value="safety">Purpose: Safety</option><option value="incident">Purpose: Incident</option><option value="productivity">Purpose: Productivity</option></select></div>
+        <div class="card-b">
+          <form class="ask" id="askform" autocomplete="off"><input id="askq" placeholder="Where is Priya?" aria-label="Ask Starling"><button class="btn primary" type="submit" id="askbtn">Ask</button></form>
+          <div class="chips" id="chips"></div>
+          <div class="answer" id="answer" data-testid="answer" aria-live="polite"></div>
+        </div>
+      </div>
+
+      <div class="card" data-testid="people">
+        <div class="card-h"><h2>People</h2><span class="grow"></span><span class="faint" id="people-note" style="font-size:12.5px"></span></div>
+        <div id="people"></div>
+      </div>
+
+      <div class="card" data-testid="alerts" id="alerts-card">
+        <div class="card-h"><h2>Needs attention</h2></div>
+        <div id="alerts"></div>
+      </div>
+    </aside>
+  </div>
+  <div class="footer-note"><span>Worked out by the four cameras themselves. There is no central server.</span><a href="/engineer">Engineer view</a></div>
+</main>
+
+<div class="modal" id="roll" role="dialog" aria-modal="true" data-testid="rollcall">
+  <div class="modal-box">
+    <div class="rtop"><span id="roll-ic"></span><div><h1>Emergency roll call</h1><p id="roll-sub">Who is still inside, and where to look.</p></div><span class="grow"></span><button class="x" id="roll-x" aria-label="Close">&times;</button></div>
+    <div class="rbody"><div><div class="rhead" id="roll-head">Counting</div><div class="kpis" id="roll-tiles"></div><div id="roll-rows" style="margin-top:12px"></div></div>
+      <svg id="rollmap" class="floor" viewBox="-1.2 -1.8 32.4 23.6" style="border:1px solid var(--line);border-radius:12px"><g id="rm-static"></g><g id="rm-dyn"></g></svg></div>
+    <div style="padding:12px 24px 18px;border-top:1px solid var(--line);font-size:13.5px" id="roll-foot"></div>
+  </div>
+</div>
+
+<script src="/static/app.js"></script>
+<script>
+const S_ = Starling, $ = s => document.querySelector(s), esc = S_.esc, el = S_.el, ic = S_.icon;
+S_.shell('live');
+let C = null, focus = null, ANSWER = null, lastAsk = null, markers = {}, unk = {};
+
+$('#ki-on').innerHTML = ic('person'); $('#ki-seen').innerHTML = ic('eye'); $('#ki-hid').innerHTML = ic('search');
+$('#ki-unk').innerHTML = ic('unknown'); $('#ki-cam').innerHTML = ic('camera');
+$('#sos').innerHTML = ic('fire') + 'Emergency roll call'; $('#roll-ic').innerHTML = ic('fire', 'ico" style="width:30px;height:30px');
+
+// ── the six stages, live ─────────────────────────────────────────────
+const STAGES = [
+  ['camera', 'See', 'Finds people in each picture'],
+  ['pin', 'Place', 'Puts them on the floor plan'],
+  ['badge', 'Recognise', 'Knows who is who'],
+  ['note', 'Share', 'Sends a small signed note, never video'],
+  ['network', 'Agree', 'All cameras reach the same answer'],
+  ['brain', 'Reason', 'Finds hidden people, catches liars'],
+];
+$('#stages').insertAdjacentHTML('beforeend', STAGES.map(([i, t, d], k) => `<div class="stage${k === 0 ? ' first' : ''}" id="st${k}"><div class="badge">${ic(i)}</div><div class="t">${t}</div><div class="d">${d}</div><div class="n" id="stn${k}">&nbsp;</div></div>`).join(''));
+let flowK = 0;
+function flash(k) { const s = $('#st' + k); if (!s) return; s.classList.add('hot'); setTimeout(() => s.classList.remove('hot'), 650); }
+// One real sighting travels the strip each time the cameras share notes.
+let feedSeq = 0;
+async function feed() {
+  try {
+    const f = await (await fetch(`/api/gossip_feed?since=${feedSeq}`, { cache: 'no-store' })).json();
+    const claims = feedSeq ? f.events.filter(e => e.kind === 'claim').length : 0;
+    if (f.seq < feedSeq) feedSeq = 0; else feedSeq = f.seq;
+    if (claims) { for (let k = 0; k < 6; k++) setTimeout(() => flash(k), k * 260); }
+  } catch {}
+  setTimeout(feed, 1800);
+}
+
+function stageNumbers(s) {
+  const w = s.world, c = w.counts, net = s.network || {};
+  const seen = c.visible + (w.unverified || []).filter(u => u.status === 'visible').length;
+  const named = w.people.filter(p => p.verified || p.last_recognised).filter(p => !['left', 'not_arrived'].includes(p.status)).length;
+  $('#stn0').textContent = `${seen} in view`;
+  $('#stn1').textContent = s.mean_error_m != null ? `to about ${s.mean_error_m} m` : 'on the floor plan';
+  $('#stn2').textContent = `${named} named`;
+  $('#stn3').textContent = net.gossip_link_bytes_per_s ? `${S_.rate(net.gossip_link_bytes_per_s)}, 0 video` : '0 video';
+  const live = s.nodes.filter(n => n.live).length;
+  $('#stn4').textContent = s.convergence.any_partitioned ? 'two halves, merging later' : `${live} of ${s.nodes.length} in step`;
+  const hid = w.people.filter(p => p.status === 'out_of_view' && p.search && p.search.area_m2 >= 1).length;
+  $('#stn5').textContent = hid ? `${hid} hidden, located` : (w.unverified || []).length ? 'unknown person flagged' : 'watching';
+}
+
+// ── floor map ────────────────────────────────────────────────────────
+function drawRegions(regions, people, unknown) {
+  const g = $('#l-regions'); g.innerHTML = '';
+  const byId = Object.fromEntries(people.map(p => [p.id, p]));
+  const hidU = new Set(unknown.filter(u => u.status !== 'visible').map(u => u.id));
+  for (const r of regions) {
+    const p = byId[r.id];
+    if (p && p.status === 'out_of_view' && r.area_m2 >= 1) el('path', { d: S_.regionPath(C, r), fill: p.colour, opacity: focus && focus.people && !focus.people.includes(r.id) ? 0.12 : 0.34 }, g);
+    else if (hidU.has(r.id)) el('path', { d: S_.regionPath(C, r), fill: 'var(--bad)', opacity: 0.22 }, g);
+  }
+}
+function drawFocus() {
+  const g = $('#l-focus'); g.innerHTML = '';
+  if (!focus || !focus.areas) return;
+  for (const [x0, y0, x1, y1] of focus.areas) el('rect', { x: x0 + 0.1, y: y0 + 0.1, width: x1 - x0 - 0.2, height: y1 - y0 - 0.2, fill: 'var(--brand)', 'fill-opacity': 0.08, stroke: 'var(--brand)', 'stroke-width': 0.12, 'stroke-dasharray': '0.5 0.3', rx: 0.3, class: 'pulse' }, g);
+}
+function drawPeople(people) {
+  const g = $('#l-people'); const seen = new Set();
+  for (const p of people) {
+    if (p.x == null || ['not_arrived', 'left'].includes(p.status)) continue;
+    seen.add(p.id);
+    let m = markers[p.id];
+    if (!m) {
+      m = el('g', { class: 'mk', 'data-testid': `marker-${p.id}` }, g);
+      m.ring = el('circle', { r: 1.15, fill: 'none', stroke: 'var(--brand)', 'stroke-width': 0.14, class: 'pulse' }, m);
+      m.halo = el('circle', { r: 0.62, fill: p.colour, class: 'halo' }, m);
+      m.dot = el('circle', { r: 0.62, fill: p.colour, stroke: '#111', 'stroke-width': 0.06 }, m);
+      m.txt = el('text', { 'font-size': 0.48, 'font-weight': 800, 'text-anchor': 'middle', y: 0.17, fill: '#111' }, m); m.txt.textContent = S_.initials(p.name);
+      m.lbl = el('text', { 'font-size': 0.55, 'font-weight': 700, 'text-anchor': 'middle', y: 1.35, fill: 'var(--ink)', 'paint-order': 'stroke', stroke: 'var(--floor)', 'stroke-width': 0.2 }, m);
+      m.addEventListener('click', () => ask(`Where is ${p.name.split(' ')[0]}?`));
+      markers[p.id] = m;
+    }
+    m.style.transform = `translate(${p.x}px, ${p.y}px)`;
+    const hidden = p.status !== 'visible';
+    m.dot.setAttribute('fill', hidden ? 'var(--panel)' : p.colour);
+    m.dot.setAttribute('stroke', hidden ? p.colour : '#111');
+    m.dot.setAttribute('stroke-width', hidden ? 0.15 : 0.06);
+    m.dot.setAttribute('stroke-dasharray', hidden ? '0.35 0.25' : 'none');
+    m.halo.style.display = hidden ? 'none' : '';
+    m.txt.setAttribute('fill', hidden ? p.colour : '#111');
+    m.lbl.textContent = p.name.split(' ')[0];
+    const f = focus && focus.people && focus.people.includes(p.id);
+    m.ring.style.display = f ? '' : 'none';
+    m.setAttribute('opacity', focus && (focus.people || focus.unknown) && !f ? 0.4 : 1);
+  }
+  for (const [id, m] of Object.entries(markers)) if (!seen.has(id)) { m.remove(); delete markers[id]; }
+}
+function drawUnknown(list) {
+  const g = $('#l-unknown'); const seen = new Set();
+  for (const u of list) {
+    seen.add(u.id);
+    let m = unk[u.id];
+    if (!m) {
+      m = el('g', { class: 'mk', 'data-testid': `unknown-${u.id}` }, g);
+      m.trail = el('polyline', { fill: 'none', stroke: 'var(--bad)', 'stroke-width': 0.12, 'stroke-dasharray': '0.25 0.2', opacity: 0.7 }, g);
+      m.halo = el('circle', { r: 0.66, fill: 'var(--bad)', class: 'halo' }, m);
+      m.dot = el('circle', { r: 0.66, fill: 'var(--bad)', stroke: '#fff', 'stroke-width': 0.08 }, m);
+      m.txt = el('text', { 'font-size': 0.7, 'font-weight': 900, 'text-anchor': 'middle', y: 0.25, fill: '#fff' }, m); m.txt.textContent = '?';
+      m.lbl = el('text', { 'font-size': 0.52, 'font-weight': 750, 'text-anchor': 'middle', y: 1.38, fill: 'var(--bad)', 'paint-order': 'stroke', stroke: 'var(--floor)', 'stroke-width': 0.2 }, m);
+      unk[u.id] = m;
+    }
+    m.style.transform = `translate(${u.x}px, ${u.y}px)`;
+    m.lbl.textContent = u.label;
+    m.trail.setAttribute('points', (u.trail || []).map(p => p.join(',')).join(' '));
+    const hidden = u.status !== 'visible';
+    m.dot.setAttribute('fill', hidden ? 'var(--panel)' : 'var(--bad)'); m.txt.setAttribute('fill', hidden ? 'var(--bad)' : '#fff');
+    m.dot.setAttribute('stroke', hidden ? 'var(--bad)' : '#fff'); m.halo.style.display = hidden ? 'none' : '';
+  }
+  for (const [id, m] of Object.entries(unk)) if (!seen.has(id)) { m.trail.remove(); m.remove(); delete unk[id]; }
+}
+
+// ── side panels ──────────────────────────────────────────────────────
+const STATUS = { visible: ['ok', 'Seen'], out_of_view: ['brand', 'Hidden'], left: ['mute', 'Left'], not_arrived: ['mute', 'Not here'], lost: ['bad', 'Missing'], conflict: ['warn', 'Check'] };
+function shortWhere(p) {
+  if (p.status === 'visible') return `In ${p.area || 'the warehouse'}`;
+  if (p.status === 'left') return 'Left the building';
+  if (p.status === 'not_arrived') return 'Not arrived yet';
+  if (p.status === 'lost') return `Not seen for a while (last in ${p.area})`;
+  if (p.status === 'conflict') return 'Two places at once: needs a check';
+  if (p.search && p.search.area_m2 >= 1) return p.search.in_aisles_fraction >= 0.6 ? 'In the aisles: must be inside' : `Near ${p.area}: area known`;
+  return `Out of view a moment (${p.area})`;
+}
+function renderPeople(w) {
+  const unkRows = (w.unverified || []).map(u => `<div class="person intruder" data-testid="person-${u.id}"><div class="av unk">?</div><div style="flex:1;min-width:0"><div class="pn">${esc(u.label)} <span class="tag bad">Not on staff list</span></div><div class="ps">${u.status === 'visible' ? `In ${esc(u.area)}` : `Last seen in ${esc(u.area)}`} · followed by ${(u.cameras || []).length} cameras</div></div></div>`).join('');
+  $('#people').innerHTML = unkRows + w.people.map(p => {
+    const [cls, txt] = STATUS[p.status] || ['mute', p.status];
+    return `<div class="person" data-id="${p.id}" data-testid="person-${p.id}"><div class="av" style="background:${p.colour}">${S_.initials(p.name)}</div>
+      <div style="flex:1;min-width:0"><div class="pn">${esc(p.name)} <span class="tag ${cls}">${txt}</span></div><div class="ps">${esc(shortWhere(p))} · ${esc(p.role)}</div></div></div>`;
+  }).join('');
+  document.querySelectorAll('.person[data-id]').forEach(d => d.onclick = () => { const p = w.people.find(x => x.id === d.dataset.id); ask(`Where is ${p.name.split(' ')[0]}?`); });
+}
+function renderAlerts(w) {
+  $('#alerts-card').style.display = w.alerts.length ? '' : 'none';
+  $('#alerts').innerHTML = w.alerts.map(a => `<div class="alert ${a.level}" data-testid="alert-${a.kind}">${ic('alert')}<span>${esc(a.text)}</span></div>`).join('');
+}
+const announced = new Set(); let booted = Date.now();
+function notifyUnknown(list) {
+  for (const u of list) {
+    if (announced.has(u.label)) continue;
+    announced.add(u.label);
+    if (Date.now() - booted < 3000) continue;
+    const t = S_.toast(`${u.label}: not on the staff list`, `<div>Seen in ${esc(u.area)}. Never checked in at the gate.</div>`, 'bad', 10000);
+    if (t) { t.style.cursor = 'pointer'; t.onclick = () => ask("Is there anyone we don't know?"); }
+  }
+}
+
+function render(s) {
+  const w = s.world; if (!w) return;
+  const c = w.counts;
+  $('#k-onsite').innerHTML = `${c.on_site}<small> / ${c.employees}</small>`;
+  $('#k-visible').textContent = c.visible;
+  $('#k-hidden').textContent = w.people.filter(p => p.status === 'out_of_view').length;
+  $('#k-unknown').textContent = c.unverified || 0;
+  $('#kpi-unk').classList.toggle('alarm', (c.unverified || 0) > 0);
+  $('#k-cams').innerHTML = `${c.cameras_ok}<small> / ${c.cameras}</small>`;
+  $('#people-note').textContent = `${c.on_site + (c.unverified || 0)} inside`;
+  renderPeople(w); renderAlerts(w); notifyUnknown(w.unverified || []); stageNumbers(s);
+  drawFocus(); drawRegions(s.regions || [], w.people, w.unverified || []); drawUnknown(w.unverified || []); drawPeople(w.people);
+  if ($('#roll').classList.contains('on')) drawRollMap(s);
+  window.__last = s;
+}
+
+// ── Ask Starling ─────────────────────────────────────────────────────
+const CHIPS = ['Where is Priya?', 'Is anyone in Packing?', "Anyone we don't know?", 'Is anyone in the aisles?'];
+$('#chips').innerHTML = CHIPS.map(q => `<button type="button">${esc(q)}</button>`).join('') + `<button type="button" class="refuse" data-p="productivity">How hard did Daniel work today?</button>`;
+document.querySelectorAll('#chips button').forEach(b => b.onclick = () => { $('#purpose').value = b.dataset.p || 'safety'; ask(b.textContent); });
+const TAGTXT = { CONFIRMED: ['ok', 'Seen'], ATTESTED: ['brand', 'Camera vouches'], INFERRED: ['warn', 'Worked out'], UNKNOWN: ['bad', 'Unknown'], SILENT: ['mute', 'Cannot vouch'], NETWORK: ['mute', 'Network'], IDENTITY: ['violet', 'Who'] };
+async function ask(text) {
+  $('#askq').value = text;
+  const purpose = $('#purpose').value;
+  const box = $('#answer'); box.className = 'answer on'; box.innerHTML = '<div class="muted">Asking the cameras</div>';
+  $('#askbtn').classList.add('busy');
+  try {
+    const [a, cams] = await Promise.all([
+      S_.post('/api/ask', { text, purpose }),
+      fetch('/api/ask_cameras').then(r => r.json()).catch(() => null),
+    ]);
+    lastAsk = cams; ANSWER = a; focus = a.focus || null;
+    if (a.kind === 'rollcall') openRoll(a);
+    renderAnswer(a);
+    if (window.__last) render(window.__last);
+  } finally { $('#askbtn').classList.remove('busy'); }
+}
+function renderAnswer(a) {
+  const box = $('#answer');
+  box.className = 'answer on' + (a.status === 'refused' ? ' refused' : '');
+  let agree = '';
+  if (lastAsk && lastAsk.nodes && a.status === 'answered') {
+    const fp = (lastAsk.groups[0] || {}).fingerprint;
+    agree = `<div class="agree">${lastAsk.nodes.map(n => `<i title="Camera ${n.node_id}" style="background:${n.ok && n.fingerprint === fp ? 'var(--ok)' : 'var(--faint)'}"></i>`).join('')}${lastAsk.agree ? `All ${lastAsk.answered} cameras gave this same answer, each on its own` : `${lastAsk.answered} of ${lastAsk.total} cameras answered`}</div>`;
+  }
+  const ev = (a.evidence || []).filter(e => e.tag !== 'NETWORK').map(e => { const [k, t] = TAGTXT[e.tag] || ['mute', e.tag]; return `<div class="ev"><span class="tag ${k}">${t}</span><span>${esc(e.text)}</span></div>`; }).join('')
+    + (a.lines || []).map(l => `<div class="ev muted">${esc(l)}</div>`).join('');
+  box.innerHTML = `<div style="display:flex;gap:8px"><div class="h grow" data-testid="answer-head">${a.status === 'refused' ? ic('lock') + ' ' : ''}${esc(a.headline)}</div><button class="x" aria-label="Close" id="ans-x">&times;</button></div>${agree}${ev ? `<details><summary>Why we know</summary>${ev}</details>` : ''}`;
+  $('#ans-x').onclick = () => { box.className = 'answer'; focus = null; ANSWER = null; if (window.__last) render(window.__last); };
+}
+setInterval(async () => {
+  if (!ANSWER || ANSWER.status !== 'answered' || ANSWER.kind === 'rollcall' || document.hidden) return;
+  try { const a = await S_.post('/api/ask', { text: ANSWER.query, purpose: ANSWER.purpose }); if (ANSWER && a.query === ANSWER.query) { const open = $('#answer details') && $('#answer details').open; ANSWER = a; focus = a.focus || null; renderAnswer(a); if (open) $('#answer details').open = true; } } catch {}
+}, 2500);
+
+// ── roll call ────────────────────────────────────────────────────────
+let rollTimer = null;
+const ST = { confirmed: ['ok', 'Seen'], search: ['brand', 'Search here'], intruder: ['bad', 'Unknown'], unknown: ['bad', 'Missing'], check: ['warn', 'Check'], left: ['mute', 'Left'] };
+function openRoll(pre) {
+  $('#roll').classList.add('on'); S_.drawFloor($('#rm-static'), C, { zones: false });
+  const tick = async () => {
+    try { const [r, cams] = await Promise.all([fetch('/api/rollcall').then(x => x.json()), fetch('/api/ask_cameras').then(x => x.json())]); lastAsk = cams; renderRoll(r); } catch {}
+    rollTimer = setTimeout(tick, 2500);
+  };
+  if (pre) renderRoll(pre);
+  clearTimeout(rollTimer); tick();
+}
+function closeRoll() { $('#roll').classList.remove('on'); clearTimeout(rollTimer); }
+function renderRoll(r) {
+  $('#roll-sub').textContent = `${r.clock || ''} · any one camera can produce this list on its own`;
+  $('#roll-head').textContent = `${r.inside} people inside`;
+  const c = r.counts || {};
+  $('#roll-tiles').innerHTML = [['eye', 'Seen now', c.confirmed || 0, 'good'], ['search', 'Hidden, area known', c.search || 0, ''], ['unknown', 'Unknown people', c.intruder || 0, c.intruder ? 'alarm' : '']]
+    .map(([i, l, v, k]) => `<div class="kpi ${k}"><div class="ic">${ic(i)}</div><div><div class="v">${v}</div><div class="l">${l}</div></div></div>`).join('');
+  const order = { intruder: 0, unknown: 1, check: 2, search: 3, confirmed: 4, left: 5 };
+  $('#roll-rows').innerHTML = (r.rows || []).slice().sort((a, b) => order[a.state] - order[b.state]).map(x => {
+    const [k, t] = ST[x.state];
+    return `<div class="rrow"><div class="av ${x.state === 'intruder' ? 'unk' : ''}" style="${x.state === 'intruder' ? '' : 'background:' + x.colour}">${x.state === 'intruder' ? '?' : S_.initials(x.name)}</div><div style="flex:1"><div class="pn">${esc(x.name)} <span class="tag ${k}">${t}</span></div><div class="ps">${esc(x.action)}</div></div></div>`;
+  }).join('') || '<div class="muted">Nobody is inside.</div>';
+  $('#roll-foot').innerHTML = lastAsk && lastAsk.agree ? `<span style="color:var(--ok);font-weight:700">${ic('check')} All ${lastAsk.answered} cameras independently produced this same list.</span>` : lastAsk ? `${lastAsk.answered} of ${lastAsk.total} cameras answered.` : '';
+  if (window.__last) drawRollMap(window.__last);
+}
+function drawRollMap(s) {
+  const g = $('#rm-dyn'); g.innerHTML = ''; const w = s.world;
+  const byId = Object.fromEntries(w.people.map(p => [p.id, p]));
+  for (const r of s.regions || []) { const p = byId[r.id]; if (p && p.status === 'out_of_view' && r.area_m2 >= 1) el('path', { d: S_.regionPath(C, r), fill: p.colour, opacity: 0.45 }, g); }
+  for (const p of w.people) {
+    if (p.x == null || ['not_arrived', 'left'].includes(p.status)) continue;
+    const hid = p.status !== 'visible';
+    el('circle', { cx: p.x, cy: p.y, r: 0.7, fill: hid ? 'var(--panel)' : p.colour, stroke: hid ? p.colour : '#111', 'stroke-width': hid ? 0.16 : 0.06, 'stroke-dasharray': hid ? '0.35 0.25' : 'none' }, g);
+    const t = el('text', { x: p.x, y: p.y + 1.45, 'font-size': 0.6, 'font-weight': 700, 'text-anchor': 'middle', fill: 'var(--ink)', 'paint-order': 'stroke', stroke: 'var(--floor)', 'stroke-width': 0.2 }, g); t.textContent = p.name.split(' ')[0];
+  }
+  for (const u of w.unverified || []) { el('circle', { cx: u.x, cy: u.y, r: 0.75, fill: 'var(--bad)', stroke: '#fff', 'stroke-width': 0.08 }, g); const q = el('text', { x: u.x, y: u.y + 0.27, 'font-size': 0.75, 'font-weight': 900, 'text-anchor': 'middle', fill: '#fff' }, g); q.textContent = '?'; }
+}
+
+(async () => {
+  C = await S_.config();
+  S_.drawFloor($('#l-static'), C);
+  const setView = v => {
+    document.querySelectorAll('#viewseg button').forEach(b => b.classList.toggle('on', b.dataset.v === v));
+    $('#stagewrap').className = 'stagewrap ' + (v === 'both' ? 'both' : '');
+    if (v === 'both' && !$('#live3d').src) $('#live3d').src = C.world_url + '/?embed=1&view=overview';
+  };
+  document.querySelectorAll('#viewseg button').forEach(b => b.onclick = () => setView(b.dataset.v));
+  const params = new URLSearchParams(location.search);
+  setView(params.get('view') === 'both' ? 'both' : 'map');
+  $('#askform').onsubmit = e => { e.preventDefault(); const q = $('#askq').value.trim(); if (q) ask(q); };
+  $('#sos').onclick = () => ask('Roll call');
+  $('#roll-x').onclick = closeRoll;
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeRoll(); });
+  window.addEventListener('message', ev => { if (ev.origin !== location.origin || !ev.data) return; if (ev.data.ask) { $('#purpose').value = ev.data.purpose || 'safety'; ask(ev.data.ask); } if (ev.data.closeRoll) closeRoll(); });
+  if (params.get('ask')) setTimeout(() => ask(params.get('ask')), 1200);
+  S_.onState(render);
+  feed();
+})();
+</script>
+</body>
+</html>

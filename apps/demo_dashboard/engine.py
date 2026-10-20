@@ -20,8 +20,11 @@ refreshes smoothly regardless of how heavy a recompute is.
 from __future__ import annotations
 
 import json
+import os
 import re
 import statistics
+import subprocess
+import sys
 import threading
 import time
 from collections import deque
@@ -35,8 +38,11 @@ from nacl.signing import SigningKey
 
 from apps.dashboard.observer import GossipObserver
 from apps.demo_dashboard.config import DemoDashboardConfig
+from apps.demo_dashboard.showcase import Showcase
+from apps.demo_dashboard.world_view import WorldView
 from apps.node import _ReputationLoop
 from starling_attest.negative_evidence import CandidateBelief, healthy_zone_mask
+from starling_consensus.contradiction import AttestedAbsenceCheck, load_inset_zones
 from starling_consensus.reputation import ReputationTable
 from starling_crdt.claims import claim_order_key
 from starling_crdt.resolver import resolve
@@ -88,6 +94,8 @@ class DashboardEngine:
         self.floorplan = json.loads(Path(cfg.navmesh_path).read_text(encoding="utf-8"))
         self.zone_masks = self.navmesh.zone_masks(cfg.navmesh_path)
         self.blind_mask = self.navmesh.grid & ~np.any(list(self.zone_masks.values()), axis=0)
+        # Live 3D world mode: employee naming/status from gate verification (world_view.py).
+        self.world_view: Optional[WorldView] = WorldView(cfg, self.floorplan) if cfg.mode == "world" else None
 
         self._lock = threading.RLock()
         self._stop = threading.Event()
@@ -125,6 +133,11 @@ class DashboardEngine:
         self._snapshot: dict[str, Any] = {"ready": False}
         self._tick = 0
         self._compute_ms = 0.0
+        # World mode: the world server's status (camera rig, video bytes) and
+        # processes this dashboard (re)started on an operator's request.
+        self._world_status: Optional[dict[str, Any]] = None
+        self._children: list[subprocess.Popen] = []
+        self.showcase: Optional[Showcase] = Showcase(self) if self.world_view is not None else None
 
     # ── lifecycle ──────────────────────────────────────────────────────
 
@@ -140,6 +153,14 @@ class DashboardEngine:
             cfg=self.cfg.plausibility,
             reputation_table=ReputationTable(node_id=_OBSERVER_ID, cfg=ReputationConfig()),
             lookback_s=self.cfg.resolve_window_s,
+            contradiction=None if not self.cfg.plausibility.attested_absence_check else AttestedAbsenceCheck(
+                zones=load_inset_zones(self.cfg.navmesh_path, self.cfg.plausibility.contradiction_zone_inset_m),
+                attestations=lambda: list(self.observer.attestations),
+                tau_attest=self.cfg.negative_evidence.tau_attest,
+                radius_m=self.cfg.plausibility.contradiction_radius_m,
+                window_s=self.cfg.plausibility.contradiction_window_s,
+                sigma_k=self.cfg.plausibility.contradiction_sigma_k,
+            ),
         )
         loop.catchup_ids = self.observer.catchup_ids
         return loop
@@ -160,6 +181,9 @@ class DashboardEngine:
         for t in self._threads:
             t.join(timeout=2)
         self.observer.stop()
+        for c in self._children:  # nodes / the central server this dashboard powered back on
+            if c.poll() is None:
+                c.terminate()
 
     # ── ground truth (simulator topic) ─────────────────────────────────
 
@@ -174,7 +198,7 @@ class DashboardEngine:
                     self._gt = msg
                     self._gt_wall = time.monotonic()
                     self._gt_history.append(
-                        (msg["t_media"], {w["worker_id"]: (w["x"], w["y"]) for w in msg["workers"]})
+                        (msg["t_media"], {w.get("employee_id", w["worker_id"]): (w["x"], w["y"]) for w in msg["workers"]})
                     )
         finally:
             sub.close()
@@ -194,14 +218,31 @@ class DashboardEngine:
                     status["reachable"] = True
                 except Exception:
                     status = {"reachable": False}
+                if status["reachable"] and self.world_view is not None:
+                    # The camera's own frame rate (is this machine keeping up?). A slow
+                    # answer here must not make the node look unreachable.
+                    try:
+                        perc = requests.get(self._control_url(n, "/perception"), timeout=self.cfg.control_timeout_s * 2).json()
+                        status["perf"] = {k: perc.get(k) for k in ("achieved_fps", "target_fps", "process_ms", "frames")}
+                    except Exception:
+                        with self._lock:
+                            status["perf"] = self._control.get(n, {}).get("perf")
                 with self._lock:
                     self._control[n] = status
+            central = None
             try:
                 central = requests.get(self.cfg.central_url + "/state", timeout=self.cfg.control_timeout_s).json()
             except Exception:
                 central = None
+            world_status = None
+            if self.world_view is not None:
+                try:
+                    world_status = requests.get(self.cfg.world_url + "/api/status", timeout=self.cfg.control_timeout_s * 2).json()
+                except Exception:
+                    world_status = None
             with self._lock:
                 self._central = central
+                self._world_status = world_status
             self._stop.wait(self.cfg.control_poll_interval_s)
 
     def _post(self, node_id: int, path: str, body: dict[str, Any]) -> bool:
@@ -221,6 +262,25 @@ class DashboardEngine:
         except Exception:
             return False
 
+    def node_get(self, node_id: int, path: str) -> tuple[int, bytes, str]:
+        """Read a node's own diagnostics route (its maintenance view) — the
+        same operator endpoint the partition/lie buttons use."""
+        try:
+            r = requests.get(self._control_url(node_id, path), timeout=self.cfg.control_timeout_s * 2)
+            return r.status_code, r.content, r.headers.get("Content-Type", "application/octet-stream")
+        except Exception:
+            return 503, b"", "text/plain"
+
+    def world_post(self, path: str, body: dict[str, Any]) -> dict[str, Any]:
+        """Physical-world events (cover a lens, a break) — sent to the world,
+        never to a node: the nodes have to notice from their pixels."""
+        try:
+            r = requests.post(self.cfg.world_url + path, json=body, timeout=1.5)
+            self._log_event("world", f"WORLD {path.rsplit('/', 1)[-1]} {body}")
+            return r.json()
+        except Exception as exc:
+            return {"ok": False, "error": repr(exc)}
+
     def _central_post(self, path: str, body: dict[str, Any]) -> bool:
         try:
             return requests.post(self.cfg.central_url + path, json=body, timeout=1.0).ok
@@ -233,12 +293,55 @@ class DashboardEngine:
         self._log_event("central", f"CENTRAL SERVER killed ({'ok' if ok else 'it was already down'})")
         return {"ok": True}
 
+    def _manifest(self) -> dict[str, Any]:
+        p = Path(self.cfg.launch_manifest)
+        return json.loads(p.read_text(encoding="utf-8")) if p.exists() else {}
+
+    def _spawn(self, name: str, args: list[str]) -> None:
+        """Start a process the way the launcher does (own process group, logs
+        under data/demo/logs) — what an operator powering a box back on does."""
+        repo = Path(__file__).resolve().parents[2]
+        # Next to the launcher's own logs (the manifest sits in that run directory).
+        log_dir = Path(self.cfg.launch_manifest).parent / "logs" if self.world_view is not None else repo / "data" / "demo" / "logs"
+        log_dir.mkdir(parents=True, exist_ok=True)
+        kwargs: dict[str, Any] = {}
+        if sys.platform == "win32":
+            kwargs["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP
+        else:
+            kwargs["start_new_session"] = True
+        env = dict(os.environ, PYTHONPATH=f"{repo}{os.pathsep}{repo / 'packages'}", PYTHONUNBUFFERED="1")
+        env.setdefault("OPENBLAS_NUM_THREADS", "1")  # see apps/node.py
+        with open(log_dir / f"{name}.log", "ab", buffering=0) as log:  # the child keeps its own handle
+            self._children.append(subprocess.Popen([sys.executable, *args], cwd=repo, stdout=log, stderr=subprocess.STDOUT, env=env, **kwargs))
+
+    def kill_node(self, node_id: int) -> dict[str, Any]:
+        """Pull a camera node's plug: its own operator endpoint stops the process."""
+        ok = self._post(node_id, "/shutdown", {})
+        self._log_event("node", f"node {node_id} POWERED OFF ({'ok' if ok else 'it was already down'})")
+        return {"ok": True, "node_id": node_id}
+
+    def restart_node(self, node_id: int) -> dict[str, Any]:
+        with self._lock:
+            reachable = self._control.get(node_id, {}).get("reachable")
+        if reachable:
+            return {"ok": True, "note": "already running"}
+        args = self._manifest().get("nodes", {}).get(str(node_id))
+        if not args:
+            return {"ok": False, "error": f"no launch command for node {node_id} in {self.cfg.launch_manifest}"}
+        self._spawn(f"node-{node_id:02d}-restart", args)
+        self._log_event("node", f"node {node_id} POWERED ON — its replica is on its own disk; anti-entropy fetches what it missed")
+        return {"ok": True, "node_id": node_id}
+
     def restart_central(self) -> dict[str, Any]:
         if self._central is not None:
             return {"ok": True, "note": "already running"}
-        import subprocess
-        import sys
-
+        if self.world_view is not None:
+            args = self._manifest().get("central")
+            if not args:
+                return {"ok": False, "error": f"no launch command for the central server in {self.cfg.launch_manifest}"}
+            self._spawn("central-restart", args)
+            self._log_event("central", "CENTRAL SERVER restarted")
+            return {"ok": True}
         repo = Path(__file__).resolve().parents[2]
         log = open(repo / "data" / "demo" / "logs" / "central.log", "ab", buffering=0)
         kwargs: dict[str, Any] = {}
@@ -298,19 +401,29 @@ class DashboardEngine:
         self._conflict_thread.start()
         return {"ok": True, "variant": variant}
 
+    def _post_all(self, bodies: dict[int, dict[str, Any]], path: str) -> dict[int, bool]:
+        """POST to several nodes at once, retrying a node that did not answer
+        (a busy node's control thread can be slow; one must not skip the action)."""
+        from concurrent.futures import ThreadPoolExecutor
+
+        def one(n: int) -> bool:
+            return self._post(n, path, bodies[n]) or self._post(n, path, bodies[n])
+
+        with ThreadPoolExecutor(max_workers=max(1, len(bodies))) as ex:
+            return dict(zip(bodies, ex.map(one, bodies)))
+
     def partition(self) -> dict[str, Any]:
         """Cut group A from group B. Receive-side drop on BOTH sides, since
         `POST /partition` only filters inbound traffic (see STATUS.md)."""
         a, b = self.cfg.partition_groups[0], self.cfg.partition_groups[1]
-        ok = {n: self._post(n, "/partition", {"drop_node_ids": b}) for n in a}
-        ok.update({n: self._post(n, "/partition", {"drop_node_ids": a}) for n in b})
+        ok = self._post_all({**{n: {"drop_node_ids": b} for n in a}, **{n: {"drop_node_ids": a} for n in b}}, "/partition")
         # The centralised server sits with group A: cameras on the far side cannot reach it.
         self._central_post("/partition", {"cut_cameras": b})
         self._log_event("partition", f"PARTITION {a} | {b} (ok={ok})")
         return {"ok": all(ok.values()), "nodes": ok}
 
     def heal(self) -> dict[str, Any]:
-        ok = {n: self._post(n, "/partition", {"drop_node_ids": []}) for n in self.node_ids}
+        ok = self._post_all({n: {"drop_node_ids": []} for n in self.node_ids}, "/partition")
         self._central_post("/partition", {"cut_cameras": []})
         self._log_event("heal", f"HEAL all links (ok={ok})")
         return {"ok": all(ok.values()), "nodes": ok}
@@ -432,7 +545,17 @@ class DashboardEngine:
         # claims already carried; otherwise it gets a fresh one.
         label_of_ref: dict[str, str] = {}
         taken: set[str] = set()
+        if self.world_view is not None:
+            self.world_view.ingest_anchors(records)
+            # An identity anchored to an employee id in this window is labelled
+            # by that id; others inherit labels by claim overlap as usual.
+            for ref in sorted(assignment.trajectories):
+                if self.world_view.is_employee(ref):
+                    label_of_ref[ref] = ref
+                    taken.add(ref)
         for ref, cids in sorted(assignment.trajectories.items(), key=lambda kv: -len(kv[1])):
+            if ref in label_of_ref:
+                continue
             votes: dict[str, int] = {}
             for cid in cids:
                 lab = self._claim_label.get(cid)
@@ -472,6 +595,95 @@ class DashboardEngine:
         if c is None:
             return {"status": "DOWN", "tracked_now": 0, "tracked": [], "cut_cameras": [], "starling_tracked_now": starling_now, "truth_workers": truth}
         return {**c, "starling_tracked_now": starling_now, "truth_workers": truth}
+
+    def _health(self, nodes: list[dict[str, Any]]) -> dict[str, Any]:
+        """Is the demo machine keeping up? Camera nodes processing well below
+        their frame rate miss people (a gate check-in needs a few frames)."""
+        rates = [
+            (nd["id"], nd["perf"]["achieved_fps"], nd["perf"]["target_fps"])
+            for nd in nodes
+            if nd.get("perf") and nd["perf"].get("achieved_fps") is not None and (nd["perf"].get("frames") or 0) > 0
+        ]
+        slow = [n for n, a, t in rates if t and a < self.cfg.overload_fps_fraction * t]
+        return {
+            "overloaded": bool(slow),
+            "slow_nodes": slow,
+            "fps": {str(n): round(a, 2) for n, a, _ in rates},
+            "target_fps": rates[0][2] if rates else None,
+        }
+
+    def _central_world(self) -> dict[str, Any]:
+        with self._lock:
+            c = self._central
+        return {"status": "DOWN", "streams_up": 0, "bytes_per_s": 0.0, "cameras": {}, "cut_cameras": []} if c is None else c
+
+    def _network(self) -> dict[str, Any]:
+        """What is on the wire: Starling gossip (measured from what this
+        observer overhears) against the video the cameras produce (measured
+        by the world server) — what a central server would have to ingest."""
+        assert self.showcase is not None
+        bw = self.showcase.sample_bandwidth()
+        with self._lock:
+            ws = self._world_status or {}
+        rig = ws.get("rig") or {}
+        degree = {n: sum(1 for e in self.cfg.topology_edges if n in e) for n in self.node_ids}
+        return {
+            "gossip": bw,
+            # each published envelope travels once to each configured neighbour
+            "gossip_link_bytes_per_s": round(sum(float(bw["per_node_bytes_per_s"][str(n)]) * degree[n] for n in self.node_ids), 1),
+            "degree": {str(n): d for n, d in degree.items()},
+            "video_bytes_per_s": rig.get("video_bytes_per_s"),
+            "video_bytes_per_s_total": rig.get("video_bytes_per_s_total"),
+            # share of all overheard gossip bytes, by message kind (since the dashboard started)
+            "bytes_by_kind": {k: v["recv_bytes"] for k, v in self.observer.stats().items() if not k.startswith("_")},
+            "world_events": ws.get("events", [])[-8:],
+            "world_running": ws.get("running"),
+            "visitors_present": [w["id"] for w in ws.get("workers", []) if w.get("visitor") and w.get("present")],
+        }
+
+    def sample_claim(self) -> dict[str, Any]:
+        """The newest claim overheard on gossip, as a person can read it: this is
+        everything that crosses the network about a sighting — no pixels."""
+        from starling_proto.convert import record_to_claim_proto
+
+        recs = self.observer.store.local_observations(max(0.0, self._max_t - 5.0), float("inf"))
+        if not recs:
+            return {}
+        r = max(recs, key=lambda c: c["t_media"])
+        proto = record_to_claim_proto(r)
+        emb = r.get("embedding") or b""
+        sig = r.get("signature") or b""
+        name = None
+        if self.world_view is not None and r.get("identity_ref"):
+            name = self.world_view.employee_name(r["identity_ref"])
+        return {
+            "claim_id": r["claim_id"],
+            "node_id": r["node_id"],
+            "seq": r.get("seq"),
+            "t_media": round(r["t_media"], 2),
+            "clock": self.world_view.clock(r["t_media"]) if self.world_view is not None else None,
+            "hlc": [r.get("hlc_physical_ms"), r.get("hlc_logical")],
+            "world_xy": None if r.get("world_x") is None else [round(r["world_x"], 2), round(r["world_y"], 2)],
+            "pos_sigma_m": None if r.get("pos_sigma") is None else round(float(r["pos_sigma"]), 2),
+            "confidence": round(float(r.get("confidence") or 0.0), 3),
+            "anchor_type": r.get("anchor_type"),
+            "identity_ref": r.get("identity_ref"),
+            "identity_name": name,
+            "label": self._claim_label.get(r["claim_id"]),
+            "appearance_bytes": len(emb),
+            "signature_hex": sig.hex()[:32] + "…" if sig else None,
+            "wire_bytes": proto.ByteSize(),
+        }
+
+    def gt_at(self, t_media: float) -> dict[Any, tuple[float, float]]:
+        """Ground truth at (the recorded instant nearest) `t_media` — for the
+        technical view's error metric only, so pipeline latency is not
+        counted as position error."""
+        with self._lock:
+            hist = list(self._gt_history)
+        if not hist:
+            return {}
+        return min(hist, key=lambda h: abs(h[0] - t_media))[1]
 
     def _snap_to_free(self, xy: tuple[float, float]) -> Optional[tuple[float, float]]:
         i, j = self.navmesh.world_to_cell(*xy)
@@ -551,10 +763,15 @@ class DashboardEngine:
                 self._beliefs.pop(ref, None)
                 continue
             seen = age < cfg.unseen_after_s
-            if seen and gt_positions:
-                self._update_names(ref, pos, gt_positions)
             colour = self._colour_of.setdefault(ref, len(self._colour_of))
-            wid = self._display_worker(ref)
+            if self.world_view is None:
+                if seen and gt_positions:
+                    self._update_names(ref, pos, gt_positions)
+                wid = self._display_worker(ref)
+            else:
+                # Named ONLY by gate verification (the label); ground truth is used
+                # below solely for the technical view's error-vs-truth metric.
+                wid = next((w["worker_id"] for w in gt["workers"] if w.get("employee_id") == ref), None) if gt else None
             trail = []
             for cid in reversed(cids[-60:]):
                 c = by_id.get(cid)
@@ -564,7 +781,11 @@ class DashboardEngine:
                     trail.append([round(c["world_x"], 2), round(c["world_y"], 2)])
             trail = trail[::-1][:: max(1, len(trail) // cfg.trail_points or 1)]
             err = None
-            if seen and wid is not None and wid in gt_positions:
+            if self.world_view is not None:
+                g_then = self.gt_at(last["t_media"]).get(ref) if seen else None
+                if g_then is not None:
+                    err = float(np.hypot(pos[0] - g_then[0], pos[1] - g_then[1]))
+            elif seen and wid is not None and wid in gt_positions:
                 err = float(np.hypot(pos[0] - gt_positions[wid][0], pos[1] - gt_positions[wid][1]))
             identities.append(
                 {
@@ -572,7 +793,8 @@ class DashboardEngine:
                     "short": ref,
                     "colour": colour,
                     "worker_id": wid,
-                    "name": gt_names.get(wid, f"worker-{wid}") if wid is not None else None,
+                    "name": (self.world_view.employee_name(ref) if self.world_view is not None
+                             else gt_names.get(wid, f"worker-{wid}") if wid is not None else None),
                     "x": round(pos[0], 2),
                     "y": round(pos[1], 2),
                     "t_media": round(last["t_media"], 2),
@@ -583,6 +805,7 @@ class DashboardEngine:
                     "confidence": round(float(assignment.confidence.get(wref, 0.0)), 3),
                     "error_m": None if err is None else round(err, 2),
                     "trail": trail,
+                    "cameras": sorted({by_id[c]["node_id"] for c in cids if c in by_id}),
                 }
             )
         identities.sort(key=lambda d: d["colour"])
@@ -648,6 +871,12 @@ class DashboardEngine:
                             "zone_overlap_m2": {str(n): a2 for n, a2 in leak.items()},
                             "healthy_zone_overlap_m2": round(sum(a2 for n, a2 in leak.items() if n in healthy), 2),
                             "blind_block_area_m2": blind_m2,
+                            # overlap with the named camera-less aisles (site data), for plain-words summaries
+                            "aisles_area_m2": (
+                                round(self.navmesh.area_m2(mask & self.showcase.area_masks[cfg.aisles_area_name]), 1)
+                                if self.showcase is not None and cfg.aisles_area_name in self.showcase.area_masks
+                                else None
+                            ),
                             "explanation": text,
                             "history": [[round(t - b.started_t, 1), round(a3, 1), round(r3, 1)] for t, a3, r3 in list(b.area_history)[-120:]],
                         }
@@ -741,6 +970,7 @@ class DashboardEngine:
                     "reputation_reporters": {str(k): round(v, 3) for k, v in sorted(peer_op.items())},
                     "rejected": int(self._loop.rejected_by_node[n]),
                     "evaluated": int(evaluated),
+                    "perf": st.get("perf") if st.get("reachable") else None,
                 }
             )
         live_counts = [nd["claims"] for nd in nodes if nd["live"] and nd["claims"] is not None]
@@ -765,7 +995,7 @@ class DashboardEngine:
             else {
                 "t_media": gt["t_media"],
                 "age_s": round(gt_age, 2) if gt_age is not None else None,
-                "workers": [{"id": w["worker_id"], "name": w["name"], "x": round(w["x"], 2), "y": round(w["y"], 2)} for w in gt["workers"]],
+                "workers": [{"id": w["worker_id"], "name": w["name"], "x": round(w["x"], 2), "y": round(w["y"], 2), "visitor": bool(w.get("visitor"))} for w in gt["workers"]],
                 "occluded_nodes": gt.get("occluded_nodes", []),
             },
             "identities": identities,
@@ -782,8 +1012,14 @@ class DashboardEngine:
                 "converged": bool(converged),
                 "tolerance": cfg.converge_tolerance_claims,
             },
-            "central": self._central_view(identities, gt),
+            "central": self._central_view(identities, gt) if self.world_view is None else self._central_world(),
+            "network": self._network() if self.showcase is not None else None,
+            "mode": cfg.mode,
+            "world": None if self.world_view is None else self.world_view.compute(
+                identities, regions, nodes, gt, now_t,
+                cfg.partition_groups if any(nd["partitioned"] for nd in nodes) else None, self.gt_at),
             "nodes_live": sum(1 for nd in nodes if nd["live"]),
+            "health": self._health(nodes),
             "mean_error_m": None if not errs else round(float(np.mean(errs)), 2),
             "events": list(self._events)[-25:],
             "claims_total": obs.store.count_claims(),
@@ -828,7 +1064,11 @@ class DashboardEngine:
         m = _WORKER_RE.search(text)
         subject = text.split()[-1] if text.split() else text
         display_note = None
-        if m:
+        emp = self.world_view.resolve_person(text) if self.world_view is not None else None
+        if emp is not None:
+            subject = emp
+            display_note = f"'{text}' → employee {emp} ({self.world_view.employee_name(emp)}), the identity verified at the entrance gate"
+        elif m and self.world_view is None:
             wid = int(m.group(1))
             snap = self.snapshot()
             matches = [i for i in snap.get("identities", []) if i["worker_id"] == wid]

@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Starling Presentation</title>
+<link rel="stylesheet" href="/static/app.css">
+<style>
+  html, body { height: 100%; }
+  body { display: flex; flex-direction: column; overflow: hidden; }
+  .wrap { flex: 1; display: grid; grid-template-columns: 380px minmax(0, 1fr); min-height: 0; }
+  @media (max-width: 980px) { body { overflow: auto; } .wrap { grid-template-columns: 1fr; grid-template-rows: auto 70vh; } }
+  aside { background: var(--panel); border-right: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0; }
+  .prog { display: flex; gap: 5px; padding: 16px 22px 0; }
+  .prog button { flex: 1; height: 6px; border-radius: 3px; border: 0; padding: 0; background: var(--line); cursor: pointer; }
+  .prog button.done { background: var(--ok); } .prog button.on { background: var(--brand); }
+  .body { flex: 1; overflow: auto; padding: 22px; }
+  .num { font-size: 13px; font-weight: 800; letter-spacing: .1em; color: var(--brand); text-transform: uppercase; }
+  .chap h1 { font-size: 30px; line-height: 1.15; letter-spacing: -.02em; margin: 8px 0 12px; }
+  .chap .one { font-size: 17px; line-height: 1.5; color: var(--ink); margin: 0; }
+  .acts { display: flex; flex-direction: column; gap: 10px; margin-top: 22px; }
+  .acts .btn { justify-content: flex-start; padding: 12px 16px; font-size: 15px; }
+  .check { margin-top: 22px; display: flex; gap: 12px; align-items: center; padding: 12px 14px; border-radius: 12px; background: var(--panel-2); border: 1px solid var(--line); }
+  .check .c { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; flex: none; background: var(--line); color: var(--soft); }
+  .check.ok { border-color: color-mix(in srgb, var(--ok) 50%, transparent); background: var(--ok-soft); }
+  .check.ok .c { background: var(--ok); color: #fff; }
+  .check b { display: block; font-size: 14px; } .check small { color: var(--soft); font-size: 12.5px; }
+  .answer { margin-top: 14px; padding: 12px 14px; border-radius: 12px; background: var(--brand-soft); font-weight: 650; display: none; }
+  .answer.on { display: block; } .answer.refused { background: var(--bad-soft); }
+  details.note { margin-top: 22px; font-size: 14px; color: var(--soft); }
+  details.note summary { cursor: pointer; font-weight: 650; font-size: 13px; }
+  details.note p { margin: 8px 0 0; padding: 10px 12px; border-left: 3px solid var(--warn); background: var(--warn-soft); color: var(--ink); border-radius: 0 8px 8px 0; }
+  .nav { display: flex; gap: 10px; padding: 14px 22px; border-top: 1px solid var(--line); align-items: center; }
+  .nav .btn.primary { margin-left: auto; padding: 11px 22px; font-size: 15px; }
+  main.stage { position: relative; min-height: 0; background: var(--bg); }
+  main.stage iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; opacity: 0; transition: opacity .35s; pointer-events: none; background: var(--bg); }
+  main.stage iframe.on { opacity: 1; pointer-events: auto; }
+  .cap { position: absolute; left: 16px; bottom: 14px; z-index: 5; background: rgba(10, 14, 20, .72); color: #fff; font-size: 13px; font-weight: 650; padding: 6px 12px; border-radius: 999px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <aside>
+    <div class="prog" id="prog" aria-label="Chapters"></div>
+    <div class="body" id="body"></div>
+    <div class="nav"><button class="btn" id="prev"></button><span class="faint" style="font-size:12px">Arrow keys work</span><button class="btn primary" id="next"></button></div>
+  </aside>
+  <main class="stage" id="stage">
+    <iframe id="f-world" title="The 3D warehouse"></iframe>
+    <iframe id="f-live" title="Live monitor"></iframe>
+    <iframe id="f-inside" title="Inside the system"></iframe>
+    <iframe id="f-compare" title="What if"></iframe>
+    <iframe id="f-how" title="How it works"></iframe>
+    <span class="cap" id="cap"></span>
+  </main>
+</div>
+<script src="/static/app.js"></script>
+<script>
+const S_ = Starling, $ = s => document.querySelector(s), esc = S_.esc, ic = S_.icon;
+S_.shell('tour');
+let C, S = null, ASK = null, ANS = {}, idx = 0;
+const W = () => (S && S.world) || { people: [], unverified: [], counts: {}, alerts: [] };
+const node = n => S && S.nodes.find(x => x.id === n);
+const person = f => W().people.find(p => p.name.toLowerCase().startsWith(f));
+const placed = () => W().people.filter(p => ['visible', 'out_of_view'].includes(p.status)).length;
+const tellLive = (q, purpose) => { const f = $('#f-live'); if (f.contentWindow) f.contentWindow.postMessage({ ask: q, purpose: purpose || 'safety' }, location.origin); };
+async function askHere(q, purpose, key) { tellLive(q, purpose); const a = await S_.post('/api/ask', { text: q, purpose: purpose || 'safety' }); ANS[key] = a; showAnswer(a); }
+function showAnswer(a) { const b = $('#answer'); if (!b || !a) return; b.className = 'answer on' + (a.status === 'refused' ? ' refused' : ''); b.textContent = a.headline; }
+const act = (url, body, msg) => btn => S_.act(btn, url, body, msg);
+
+const CH = [
+  { view: 'world', cap: 'The real warehouse (a live 3D simulation)', title: 'A warehouse with four cameras',
+    one: 'Four employees, two robot forklifts and a camera in each corner. Everything that follows is worked out live from the camera pictures.',
+    say: 'This is a live warehouse. The cameras only see pixels, and they have to work everything else out themselves.',
+    check: ['All four cameras are running', () => S && S.nodes.every(n => n.live), () => S ? `${S.nodes_live} of 4 cameras` : ''] },
+  { view: 'how', cap: 'How it works', title: 'Much more than spotting people',
+    one: 'Spotting a person is only step one. Each camera also places them, recognises them, shares a signed note, agrees with the others, and reasons.',
+    say: 'Most camera systems stop at step one. Everything after it is what makes Starling different.',
+    check: ['Notes are flowing between the cameras', () => S && S.network && S.network.gossip_link_bytes_per_s > 0, () => S && S.network ? `${S_.rate(S.network.gossip_link_bytes_per_s)} of notes, zero video` : ''] },
+  { view: 'live', cap: 'What the site manager sees', title: 'Everyone, named and placed',
+    one: 'Each employee is checked in at the entrance gate. After that the cameras follow and recognise them everywhere.',
+    say: 'The manager sees names, places and alerts, in plain words.',
+    check: ['Employees checked in at the gate', () => (W().counts.verified_on_site || 0) >= 1, () => `${W().counts.verified_on_site || 0} of ${W().counts.employees || 4}`] },
+  { view: 'inside', cap: 'Inside the system', title: 'No boss computer',
+    one: 'Each camera works out who is where on its own, from the notes it has received. All four reach the same answer.',
+    say: 'Four separate computers, one identical answer, and nobody in charge.',
+    acts: [['check', 'Ask every camera', async b => { b.classList.add('busy'); ASK = await (await fetch('/api/ask_cameras')).json(); b.classList.remove('busy'); }]],
+    check: ['All cameras give the same answer', () => ASK && ASK.agree && ASK.answered === ASK.total, () => ASK ? `${(ASK.groups[0] || { nodes: [] }).nodes.length} of ${ASK.total} identical` : 'press the button'] },
+  { view: 'live', cap: 'What the site manager sees', title: 'Finding someone no camera can see',
+    one: 'Priya works in an aisle with no camera. The working cameras confirm she did not walk out, so she must still be in there.',
+    say: 'Starling finds people by what working cameras did NOT see.',
+    acts: [['ask', 'Ask: Where is Priya?', b => askHere('Where is Priya?', 'safety', 'priya')]],
+    check: ['Priya is hidden, and her area is known', () => { const p = person('priya'); return p && p.status === 'out_of_view' && p.search && p.search.area_m2 >= 1; }, () => { const p = person('priya'); return p && p.search ? `${Math.round(p.search.area_m2)} m² instead of ${Math.round(p.search.reachable_m2)} m²` : 'wait for her to walk into an aisle'; }] },
+  { view: 'compare', cap: 'A traditional system next to Starling', title: 'When something breaks',
+    one: 'Same cameras, two designs. When the server room fails, a traditional system goes blind. Starling keeps working.',
+    say: 'There is no single box whose failure stops everything.',
+    acts: [['server', 'The server room fails', act('/api/central/kill', {}, ['Server room failed'])], ['scissors', 'Cut the network', act('/api/partition', {}, ['Network cut in half'])], ['refresh', 'Back to normal', async b => { b.classList.add('busy'); await S_.post('/api/heal'); await S_.post('/api/central/restart'); b.classList.remove('busy'); S_.toast('Back to normal', '', 'ok', 2500); }]],
+    check: ['Server down, but Starling still places everyone', () => S && S.central && S.central.status === 'DOWN' && placed() > 0, () => `${placed()} people placed by Starling`] },
+  { view: 'inside', cap: 'Inside the system', title: 'A camera that lies',
+    one: 'If a camera is hacked and reports people who are not there, the others notice the contradiction and stop trusting it.',
+    say: 'One bad camera cannot fool the system.',
+    acts: [['mask', 'Make camera 2 lie', act('/api/lie', { node_id: 2 }, ['Camera 2 is lying'])], ['check', 'Stop the lie', act('/api/stop_lie', {}, ['Lie stopped'])]],
+    check: ["Camera 2's trust is falling", () => { const n = node(2); return n && n.reputation != null && n.reputation < 0.9; }, () => { const n = node(2); return n && n.reputation != null ? `trust ${Math.round(n.reputation * 100)}%` : ''; }] },
+  { view: 'live', cap: 'What the site manager sees', title: 'A stranger walks in',
+    one: 'Someone who is not an employee comes in through a loading dock. Nobody tells the system. It notices, follows them and raises an alert.',
+    say: 'You do not need to know who someone is to follow them.',
+    acts: [['walk', 'Send a stranger in', act('/api/world/visitor', {}, ['A stranger is walking in'])]],
+    check: ['Stranger detected and followed', () => (W().unverified || []).length > 0, () => (W().unverified || []).map(u => `${u.label} in ${u.area}`).join(', ') || 'takes about 15 seconds'] },
+  { view: 'live', cap: 'What the site manager sees', title: 'Emergency roll call',
+    one: 'Fire alarm. One button shows everyone inside, where they are, and where to search for anyone out of sight.',
+    say: 'Any surviving camera can produce this list, even if the network fails.',
+    acts: [['fire', 'Press roll call', async b => { tellLive('Roll call'); const a = await S_.post('/api/ask', { text: 'Roll call', purpose: 'safety' }); ANS.roll = a; showAnswer(a); }], ['x', 'Close it', b => { const f = $('#f-live'); f.contentWindow.postMessage({ closeRoll: true }, location.origin); }]],
+    check: ['Roll call answered', () => ANS.roll && ANS.roll.status === 'answered', () => ANS.roll ? ANS.roll.headline : ''] },
+  { view: 'live', cap: 'What the site manager sees', title: 'Private by design',
+    one: 'No video ever leaves a camera. Safety questions are answered; using the cameras to monitor how hard people work is refused.',
+    say: 'The cameras themselves refuse surveillance questions.',
+    acts: [['lock', 'Ask how hard Daniel worked', b => askHere('How hard did Daniel work today?', 'productivity', 'prod')]],
+    check: ['Refused by every camera', () => ANS.prod && ANS.prod.status === 'refused', () => ''] },
+];
+
+const VIEWS = {};
+function show(v) {
+  for (const [k, f] of Object.entries(VIEWS)) f.classList.toggle('on', k === v);
+  const f = VIEWS[v];
+  const src = { world: C.world_url + '/?embed=1&view=overview', live: '/?embed=1', inside: '/inside?embed=1', compare: '/compare?embed=1', how: '/how?embed=1' }[v];
+  if (!f.dataset.loaded) { f.src = src; f.dataset.loaded = '1'; }
+  // The 3D view shares the graphics card with the camera rig: unload it when hidden.
+  if (v !== 'world' && VIEWS.world.dataset.loaded) { VIEWS.world.src = 'about:blank'; delete VIEWS.world.dataset.loaded; }
+}
+function go(i) {
+  idx = Math.max(0, Math.min(CH.length - 1, i)); const c = CH[idx];
+  try { localStorage.setItem('tour-idx2', idx); } catch {}
+  show(c.view); $('#cap').textContent = c.cap;
+  $('#body').innerHTML = `<div class="chap"><div class="num">Step ${idx + 1} of ${CH.length}</div><h1>${esc(c.title)}</h1><p class="one">${esc(c.one)}</p>
+    ${c.acts ? `<div class="acts">${c.acts.map((a, j) => `<button class="btn ${j === 0 ? 'primary' : ''}" data-a="${j}">${ic(a[0])}${esc(a[1])}</button>`).join('')}</div>` : ''}
+    <div class="answer" id="answer"></div>
+    <div class="check" id="check"><span class="c">${ic('check')}</span><div><b>${esc(c.check[0])}</b><small id="check-d"></small></div></div>
+    <details class="note"><summary>Presenter note</summary><p>${esc(c.say)}</p></details></div>`;
+  document.querySelectorAll('.acts button').forEach(b => b.onclick = () => c.acts[+b.dataset.a][2](b));
+  $('#prev').disabled = idx === 0;
+  $('#prev').innerHTML = ic('play', 'ico" style="transform:rotate(180deg)') + 'Back';
+  $('#next').innerHTML = idx === CH.length - 1 ? 'Start again' : 'Next' + ic('play');
+  $('#prog').innerHTML = CH.map((x, k) => `<button class="${k === idx ? 'on' : k < idx ? 'done' : ''}" title="${esc(x.title)}" data-i="${k}"></button>`).join('');
+  document.querySelectorAll('#prog button').forEach(b => b.onclick = () => go(+b.dataset.i));
+  checkNow();
+}
+function checkNow() {
+  const c = CH[idx], box = $('#check'); if (!box) return;
+  let ok = false, d = ''; try { ok = !!c.check[1](); d = c.check[2] ? c.check[2]() : ''; } catch {}
+  box.classList.toggle('ok', ok); $('#check-d').textContent = d;
+}
+
+(async () => {
+  C = await S_.config();
+  for (const k of ['world', 'live', 'inside', 'compare', 'how']) VIEWS[k] = $('#f-' + k);
+  VIEWS.live.src = '/?embed=1'; VIEWS.live.dataset.loaded = '1';  // chapters send questions to it
+  $('#prev').onclick = () => go(idx - 1);
+  $('#next').onclick = () => go(idx === CH.length - 1 ? 0 : idx + 1);
+  document.addEventListener('keydown', e => { if (e.target.tagName === 'INPUT') return; if (e.key === 'ArrowRight') go(idx + 1); if (e.key === 'ArrowLeft') go(idx - 1); });
+  let start = 0; try { start = +(localStorage.getItem('tour-idx2') || 0); } catch {}
+  const q = new URLSearchParams(location.search).get('step'); if (q) start = +q - 1;
+  go(start);
+  S_.onState(s => { S = s; checkNow(); });
+  setInterval(async () => { if (CH[idx].view === 'inside' && !document.hidden) { try { ASK = await (await fetch('/api/ask_cameras')).json(); checkNow(); } catch {} } }, 6000);
+})();
+</script>
+</body>
+</html>

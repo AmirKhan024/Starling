@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Inside the System</title>
+<link rel="stylesheet" href="/static/app.css">
+<style>
+  .lead-row { display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap; margin-bottom: 14px; }
+  .big3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+  @media (max-width: 900px) { .big3 { grid-template-columns: 1fr; } }
+  .big { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); padding: 16px 18px; display: flex; gap: 14px; align-items: center; }
+  .big .ic { width: 48px; height: 48px; border-radius: 14px; display: grid; place-items: center; flex: none; }
+  .big .ic svg { width: 26px; height: 26px; }
+  .big .v { font-size: 30px; font-weight: 800; letter-spacing: -.02em; line-height: 1.05; font-variant-numeric: tabular-nums; }
+  .big .l { color: var(--soft); font-size: 13.5px; }
+  .main { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 16px; margin-top: 16px; align-items: start; }
+  @media (max-width: 1150px) { .main { grid-template-columns: 1fr; } }
+  .netwrap { position: relative; background: var(--panel-2); }
+  #net { width: 100%; height: auto; display: block; }
+  #pk { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+  .legend { display: flex; gap: 18px; flex-wrap: wrap; padding: 10px 16px; border-top: 1px solid var(--line); color: var(--soft); font-size: 12.5px; }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; vertical-align: -1px; }
+  .ctl { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; padding: 14px 16px; }
+  @media (max-width: 900px) { .ctl { grid-template-columns: 1fr; } }
+  .ctl .c { border: 1px solid var(--line); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+  .ctl .c .btn { justify-content: center; }
+  .ctl .c .w { font-size: 12.5px; color: var(--soft); line-height: 1.4; }
+  .agreetbl { width: 100%; border-collapse: collapse; }
+  .agreetbl th, .agreetbl td { padding: 9px 8px; text-align: center; border-bottom: 1px solid var(--line); }
+  .agreetbl th:first-child, .agreetbl td:first-child { text-align: left; }
+  .agreetbl th { font-size: 12px; color: var(--soft); font-weight: 700; }
+  .camchip { display: inline-flex; flex-direction: column; align-items: center; gap: 2px; }
+  .camchip b { width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; color: #fff; font-size: 12px; }
+  .cell { display: inline-grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; }
+  .cell.ok { background: var(--ok-soft); color: var(--ok); } .cell.diff { background: var(--warn-soft); color: var(--warn); } .cell.na { background: var(--panel-2); color: var(--faint); }
+  .verdict { display: flex; gap: 12px; align-items: center; padding: 14px 16px; font-weight: 700; font-size: 15px; }
+  .verdict .ic { width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; flex: none; }
+  .verdict.ok { color: var(--ok); } .verdict.ok .ic { background: var(--ok-soft); }
+  .verdict.warn { color: var(--warn); } .verdict.warn .ic { background: var(--warn-soft); }
+  .note { display: grid; grid-template-columns: auto 1fr; gap: 16px; padding: 16px; align-items: center; }
+  .env { width: 120px; height: 84px; position: relative; }
+  .fields { display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; font-size: 13.5px; }
+  .fields span:nth-child(odd) { color: var(--soft); }
+  .sizebars { padding: 0 16px 16px; font-size: 12.5px; color: var(--soft); }
+  .bar { height: 12px; border-radius: 6px; margin: 4px 0 8px; }
+</style>
+</head>
+<body>
+<main class="page">
+  <div class="lead-row"><h1 class="title">Inside the system</h1><p class="lead">Four cameras, each with its own small computer, talking to each other. No central server.</p></div>
+
+  <section class="big3">
+    <div class="big"><div class="ic" style="background:var(--ok-soft);color:var(--ok)" id="i1"></div><div><div class="v" style="color:var(--ok)" data-testid="video-bytes">0 bytes</div><div class="l">of video sent between cameras. Only small notes.</div></div></div>
+    <div class="big"><div class="ic" style="background:var(--brand-soft);color:var(--brand)" id="i2"></div><div><div class="v" id="h-ratio">–</div><div class="l" id="h-ratio-l">less data than sending the video to a server</div></div></div>
+    <div class="big"><div class="ic" style="background:var(--violet-soft);color:var(--violet)" id="i3"></div><div><div class="v" id="h-agree">–</div><div class="l">cameras give the same answer, each on its own</div></div></div>
+  </section>
+
+  <section class="main">
+    <div>
+      <div class="card">
+        <div class="card-h"><h2>The cameras talking, live</h2><span class="grow"></span><span class="faint" style="font-size:12.5px">every dot is a real note</span></div>
+        <div class="netwrap">
+          <svg id="net" viewBox="0 0 1000 580" role="img" aria-label="The four cameras and the notes they pass"><g id="n-links"></g><g id="n-center"></g><g id="n-nodes"></g></svg>
+          <canvas id="pk"></canvas>
+        </div>
+        <div class="legend">
+          <span><i style="background:var(--brand)"></i>A sighting note</span>
+          <span><i style="background:var(--ok)"></i>"My view is clear"</span>
+          <span><i style="background:var(--warn);border-radius:2px"></i>Catching up on missed notes</span>
+          <span><i style="background:var(--bad)"></i>Blocked (link cut or camera off)</span>
+        </div>
+      </div>
+      <div class="card" style="margin-top:16px" data-testid="controls">
+        <div class="card-h"><h2>Try it</h2></div>
+        <div class="ctl">
+          <div class="c"><button class="btn" id="b-split"></button><div class="w" id="w-split"></div></div>
+          <div class="c"><button class="btn" id="b-lie"></button><div class="w" id="w-lie"></div></div>
+          <div class="c"><button class="btn" id="b-plug"></button><div class="w" id="w-plug"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="card" data-testid="ask-every-camera">
+        <div class="card-h"><h2>Each camera's own answer</h2><span class="grow"></span><button class="btn" id="b-ask" style="padding:5px 11px;font-size:12.5px"></button></div>
+        <div style="padding:4px 12px 0"><table class="agreetbl" id="agree"></table></div>
+        <div class="verdict" id="verdict"></div>
+      </div>
+      <div class="card" style="margin-top:16px">
+        <div class="card-h"><h2>One note, opened up</h2></div>
+        <div class="note"><svg class="env" viewBox="0 0 120 84" aria-hidden="true">
+            <rect x="4" y="10" width="112" height="70" rx="8" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="2"/>
+            <path d="M6 14 60 52 114 14" fill="none" stroke="var(--brand)" stroke-width="2"/>
+            <circle cx="96" cy="66" r="13" fill="var(--bad)"/><path d="m90 66 4 4 8-8" stroke="#fff" stroke-width="2.4" fill="none" stroke-linecap="round"/></svg>
+          <div class="fields" id="fields"><span>Waiting for a sighting</span><span></span></div></div>
+        <div class="sizebars" id="sizes"></div>
+      </div>
+    </div>
+  </section>
+  <div class="footer-note"><span>This page only listens in; switching it off changes nothing.</span><a href="/engineer">Engineer view</a></div>
+</main>
+
+<script src="/static/app.js"></script>
+<script>
+const S_ = Starling, $ = s => document.querySelector(s), esc = S_.esc, el = S_.el, ic = S_.icon;
+S_.shell('inside');
+$('#i1').innerHTML = ic('eyeoff'); $('#i2').innerHTML = ic('gauge'); $('#i3').innerHTML = ic('check');
+$('#b-ask').innerHTML = ic('refresh') + 'Ask again';
+let C, S = null, ASK = null, POS = {}, NB = {}, EDGES = [];
+const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const node = n => S && S.nodes.find(x => x.id === n);
+
+function layout() {
+  const W = C.world.building.width_m, D = C.world.building.depth_m;
+  for (const c of C.world.cameras) POS[c.node_id] = [c.mount[0] < W / 2 ? 200 : 800, c.mount[1] < D / 2 ? 140 : 440];
+  EDGES = C.topology_edges; for (const n of C.node_ids) NB[n] = [];
+  for (const [a, b] of EDGES) { NB[a].push(b); NB[b].push(a); }
+}
+function drawStatic() {
+  const c = $('#n-center'); c.innerHTML = '';
+  el('rect', { x: 400, y: 245, width: 200, height: 90, rx: 16, fill: 'none', stroke: 'var(--faint)', 'stroke-dasharray': '6 6', 'stroke-width': 1.5 }, c);
+  const t = el('text', { x: 500, y: 287, 'text-anchor': 'middle', 'font-size': 18, 'font-weight': 750, fill: 'var(--soft)' }, c); t.textContent = 'No central server';
+  const t2 = el('text', { x: 500, y: 311, 'text-anchor': 'middle', 'font-size': 13, fill: 'var(--faint)' }, c); t2.textContent = 'nobody is in charge';
+  const g = $('#n-nodes'); g.innerHTML = '';
+  for (const n of C.node_ids) {
+    const [x, y] = POS[n]; const ng = el('g', { id: `nd-${n}`, 'data-testid': `net-node-${n}` }, g);
+    el('clipPath', { id: `clip-${n}` }, ng).appendChild(el('rect', { x: x - 100, y: y - 72, width: 200, height: 112, rx: 12 }));
+    ng.ring = el('rect', { x: x - 105, y: y - 77, width: 210, height: 122, rx: 15, fill: 'none', 'stroke-width': 4 }, ng);
+    ng.img = el('image', { x: x - 100, y: y - 72, width: 200, height: 112, 'clip-path': `url(#clip-${n})`, preserveAspectRatio: 'xMidYMid slice' }, ng);
+    ng.shade = el('rect', { x: x - 100, y: y - 72, width: 200, height: 112, rx: 12, fill: '#000', opacity: 0 }, ng);
+    ng.off = el('text', { x, y: y - 10, 'text-anchor': 'middle', 'font-size': 20, 'font-weight': 800, fill: '#fff' }, ng);
+    el('rect', { x: x - 100, y: y - 72, width: 34, height: 28, rx: 9, fill: `var(--c${n % 4})` }, ng);
+    const num = el('text', { x: x - 83, y: y - 52, 'text-anchor': 'middle', 'font-size': 16, 'font-weight': 800, fill: '#fff' }, ng); num.textContent = n;
+    ng.name = el('text', { x, y: y + 66, 'text-anchor': 'middle', 'font-size': 16, 'font-weight': 750, fill: 'var(--ink)' }, ng); ng.name.textContent = `Camera ${n} · ${S_.camName(C, n)}`;
+    ng.sub = el('text', { x, y: y + 87, 'text-anchor': 'middle', 'font-size': 13.5, fill: 'var(--soft)' }, ng);
+  }
+}
+function cut(a, b) { const na = node(a), nb = node(b); return (na && na.dropped.includes(b)) || (nb && nb.dropped.includes(a)); }
+function drawLinks() {
+  const g = $('#n-links'); g.innerHTML = '';
+  for (const [a, b] of EDGES) {
+    const [x1, y1] = POS[a], [x2, y2] = POS[b]; const c = cut(a, b); const dead = !node(a)?.live || !node(b)?.live;
+    el('line', { x1, y1, x2, y2, stroke: c ? 'var(--bad)' : dead ? 'var(--faint)' : 'var(--brand)', 'stroke-width': c ? 3 : 5, 'stroke-dasharray': c || dead ? '12 9' : 'none', opacity: c ? 0.9 : 0.35 }, g);
+    if (c) {
+      const mx = (x1 + x2) / 2, my = (y1 + y2) / 2;
+      el('circle', { cx: mx, cy: my, r: 20, fill: 'var(--bad-soft)', stroke: 'var(--bad)', 'stroke-width': 2 }, g);
+      const s = el('g', { transform: `translate(${mx - 12},${my - 12})`, color: css('--bad') }, g); s.innerHTML = ic('scissors').replace('class="ico"', 'width="24" height="24"');
+    }
+  }
+}
+function updateNodes() {
+  for (const n of C.node_ids) {
+    const ng = $(`#nd-${n}`), nd = node(n); if (!ng || !nd) continue;
+    const st = !nd.live ? ['var(--bad)', 'Switched off: its corner is unwatched'] : nd.lying ? ['var(--violet)', `Lying: others have stopped trusting it`] : nd.partitioned ? ['var(--warn)', 'Cut off from the other half, still working'] : ['var(--ok)', `Working · holds ${(nd.claims ?? 0).toLocaleString()} notes`];
+    ng.ring.setAttribute('stroke', st[0]); ng.sub.textContent = st[1];
+    ng.shade.setAttribute('opacity', nd.live ? 0 : 0.75); ng.off.textContent = nd.live ? '' : 'SWITCHED OFF';
+  }
+}
+function refreshImages() { for (const n of C.node_ids) { const ng = $(`#nd-${n}`); if (ng && node(n)?.live) ng.img.setAttribute('href', `/api/node/${n}/preview.jpg?t=${Date.now()}`); } }
+
+// ── real notes, animated ─────────────────────────────────────────────
+const cv = $('#pk'), cx = cv.getContext('2d'); let packets = [], feedSeq = 0;
+function fit() { const r = cv.getBoundingClientRect(); cv.width = r.width * devicePixelRatio; cv.height = r.height * devicePixelRatio; }
+addEventListener('resize', fit);
+function spawn(ev) {
+  if (!POS[ev.from] || ev.kind === 'vv_digest' || ev.kind === 'reputation') return;
+  for (const to of NB[ev.from] || []) {
+    const r = node(to); const dropped = !r || !r.live || r.dropped.includes(ev.from);
+    packets.push({ from: ev.from, to, kind: ev.kind, t0: performance.now(), dur: ev.kind === 'vv_delta' ? 1100 : 850, dropped, n: ev.claims });
+  }
+}
+async function pollFeed() {
+  try {
+    const f = await (await fetch(`/api/gossip_feed?since=${feedSeq}`, { cache: 'no-store' })).json();
+    if (f.seq < feedSeq) feedSeq = 0;
+    if (feedSeq === 0) feedSeq = f.seq;
+    else { for (const ev of f.events) setTimeout(() => spawn(ev), Math.max(0, (ev.t - (f.now - 0.6)) * 1000)); feedSeq = f.seq; }
+  } catch {}
+  setTimeout(pollFeed, 400);
+}
+function draw() {
+  const now = performance.now(), r = cv.getBoundingClientRect(), sx = r.width / 1000 * devicePixelRatio, sy = r.height / 580 * devicePixelRatio, d = devicePixelRatio;
+  cx.clearRect(0, 0, cv.width, cv.height);
+  packets = packets.filter(p => now - p.t0 < p.dur + 400);
+  for (const p of packets) {
+    let k = (now - p.t0) / p.dur; const [x1, y1] = POS[p.from], [x2, y2] = POS[p.to];
+    if (p.dropped && k > 0.85) {
+      const a = Math.max(0, 1 - (k - 0.85) * 3), x = (x1 + (x2 - x1) * 0.85) * sx, y = (y1 + (y2 - y1) * 0.85) * sy, s = 7 * d;
+      cx.globalAlpha = a; cx.strokeStyle = css('--bad'); cx.lineWidth = 2.5 * d; cx.beginPath(); cx.moveTo(x - s, y - s); cx.lineTo(x + s, y + s); cx.moveTo(x + s, y - s); cx.lineTo(x - s, y + s); cx.stroke(); cx.globalAlpha = 1; continue;
+    }
+    if (k > 1) continue;
+    k = k < .5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
+    const x = (x1 + (x2 - x1) * k) * sx, y = (y1 + (y2 - y1) * k) * sy;
+    cx.beginPath();
+    if (p.kind === 'claim') { cx.fillStyle = p.dropped ? css('--bad') : css('--brand'); cx.arc(x, y, 6 * d, 0, 7); cx.fill(); }
+    else if (p.kind === 'attestation') { cx.fillStyle = css('--ok'); cx.arc(x, y, 5 * d, 0, 7); cx.fill(); }
+    else if (p.kind === 'vv_delta') { cx.fillStyle = css('--warn'); const s = (8 + Math.min(10, p.n)) * d; cx.fillRect(x - s / 2, y - s / 2, s, s); }
+  }
+  requestAnimationFrame(draw);
+}
+
+// ── panels ───────────────────────────────────────────────────────────
+function renderBig() {
+  const n = S.network || {}; const g = n.gossip_link_bytes_per_s, v = n.video_bytes_per_s_total;
+  $('#h-ratio').textContent = v && g ? `${Math.round(v / g)}x` : '–';
+  $('#h-ratio-l').textContent = v && g ? `less data than sending the video to a server (${S_.rate(g)} instead of ${S_.rate(v)})` : 'less data than sending the video to a server';
+  if (ASK) { const top = ASK.groups[0]; $('#h-agree').innerHTML = `${top ? top.nodes.length : 0}<span style="font-size:16px;color:var(--soft)"> of ${ASK.total}</span>`; }
+}
+function renderAgree() {
+  if (!ASK) return;
+  const fp = (ASK.groups[0] || {}).fingerprint;
+  const head = `<tr><th>Person</th>${ASK.nodes.map(n => `<th><span class="camchip"><b style="background:var(--c${n.node_id % 4})">${n.node_id}</b>${esc(S_.camName(C, n.node_id))}</span></th>`).join('')}</tr>`;
+  const rows = C.world.employees.map(e => {
+    const areas = ASK.nodes.filter(n => n.ok && n.employees[e.id]).map(n => n.employees[e.id].area);
+    const common = areas.sort((a, b) => areas.filter(x => x === b).length - areas.filter(x => x === a).length)[0];
+    return `<tr><td><b>${esc(e.name.split(' ')[0])}</b><div class="faint" style="font-size:12px">${esc(common || 'not on site')}</div></td>${ASK.nodes.map(n => {
+      if (!n.ok) return `<td><span class="cell na" title="No answer">${ic('x')}</span></td>`;
+      const b = n.employees[e.id]; const same = (b ? b.area : null) === (common || null);
+      return `<td><span class="cell ${same ? 'ok' : 'diff'}" title="${esc(b ? b.area : 'not in its answer')}">${ic(same ? 'check' : 'alert')}</span></td>`;
+    }).join('')}</tr>`;
+  }).join('');
+  $('#agree').innerHTML = head + rows;
+  const v = $('#verdict');
+  if (ASK.agree) { v.className = 'verdict ok'; v.innerHTML = `<span class="ic">${ic('check')}</span><span>All ${ASK.answered} cameras worked out exactly the same answer, independently.</span>`; }
+  else if (ASK.answered) { v.className = 'verdict warn'; v.innerHTML = `<span class="ic">${ic('split')}</span><span>${ASK.groups.length} different answers: some cameras are cut off or switched off. They will agree again once reconnected.</span>`; }
+  else { v.className = 'verdict warn'; v.innerHTML = `<span class="ic">${ic('x')}</span><span>No camera answered.</span>`; }
+}
+async function renderNote() {
+  try {
+    const c = await (await fetch('/api/sample_claim')).json(); if (!c.claim_id) return;
+    const rows = [
+      ['From', `Camera ${c.node_id} (${S_.camName(C, c.node_id)})`],
+      ['When', c.clock],
+      ['Where', c.world_xy ? `${c.world_xy[0]} m east, ${c.world_xy[1]} m south (±${c.pos_sigma_m} m)` : '–'],
+      ['Looks like', 'a clothing-colour signature, not a photo'],
+      ['Who', c.identity_name ? `${c.identity_name} (recognised)` : 'worked out later, by every camera'],
+      ['Sealed', 'digitally signed: a forged note is rejected'],
+    ];
+    $('#fields').innerHTML = rows.map(([k, v]) => `<span>${k}</span><span>${esc(v)}</span>`).join('');
+    const frame = 150000; const w = Math.max(0.6, 100 * c.wire_bytes / frame);
+    $('#sizes').innerHTML = `This note: <b>${c.wire_bytes} bytes</b><div class="bar" style="width:${w}%;min-width:4px;background:var(--brand)"></div>One video frame: <b>about 150,000 bytes</b>, and a camera sends several every second<div class="bar" style="width:100%;background:var(--bad);opacity:.7"></div>`;
+  } catch {}
+}
+
+// ── controls ─────────────────────────────────────────────────────────
+const LIAR = 2, PLUG = 2;
+function renderControls() {
+  const split = S.convergence.any_partitioned, lying = !!node(LIAR)?.lying, off = !node(PLUG)?.live;
+  const set = (id, on, label, onLabel, icon, watch, onWatch) => { const b = $(id); b.className = 'btn ' + (on ? 'on' : ''); b.innerHTML = ic(icon) + (on ? onLabel : label); b.dataset.on = on ? '1' : ''; $(id.replace('b-', 'w-')).textContent = on ? onWatch : watch; };
+  set('#b-split', split, 'Cut the network in half', 'Reconnect the network', 'scissors', 'Watch the links between the halves turn red. Both halves keep working.', 'Both halves are still tracking. Reconnect and their answers merge again.');
+  set('#b-lie', lying, `Make camera ${LIAR} lie`, 'Stop the lie', 'mask', 'It will report people who are not there. Watch the others stop trusting it.', 'Its false notes contradict what other cameras saw, so its trust is falling.');
+  set('#b-plug', off, `Switch off camera ${PLUG}`, `Switch camera ${PLUG} back on`, 'power', 'Only its own corner goes unwatched. The others carry on.', 'Starting up takes about 20 seconds; then it catches up on what it missed.');
+}
+async function askNow() { try { ASK = await (await fetch('/api/ask_cameras')).json(); renderAgree(); if (S) renderBig(); } catch {} }
+
+(async () => {
+  C = await S_.config(); layout(); drawStatic(); fit();
+  $('#b-split').onclick = async e => { const on = e.currentTarget.dataset.on; await S_.act(e.currentTarget, on ? '/api/heal' : '/api/partition', {}, on ? ['Network reconnected', 'The two halves are merging their notes.'] : ['Network cut in half', 'Cameras 0 and 1 cannot hear cameras 2 and 3.']); setTimeout(askNow, 2500); };
+  $('#b-lie').onclick = async e => { const on = e.currentTarget.dataset.on; await S_.act(e.currentTarget, on ? '/api/stop_lie' : '/api/lie', on ? {} : { node_id: LIAR }, on ? ['Lie stopped', `Camera ${LIAR} tells the truth again.`] : [`Camera ${LIAR} is now lying`, 'It reports people who are not there.']); };
+  $('#b-plug').onclick = async e => { const on = e.currentTarget.dataset.on; await S_.act(e.currentTarget, `/api/node/${PLUG}/${on ? 'restart' : 'kill'}`, {}, on ? [`Camera ${PLUG} switching on`, 'It will rejoin in about 20 seconds.'] : [`Camera ${PLUG} switched off`, 'Its corner is now unwatched.']); setTimeout(askNow, 3000); };
+  $('#b-ask').onclick = e => { const b = e.currentTarget; b.classList.add('busy'); askNow().finally(() => b.classList.remove('busy')); };
+  S_.onState(s => { S = s; drawLinks(); updateNodes(); renderBig(); renderControls(); });
+  askNow(); renderNote(); pollFeed(); requestAnimationFrame(draw); refreshImages();
+  setInterval(() => { if (!document.hidden) askNow(); }, 6000);
+  setInterval(() => { if (!document.hidden) renderNote(); }, 8000);
+  setInterval(() => { if (!document.hidden) refreshImages(); }, 2000);
+})();
+</script>
+</body>
+</html>

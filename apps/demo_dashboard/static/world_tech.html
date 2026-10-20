@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Starling Engineer View</title>
+<link rel="stylesheet" href="/static/app.css">
+<style>
+  /* Engineer view: dense on purpose, built on the shared tokens in app.css. */
+  .page{font-size:13.5px;display:grid;gap:14px}
+  .titlerow{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .titlerow h1{margin:0;font-size:21px;letter-spacing:-.02em}
+  .titlerow p{margin:0;color:var(--faint);font-size:13px}
+  .titlerow a{display:inline-flex;align-items:center;gap:6px;font-weight:650;font-size:13px;text-decoration:none;white-space:nowrap}
+  .titlerow a:hover{text-decoration:underline}
+  .info{color:var(--faint);cursor:help;display:inline-flex}
+  .info .ico{width:15px;height:15px}
+  .card-h{padding:9px 14px}
+  .card-h h2{font-size:11.5px}
+  .card-h .note{color:var(--faint);font-size:12px;font-variant-numeric:tabular-nums}
+  .card-b{padding:11px 14px}
+  select,input{font:inherit;font-size:13px;color:var(--ink);background:var(--panel-2);border:1px solid var(--line);border-radius:9px;padding:7px 9px}
+  select:disabled{opacity:.6}
+  .sw{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:-1px;flex:none}
+  .empty{color:var(--faint);padding:12px 14px;font-size:12.5px}
+
+  /* operator controls */
+  .ctl{display:grid;grid-template-columns:repeat(5,auto);justify-content:start;gap:12px 28px;padding:12px 14px}
+  .grp{display:grid;gap:7px;align-content:start}
+  .grp .gh{display:flex;align-items:center;gap:8px;font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--faint)}
+  .grp .gr{display:flex;align-items:center;gap:8px}
+  .ctl .btn{font-size:13px;padding:7px 12px;border-radius:9px}
+  .ctl .btn .ico{width:16px;height:16px}
+  @media (max-width:1250px){.ctl{grid-template-columns:repeat(2,auto)}}
+  @media (max-width:640px){.ctl{grid-template-columns:1fr}}
+
+  /* pipeline strip */
+  .pipe{display:grid;grid-template-columns:repeat(10,minmax(0,1fr));gap:10px;padding:11px 14px}
+  .stg{position:relative;padding:6px 9px 7px;background:var(--panel-2);border:1px solid var(--line);border-radius:9px;cursor:help}
+  .stg:not(:last-child)::after{content:"";position:absolute;right:-9px;top:50%;margin-top:-4px;border:4px solid transparent;border-left:5px solid var(--faint)}
+  .stg .n{font-size:10.5px;color:var(--faint);font-weight:700;letter-spacing:.06em}
+  .stg .v{font-family:ui-monospace,Consolas,monospace;font-size:13.5px;font-weight:700;color:var(--brand);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  @media (max-width:1400px){.pipe{grid-template-columns:repeat(5,minmax(0,1fr))}.stg:nth-child(5)::after{display:none}}
+  @media (max-width:700px){.pipe{grid-template-columns:repeat(2,minmax(0,1fr))}.stg::after{display:none}}
+
+  /* cameras */
+  .cams{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+  @media (max-width:1300px){.cams{grid-template-columns:repeat(2,minmax(0,1fr))}}
+  @media (max-width:700px){.cams{grid-template-columns:1fr}}
+  .cam .card-h h2{color:var(--ink);text-transform:none;letter-spacing:0;font-size:13px}
+  .cam .img{position:relative;background:#000;aspect-ratio:16/9}
+  .cam img{width:100%;height:100%;object-fit:cover;display:block}
+  .cam .warnov{position:absolute;inset:auto 0 0 0;background:var(--bad);color:#fff;font-weight:800;font-size:11.5px;letter-spacing:.05em;text-align:center;padding:3px;display:none}
+  .kv{display:grid;grid-template-columns:auto 1fr;gap:2px 10px;font-size:12px}
+  .kv span:nth-child(odd){color:var(--soft);font-family:inherit}
+  .bars{display:grid;gap:5px;margin-top:8px}
+  .bar{display:grid;grid-template-columns:78px 1fr 36px;gap:8px;align-items:center;font-size:11.5px;color:var(--soft)}
+  .bar .tr{position:relative;height:7px;background:var(--panel-2);border:1px solid var(--line);border-radius:4px;overflow:hidden}
+  .bar .tr i{position:absolute;left:0;top:0;bottom:0;border-radius:4px}
+  .bar .tr b{position:absolute;top:-2px;bottom:-2px;width:2px;background:var(--ink);opacity:.6}
+  .bar .val{font-family:ui-monospace,Consolas,monospace;text-align:right;color:var(--ink)}
+  .dets{font-family:ui-monospace,Consolas,monospace;font-size:11px;color:var(--soft);margin-top:7px;max-height:62px;overflow:auto}
+
+  /* grids, map, net, tables */
+  .two{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(0,1fr);gap:14px}
+  .three{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;align-items:start}
+  @media (max-width:1200px){.two,.three{grid-template-columns:1fr}}
+  #map{width:100%;height:auto;display:block;background:var(--floor)}
+  #net{width:100%;height:auto;display:block}
+  .legend{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--soft)}
+  .legend span{display:inline-flex;align-items:center;gap:5px}
+  .legend svg{width:13px;height:13px}
+  table{width:100%;border-collapse:collapse;font-size:12.5px}
+  th{text-align:left;color:var(--faint);font-weight:700;font-size:11px;letter-spacing:.05em;text-transform:uppercase;padding:7px 9px;border-bottom:1px solid var(--line)}
+  td{padding:6px 9px;border-bottom:1px solid var(--line);vertical-align:top}
+  tr:last-child td{border-bottom:0}
+  td.mono{font-variant-numeric:tabular-nums}
+  .region{padding:10px 14px;border-bottom:1px solid var(--line)}
+  .region:last-child{border-bottom:0}
+  .region .nums{display:flex;gap:18px;margin-top:4px}
+  .region .big{font-family:ui-monospace,Consolas,monospace;font-size:19px;font-weight:700}
+  .region .lbl{color:var(--soft);font-size:11.5px}
+
+  /* collapsible secondary panels */
+  details.card>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:10px;padding:10px 14px;user-select:none}
+  details.card>summary::-webkit-details-marker{display:none}
+  details.card>summary:hover h2{color:var(--ink)}
+  details.card>summary h2{margin:0;font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--soft);font-weight:700}
+  details.card>summary .chev{width:14px;height:14px;color:var(--faint);transition:transform .15s}
+  details[open].card>summary{border-bottom:1px solid var(--line)}
+  details[open].card>summary .chev{transform:rotate(90deg)}
+  .log{font-size:12px;max-height:300px;overflow:auto}
+  .log div{padding:4px 14px;border-bottom:1px solid var(--line)}
+  .log .k{font-family:ui-monospace,Consolas,monospace;font-size:10.5px;color:var(--faint);margin-right:6px;text-transform:uppercase}
+  .qrow{display:flex;gap:8px;flex-wrap:wrap}
+  .ans{white-space:pre-wrap;font-family:ui-monospace,Consolas,monospace;font-size:11.5px;background:var(--panel-2);border:1px solid var(--line);border-radius:9px;padding:9px;margin-top:9px;max-height:220px;overflow:auto;color:var(--soft)}
+</style>
+</head>
+<body>
+<main class="page">
+  <div class="titlerow">
+    <div>
+      <h1>Engineer view</h1>
+      <p>Every internal number, for technical questions. The other tabs explain the same things in plain words.</p>
+    </div>
+    <span class="grow"></span>
+    <span class="pill warn" id="conv" data-testid="convergence" title="Replica convergence: spread = max difference in claim count between replicas; gaps = missing sequence numbers anti-entropy still has to fetch."><span class="dot"></span><span>Connecting</span></span>
+    <a id="worldlink" target="_blank" rel="noopener" title="Open the 3D world in a new tab">3D world <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v6H4V6h6"/></svg></a>
+  </div>
+
+  <section class="card" data-testid="controls">
+    <div class="card-h"><h2>Operator controls</h2><span class="info" id="i-ctl"></span></div>
+    <div class="ctl">
+      <div class="grp">
+        <div class="gh">Network <span class="tag mute" id="st-net">–</span></div>
+        <div class="gr"><button class="btn" id="b-net" data-testid="btn-partition"></button></div>
+      </div>
+      <div class="grp">
+        <div class="gh">Byzantine node <span class="tag mute" id="st-lie">–</span></div>
+        <div class="gr"><select id="lie-node" aria-label="Node to make lie"></select><button class="btn" id="b-lie" data-testid="btn-lie"></button></div>
+      </div>
+      <div class="grp">
+        <div class="gh">Camera lens <span class="tag mute" id="st-lens">–</span></div>
+        <div class="gr"><select id="lens-node" aria-label="Camera lens"></select><button class="btn" id="b-lens" data-testid="btn-lens"></button></div>
+      </div>
+      <div class="grp">
+        <div class="gh">Employee</div>
+        <div class="gr"><select id="brk-emp" aria-label="Employee"></select><button class="btn" id="b-break" data-testid="btn-break"></button></div>
+      </div>
+      <div class="grp">
+        <div class="gh">Dashboard</div>
+        <div class="gr"><button class="btn" id="b-reset" data-testid="btn-reset"></button></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card-h"><h2>Pipeline</h2><span class="info" id="i-pipe"></span><span class="grow"></span><span class="note">live, all nodes</span></div>
+    <div class="pipe" id="pipe"></div>
+  </section>
+
+  <section class="cams" id="cams"></section>
+
+  <section class="two">
+    <div class="card">
+      <div class="card-h"><h2>Belief vs reality</h2><span class="info" id="i-map"></span><span class="grow"></span>
+        <div class="legend">
+          <span><svg viewBox="0 0 14 14"><circle cx="7" cy="7" r="5" fill="var(--brand)"/></svg>resolved</span>
+          <span><svg viewBox="0 0 14 14"><circle cx="7" cy="7" r="5" fill="none" stroke="var(--soft)" stroke-width="1.4" stroke-dasharray="2 1.6"/></svg>truth</span>
+          <span><svg viewBox="0 0 14 14"><rect x="1" y="1" width="12" height="12" rx="2" fill="var(--brand)" opacity=".4"/></svg>C4 region</span>
+          <span><svg viewBox="0 0 14 14"><rect x="1" y="1" width="12" height="12" rx="2" fill="var(--brand)" opacity=".12"/></svg>reachable</span>
+        </div></div>
+      <svg id="map" viewBox="-1.2 -1.6 32.4 23.4" data-testid="tech-map"><g id="m-static"></g><g id="m-reach"></g><g id="m-regions"></g><g id="m-truth"></g><g id="m-ids"></g></svg>
+    </div>
+    <div class="card">
+      <div class="card-h"><h2>Gossip ring</h2><span class="info" id="i-net"></span><span class="grow"></span><span class="tag mute" id="net-tag">–</span></div>
+      <svg id="net" viewBox="0 0 400 300" data-testid="net"></svg>
+      <div class="card-b" style="padding-top:0"><table id="nodetable"></table></div>
+    </div>
+  </section>
+
+  <section class="two">
+    <div class="card">
+      <div class="card-h"><h2>Resolver</h2><span class="info" id="i-res"></span><span class="grow"></span><span class="note" id="res-note"></span></div>
+      <table id="idtable" data-testid="identities"></table>
+    </div>
+    <div class="card">
+      <div class="card-h"><h2>C4 negative evidence</h2><span class="info" id="i-c4"></span><span class="grow"></span><span class="note" id="c4-note"></span></div>
+      <div id="regions"><div class="empty">No candidate regions.</div></div>
+    </div>
+  </section>
+
+  <section class="three">
+    <details class="card" data-testid="panel-anchors">
+      <summary><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg><h2>Identity verification</h2><span class="info" id="i-anc"></span><span class="grow"></span><span class="tag mute" id="anc-count">0</span></summary>
+      <div class="log" id="anchors"></div>
+    </details>
+    <details class="card" data-testid="panel-query">
+      <summary><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg><h2>C5 query</h2><span class="info" id="i-q"></span></summary>
+      <div class="card-b">
+        <div class="qrow">
+          <input id="q" value="where is Priya" style="flex:1;min-width:150px" aria-label="Query">
+          <select id="purpose" aria-label="Purpose"><option>safety</option><option>productivity</option></select>
+          <button class="btn" id="ask" data-testid="btn-ask" style="font-size:13px;padding:7px 12px">Ask</button>
+        </div>
+        <div class="ans" id="answer" data-testid="answer">From node 0, with a signed capability token.</div>
+      </div>
+    </details>
+    <details class="card" data-testid="panel-forks">
+      <summary><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg><h2>Forks &amp; events</h2><span class="info" id="i-fork"></span><span class="grow"></span><span class="tag mute" id="fork-count">0 forks</span></summary>
+      <div id="forks"></div>
+      <div class="log" id="events"></div>
+    </details>
+  </section>
+</main>
+
+<script src="/static/app.js"></script>
+<script>
+Starling.shell(null);
+const $ = s => document.querySelector(s);
+const { el, esc, icon } = Starling;
+let CFG, S = null, PERC = {};
+const NODE_COL = n => `var(--c${n % 4})`;
+const colourOf = id => (CFG.world.employees.find(e => e.id === id) || {}).colour || '#9aa6b6';
+const camArea = n => (CFG.world.cameras.find(c => c.node_id === n) || {}).area || `Camera ${n}`;
+const info = (sel, text) => { const e = $(sel); e.title = text; e.innerHTML = icon('unknown'); };
+
+info('#i-ctl', 'Network faults are sent to the nodes. Physical faults (lens, break) happen in the 3D world; the nodes have to notice them from their own pixels.');
+info('#i-pipe', 'What happens to every frame, left to right. Hover a stage for details.');
+info('#i-map', 'Filled dot: identity as resolved from the merged claims. Dashed ring: ground truth from the simulator (scoring only, never used by the nodes). Shaded: C4 candidate region. Faint: what reachability alone allows. Camera ring: green = attesting, red = silent.');
+info('#i-net', 'Each node gossips only to its 2 ring neighbours: no full mesh, no coordinator. The dashboard only listens.');
+info('#i-res', 'Identities are a pure function of the merged claim set: every replica derives the same answer.');
+info('#i-c4', 'Only a confident attestation of absence shrinks a region. Silence is never evidence.');
+info('#i-anc', 'FACE_ANCHOR claims: check-ins at the gate and recognitions by any camera.');
+info('#i-q', 'Capability-scoped query, asked from node 0\'s side of the network with a signed capability token. Purpose decides what may be answered.');
+info('#i-fork', 'A fork is two claim chains binding one identity to incompatible places. Forks stay open while both chains remain reachable.');
+
+// ── pipeline ──────────────────────────────────────────────────────────
+const STAGES = [
+  ['CAMERA', 'Virtual camera: rig renders 1280x720 JPEG; each node gets only its own camera. Value: frames processed.', 'frames'],
+  ['DETECT', 'Person detector: YOLO11s (COCO "person") on the pixels. Value: people in view now.', 'people'],
+  ['TRACK', 'Local tracker: ByteTrack; track ids never leave the node. Value: mean achieved fps.', 'tracks'],
+  ['APPEAR', 'Appearance: 96-d clothing-colour signature from person pixels only. Value: claims made.', 'sig'],
+  ['LOCATE', 'Floor position: calibrated homography (+ head ray if feet hidden). Value: median position sigma.', 'sigma'],
+  ['VERIFY', 'Employee check: gate + recognition against the enrolled registry, emits FACE_ANCHOR. Value: verified on site.', 'anchors'],
+  ['CLAIM', 'Signed claim: Ed25519; no frames, no names, no identity decision. Value: claims merged.', 'claims'],
+  ['GOSSIP', 'Gossip to 2 ring neighbours; anti-entropy fills gaps. Value: live nodes, or SPLIT.', 'gossip'],
+  ['MERGE', 'CRDT merge: grow-only claim set on every replica. Value: replica spread and gaps.', 'merge'],
+  ['RESOLVE', 'Resolver + C4: identities, forks, attested-absence regions.', 'ids'],
+];
+function drawPipe() {
+  $('#pipe').innerHTML = STAGES.map(([n, d, k]) => `<div class="stg" title="${esc(d)}"><div class="n">${n}</div><div class="v" id="pv-${k}">–</div></div>`).join('');
+}
+function updatePipe() {
+  const P = Object.values(PERC);
+  const sum = f => P.reduce((a, p) => a + (f(p) || 0), 0);
+  const nodes = S.nodes || [];
+  const sig = P.flatMap(p => (p.detections || []).map(d => d.pos_sigma)).sort((a, b) => a - b);
+  const med = sig.length ? sig[Math.floor(sig.length / 2)] : null;
+  const fps = P.map(p => p.achieved_fps).filter(x => x != null);
+  $('#pv-frames').textContent = sum(p => p.frames).toLocaleString();
+  $('#pv-people').textContent = `${sum(p => (p.detections || []).length)} in view`;
+  $('#pv-tracks').textContent = `${fps.length ? (fps.reduce((a, b) => a + b, 0) / fps.length).toFixed(1) : '–'} fps`;
+  $('#pv-sig').textContent = `${sum(p => p.claims_made).toLocaleString()} made`;
+  $('#pv-sigma').textContent = med != null ? `σ ${med.toFixed(2)} m` : '–';
+  $('#pv-anchors').textContent = `${S.world.counts.verified_on_site} on site`;
+  $('#pv-claims').textContent = (S.claims_total || 0).toLocaleString();
+  $('#pv-gossip').textContent = (S.convergence || {}).any_partitioned ? 'SPLIT' : `${nodes.filter(n => n.live).length}/4 live`;
+  $('#pv-merge').textContent = `Δ${S.convergence.spread ?? '–'} · gaps ${S.convergence.holes_total}`;
+  $('#pv-merge').parentElement.title = STAGES[8][1] + ` Now: spread ${S.convergence.spread ?? '–'}, gaps ${S.convergence.holes_total}.`;
+  $('#pv-ids').textContent = `${S.identities.length} ids · ${S.regions.length} reg.`;
+}
+
+// ── camera tiles ──────────────────────────────────────────────────────
+function buildCams() {
+  $('#cams').innerHTML = CFG.node_ids.map(n => `
+    <div class="card cam" data-testid="node-${n}">
+      <div class="card-h"><span class="sw" style="background:${NODE_COL(n)}"></span><h2>Node ${n} · ${esc(camArea(n))}</h2><span class="grow"></span><span class="tag mute" id="att-${n}">…</span></div>
+      <div class="img"><img id="img-${n}" alt="Node ${n}'s own annotated view of its last frame" title="Node ${n}'s own annotated view of its last frame"><div class="warnov" id="warn-${n}">LENS COVERED</div></div>
+      <div class="card-b">
+        <div class="kv mono" id="kv-${n}"></div>
+        <div class="bars" id="bars-${n}"></div>
+        <div class="dets" id="dets-${n}" title="Detections: #track (x, y) ±sigma, detector confidence, employee id if verified"></div>
+      </div>
+    </div>`).join('');
+  setInterval(() => {
+    for (const n of CFG.node_ids) {
+      const im = new Image();
+      im.onload = () => { $(`#img-${n}`).src = im.src; };
+      im.src = `/api/node/${n}/preview.jpg?ts=${Date.now()}`;
+    }
+  }, 900);
+  const pollPerc = async () => {
+    await Promise.all(CFG.node_ids.map(async n => { try { PERC[n] = await (await fetch(`/api/node/${n}/perception`, { cache: 'no-store' })).json(); } catch { PERC[n] = {}; } }));
+    setTimeout(pollPerc, 1200);
+  };
+  pollPerc();
+}
+const bar = (label, tip, v, tau, invert) => {
+  if (v == null) return '';
+  const good = invert ? v <= 1 - tau : v >= tau;
+  return `<div class="bar" title="${tip}; marker = attestation threshold"><span>${label}</span><span class="tr"><i style="width:${Math.max(2, v * 100)}%;background:${good ? 'var(--ok)' : 'var(--bad)'}"></i>${tau != null ? `<b style="left:${(invert ? 1 - tau : tau) * 100}%"></b>` : ''}</span><span class="val">${v.toFixed(2)}</span></div>`;
+};
+function updateCams() {
+  for (const nd of S.nodes) {
+    const n = nd.id, p = PERC[n] || {}, c = p.coverage || {};
+    const att = $(`#att-${n}`);
+    if (!nd.live) { att.className = 'tag bad'; att.textContent = 'OFFLINE'; }
+    else if (nd.lying) { att.className = 'tag bad'; att.textContent = 'LYING'; }
+    else if (p.attesting) { att.className = 'tag ok'; att.textContent = 'ATTESTING'; }
+    else { att.className = 'tag warn'; att.textContent = 'SILENT'; }
+    att.title = { OFFLINE: 'Node process not answering', LYING: 'Fabricating claims (operator fault)', ATTESTING: 'Vouching for its zone: absence here counts as evidence', SILENT: 'Not vouching: its silence is not evidence of absence' }[att.textContent];
+    const blocked = ((S.gt && S.gt.occluded_nodes) || []).includes(n);
+    $(`#warn-${n}`).style.display = blocked ? 'block' : 'none';
+    $(`#warn-${n}`).title = 'World event: a tarp covers this lens';
+    $(`#kv-${n}`).innerHTML = `
+      <span>frame</span><span>${p.process_ms ?? '–'} ms · ${p.achieved_fps ?? '–'}/${p.target_fps ?? '–'} fps</span>
+      <span>claims</span><span>${(p.claims_made ?? 0).toLocaleString()} made · ${nd.claims ?? '–'} in replica${nd.holes ? ` · ${nd.holes} gaps` : ''}</span>
+      <span title="Reputation as the median of its peers' reports; rejected/evaluated claims">rep.</span><span title="Median of peers' reports">${nd.reputation ?? '1.00'} · ${nd.rejected}/${nd.evaluated} rejected</span>
+      <span>links</span><span${nd.partitioned ? ' style="color:var(--bad)"' : ''}>${nd.partitioned ? `ignoring ${nd.dropped.join(', ')}` : 'all up'}</span>`;
+    $(`#bars-${n}`).innerHTML = c.attest_confidence == null ? '<span class="faint">self-assessment starting…</span>' :
+      bar('occlusion', 'Occlusion of the view', c.occlusion, c.tau_attest, true) + bar('illumination', 'Illumination', c.illumination, c.tau_attest) +
+      bar('detector', 'Detector health', c.detector_health, c.tau_attest) + bar('attest (min)', 'Worst attestation confidence in the interval', c.worst_in_interval, c.tau_attest);
+    $(`#dets-${n}`).innerHTML = (p.detections || []).map(d => `#${d.track} (${d.x.toFixed(1)},${d.y.toFixed(1)}) ±${d.pos_sigma.toFixed(2)} conf ${d.conf.toFixed(2)}${d.employee_id ? ' · ' + esc(d.employee_id) : ''}${d.claimed ? '' : ' <span title="Outside its camera zone: not claimed">[unclaimed]</span>'}`).join('<br>') || 'nobody in view';
+  }
+}
+
+// ── map ───────────────────────────────────────────────────────────────
+function drawStatic() {
+  const g = $('#m-static'); g.innerHTML = '';
+  const W = CFG.world.building.width_m, D = CFG.world.building.depth_m;
+  el('rect', { x: 0, y: 0, width: W, height: D, fill: 'var(--floor)', stroke: 'var(--wall)', 'stroke-width': 0.12 }, g);
+  for (const f of CFG.floorplan.features) {
+    const r = f.properties.role;
+    if (r === 'camera_zone' || r === 'blind') {
+      const polys = f.geometry.type === 'Polygon' ? [f.geometry.coordinates] : f.geometry.coordinates;
+      const d = polys.map(p => p.map(ring => 'M' + ring.map(c => c.join(',')).join('L') + 'Z').join('')).join('');
+      el('path', { d, fill: r === 'blind' ? 'var(--violet)' : NODE_COL(f.properties.node_id), opacity: r === 'blind' ? 0.16 : 0.09, 'data-zone': r === 'blind' ? 'blind' : f.properties.node_id }, g);
+    }
+  }
+  for (const f of CFG.floorplan.features.filter(f => f.properties.role === 'obstacle')) {
+    const c = f.geometry.coordinates[0], xs = c.map(p => p[0]), ys = c.map(p => p[1]);
+    el('rect', { x: Math.min(...xs), y: Math.min(...ys), width: Math.max(...xs) - Math.min(...xs), height: Math.max(...ys) - Math.min(...ys), fill: f.properties.kind === 'rack' ? 'var(--rack)' : 'var(--prop)', rx: 0.06 }, g);
+  }
+  for (const c of CFG.world.cameras) {
+    const [x, y] = c.mount;
+    el('circle', { cx: x, cy: y, r: 0.55, fill: NODE_COL(c.node_id), id: `camdot-${c.node_id}` }, g);
+    const t = el('text', { x, y: y + 0.22, 'font-size': 0.6, 'font-weight': 800, 'text-anchor': 'middle', fill: '#fff' }, g); t.textContent = c.node_id;
+  }
+  const ent = CFG.world.entrance;
+  el('circle', { cx: ent.gate.x, cy: ent.gate.y, r: ent.gate.radius_m, fill: 'none', stroke: 'var(--ok)', 'stroke-width': 0.07, 'stroke-dasharray': '0.25 0.18' }, g);
+}
+function runsPath(runs) {
+  const G = CFG.grid;
+  return runs.map(([j, i0, i1]) => { const x = G.origin[0] + i0 * G.cell, y = G.origin[1] + j * G.cell; return `M${x},${y}h${(i1 - i0 + 1) * G.cell}v${G.cell}h${-(i1 - i0 + 1) * G.cell}Z`; }).join('');
+}
+function updateMap() {
+  for (const nd of S.nodes) {
+    const d = $(`#camdot-${nd.id}`); if (d) { d.setAttribute('stroke', nd.coverage_healthy ? 'var(--ok)' : 'var(--bad)'); d.setAttribute('stroke-width', 0.18); }
+  }
+  const reach = $('#m-reach'), reg = $('#m-regions'); reach.innerHTML = ''; reg.innerHTML = '';
+  for (const r of S.regions) {
+    el('path', { d: runsPath(r.reach_runs), fill: colourOf(r.id), opacity: 0.08 }, reach);
+    el('path', { d: runsPath(r.runs), fill: colourOf(r.id), opacity: 0.38 }, reg);
+  }
+  const tg = $('#m-truth'); tg.innerHTML = '';
+  for (const w of (S.gt ? S.gt.workers : [])) {
+    el('circle', { cx: w.x, cy: w.y, r: 0.55, fill: 'none', stroke: 'var(--soft)', 'stroke-width': 0.06, 'stroke-dasharray': '0.15 0.12', opacity: 0.8 }, tg);
+  }
+  const ig = $('#m-ids'); ig.innerHTML = '';
+  for (const i of S.identities) {
+    const col = colourOf(i.id), seen = i.status === 'seen';
+    if (i.trail && i.trail.length > 1) el('polyline', { points: i.trail.map(p => p.join(',')).join(' '), fill: 'none', stroke: col, 'stroke-width': 0.08, opacity: 0.55 }, ig);
+    el('circle', { cx: i.x, cy: i.y, r: 0.42, fill: seen ? col : 'var(--panel)', stroke: col, 'stroke-width': seen ? 0.06 : 0.12, 'stroke-dasharray': seen ? 'none' : '0.22 0.16' }, ig);
+    const t = el('text', { x: i.x, y: i.y - 0.65, 'font-size': 0.5, 'font-weight': 700, 'text-anchor': 'middle', fill: 'var(--ink)', 'paint-order': 'stroke', stroke: 'var(--floor)', 'stroke-width': 0.14 }, ig);
+    t.textContent = i.name ? i.name.split(' ')[0] : i.id;
+  }
+}
+
+// ── gossip net ────────────────────────────────────────────────────────
+const NPOS = { 0: [90, 80], 1: [310, 80], 2: [90, 220], 3: [310, 220] };
+let lastClaims = {};
+function drawNet() {
+  const svg = $('#net'); svg.innerHTML = '';
+  const cut = new Set();
+  for (const nd of S.nodes) for (const d of nd.dropped || []) cut.add([nd.id, d].sort().join('-'));
+  for (const [a, b] of CFG.topology_edges) {
+    const [x1, y1] = NPOS[a], [x2, y2] = NPOS[b];
+    const isCut = cut.has([a, b].sort().join('-'));
+    el('line', { x1, y1, x2, y2, stroke: isCut ? 'var(--bad)' : 'var(--faint)', 'stroke-width': isCut ? 2 : 2.5, 'stroke-dasharray': isCut ? '6 6' : 'none', id: `edge-${a}-${b}` }, svg);
+    if (isCut) { const t = el('text', { x: (x1 + x2) / 2 + 8, y: (y1 + y2) / 2, 'font-size': 12, fill: 'var(--bad)', 'font-weight': 700 }, svg); t.textContent = 'cut'; }
+    else {
+      const grew = S.nodes.find(n => n.id === a)?.claims > (lastClaims[a] || 0) || S.nodes.find(n => n.id === b)?.claims > (lastClaims[b] || 0);
+      if (grew) for (const [s, e] of [[NPOS[a], NPOS[b]], [NPOS[b], NPOS[a]]]) {
+        const c = el('circle', { r: 4, fill: 'var(--brand)' }, svg);
+        const an = el('animateMotion', { dur: '0.9s', repeatCount: '1', path: `M${s[0]},${s[1]} L${e[0]},${e[1]}`, fill: 'freeze' }, c);
+        an.beginElement && setTimeout(() => an.beginElement(), 10);
+      }
+    }
+  }
+  for (const nd of S.nodes) {
+    const [x, y] = NPOS[nd.id];
+    const ring = !nd.live ? 'var(--bad)' : nd.lying ? 'var(--bad)' : nd.coverage_healthy ? 'var(--ok)' : 'var(--warn)';
+    el('circle', { cx: x, cy: y, r: 32, fill: 'var(--panel-2)', stroke: ring, 'stroke-width': 3 }, svg);
+    const t1 = el('text', { x, y: y - 2, 'font-size': 13, 'font-weight': 800, 'text-anchor': 'middle', fill: NODE_COL(nd.id) }, svg); t1.textContent = `node ${nd.id}`;
+    const t2 = el('text', { x, y: y + 13, 'font-size': 9.5, 'text-anchor': 'middle', fill: 'var(--soft)', 'font-family': 'ui-monospace, Consolas, monospace' }, svg); t2.textContent = `${nd.claims ?? 0} claims`;
+    const t3 = el('text', { x, y: y + (y < 150 ? -40 : 48), 'font-size': 11, 'text-anchor': 'middle', fill: 'var(--soft)' }, svg); t3.textContent = camArea(nd.id);
+  }
+  const dash = el('g', {}, svg);
+  el('rect', { x: 160, y: 132, width: 80, height: 36, rx: 8, fill: 'none', stroke: 'var(--faint)', 'stroke-dasharray': '3 3' }, dash);
+  const dt = el('text', { x: 200, y: 147, 'font-size': 10, 'text-anchor': 'middle', fill: 'var(--soft)' }, dash); dt.textContent = 'dashboard';
+  const dt2 = el('text', { x: 200, y: 160, 'font-size': 9, 'text-anchor': 'middle', fill: 'var(--faint)' }, dash); dt2.textContent = 'listens only';
+  lastClaims = Object.fromEntries(S.nodes.map(n => [n.id, n.claims || 0]));
+  const nCut = CFG.topology_edges.filter(([a, b]) => cut.has([a, b].sort().join('-'))).length;
+  const nt = $('#net-tag');
+  nt.className = 'tag ' + (nCut ? 'bad' : 'ok'); nt.textContent = nCut ? `${nCut} of ${CFG.topology_edges.length} links cut` : 'ring intact';
+  $('#nodetable').innerHTML = `<tr><th>node</th><th>claims</th><th>gaps</th><th title="Median of peers' reports">rep.</th><th>rejected</th><th title="Attested = vouching for its zone">zone</th></tr>` + S.nodes.map(nd =>
+    `<tr><td><span class="sw" style="background:${NODE_COL(nd.id)}"></span>${nd.id}</td><td class="mono">${nd.claims ?? '–'}</td><td class="mono">${nd.holes ?? '–'}</td><td class="mono">${nd.reputation ?? '1.0'}</td><td class="mono">${nd.rejected}/${nd.evaluated}</td><td>${nd.coverage_healthy ? '<span style="color:var(--ok)">attested</span>' : '<span style="color:var(--warn)">silent</span>'}</td></tr>`).join('');
+}
+
+// ── tables / panels ───────────────────────────────────────────────────
+function updateIds() {
+  const rows = S.identities.map(i => `<tr><td><span class="sw" style="background:${colourOf(i.id)}"></span><span class="mono">${esc(i.id)}</span></td>
+    <td>${i.name ? esc(i.name) : '<span style="color:var(--warn)">unnamed</span>'}</td>
+    <td>${i.status === 'seen' ? '<span class="tag ok">SEEN</span>' : i.status === 'forked' ? '<span class="tag bad">FORK</span>' : `<span class="tag warn">UNSEEN ${i.age_s.toFixed(0)}s</span>`}</td>
+    <td class="mono">${i.n_claims}</td><td class="mono">node ${i.node}</td><td class="mono">(${i.x.toFixed(1)}, ${i.y.toFixed(1)})</td>
+    <td class="mono">${i.confidence.toFixed(2)}</td><td class="mono">${i.error_m == null ? '–' : i.error_m.toFixed(2) + ' m'}</td></tr>`).join('');
+  $('#idtable').innerHTML = `<tr><th>identity</th><th>employee</th><th>status</th><th>claims</th><th>last by</th><th>position</th><th>conf.</th><th title="Distance to ground truth (scoring only)">vs truth</th></tr>` + (rows || '<tr><td colspan="8" class="empty">No identities yet.</td></tr>');
+  $('#res-note').textContent = `${S.claims_total.toLocaleString()} claims · ${S.compute_ms} ms`;
+}
+function spark(hist) {
+  if (!hist || hist.length < 2) return '';
+  const W = 220, H = 40, tmax = hist[hist.length - 1][0] || 1, amax = Math.max(...hist.map(h => h[2]), 1);
+  const pts = k => hist.map(h => `${(h[0] / tmax) * W},${H - (h[k] / amax) * H}`).join(' ');
+  return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" style="display:block;margin-top:6px"><title>Area over time: solid = C4 region, dashed = reachability alone</title><polyline points="${pts(2)}" fill="none" stroke="var(--faint)" stroke-dasharray="3 3"/><polyline points="${pts(1)}" fill="none" stroke="var(--brand)" stroke-width="2"/></svg>`;
+}
+const STALE = 'Every place this identity could have gone is watched by a camera that attested it healthy and saw nobody: it is not a hidden person but a stale duplicate track, and it drops out of the resolver window on its own.';
+function updateRegions() {
+  $('#c4-note').textContent = `${S.regions.length} region${S.regions.length === 1 ? '' : 's'}`;
+  $('#regions').innerHTML = S.regions.length ? S.regions.map(r => {
+    const stale = r.area_m2 < 0.5, why = stale ? STALE : (r.explanation || '');
+    return `<div class="region">
+    <div style="display:flex;gap:10px;align-items:center"><span class="sw" style="background:${colourOf(r.id)}"></span><b>${esc((S.identities.find(i => i.id === r.id) || {}).name || r.id)}</b>${stale ? '<span class="tag mute" title="' + esc(STALE) + '">STALE DUPLICATE</span>' : ''}<span class="info" title="${esc(why)}">${icon('unknown')}</span><span class="grow"></span><span class="muted">unseen ${r.unseen_for_s.toFixed(0)} s</span></div>
+    <div class="nums"><div title="Candidate area with negative evidence"><div class="big" style="color:var(--brand)">${r.area_m2.toFixed(0)} m²</div><div class="lbl">C4 region</div></div>
+    <div title="Candidate area from reachability alone"><div class="big" style="color:var(--faint)">${r.reachable_area_m2.toFixed(0)} m²</div><div class="lbl">reachable</div></div>
+    <div title="Part of the C4 region in camera-less space"><div class="big">${r.blind_block_area_m2.toFixed(0)} m²</div><div class="lbl">blind space</div></div></div>
+    ${spark(r.history)}</div>`;
+  }).join('') : '<div class="empty">Everyone in view: no candidate regions.</div>';
+}
+function updateAnchors() {
+  const w = S.world;
+  const all = [...(w.verifications || []).map(v => ({ ...v, k: 'check-in' })), ...(w.recognitions || []).map(v => ({ ...v, k: 'recognised' }))];
+  $('#anc-count').textContent = all.length;
+  const items = all.sort((a, b) => b.t_media - a.t_media).slice(0, 18);
+  $('#anchors').innerHTML = items.map(v => `<div><span class="k">${v.k}</span><b class="mono">${esc(v.clock)}</b> ${esc(v.name)} <span class="muted">· node ${v.node} (${esc(camArea(v.node))})</span></div>`).join('') || '<div class="empty">No employee verified yet.</div>';
+}
+function updateEvents() {
+  const forks = S.forks || [], open = forks.filter(f => f.status === 'OPEN').length;
+  const fc = $('#fork-count'); fc.className = 'tag ' + (open ? 'bad' : 'mute'); fc.textContent = `${forks.length} fork${forks.length === 1 ? '' : 's'}${open ? ` · ${open} open` : ''}`;
+  $('#forks').innerHTML = forks.length ? forks.map(f => `<div class="region"><span class="tag ${f.status === 'OPEN' ? 'bad' : 'ok'}">${esc(f.status)}</span> <b>${esc(f.identity)}</b> <span class="muted">${esc(f.explanation)}</span></div>`).join('') : '<div class="empty">No forks.</div>';
+  $('#events').innerHTML = (S.events || []).slice().reverse().map(e => `<div><span class="k">${esc(e.kind)}</span>${esc(e.text)}</div>`).join('');
+}
+
+// ── operator controls: each one a toggle that shows the live state ────
+// An expected state set by a click, shown until /api/state agrees (or 6 s pass),
+// so a toggle never flips back for the second before the nodes report the change.
+const PEND = {};
+const expect = (key, want) => { PEND[key] = { want, until: Date.now() + 6000 }; };
+function shown(key, actual) {
+  const p = PEND[key];
+  if (p && p.want !== actual && Date.now() < p.until) return { v: p.want, pending: true };
+  delete PEND[key];
+  return { v: actual, pending: false };
+}
+const lyingNodes = () => S ? S.nodes.filter(n => n.lying).map(n => n.id) : [];
+const coveredNodes = () => (S && S.gt && S.gt.occluded_nodes) || [];
+function setBtn(b, ic, label, on, testid) { b.innerHTML = icon(ic) + label; b.classList.toggle('on', on); if (testid) b.dataset.testid = testid; }
+function setTag(t, kind, text) { t.className = 'tag ' + kind; t.textContent = text; }
+function renderControls() {
+  if (!S || !CFG) return;
+  const groups = CFG.partition_groups.map(g => '{' + g.join(',') + '}').join(' | ');
+  const net = shown('net', !!(S.convergence || {}).any_partitioned || S.nodes.some(n => (n.dropped || []).length));
+  setBtn($('#b-net'), net.v ? 'network' : 'scissors', net.v ? 'Heal network' : 'Split network', net.v, net.v ? 'btn-heal' : 'btn-partition');
+  $('#b-net').title = net.v ? 'Restore every gossip link' : `Cut the ring into ${groups}`;
+  setTag($('#st-net'), net.pending ? 'brand' : net.v ? 'bad' : 'ok', net.pending ? 'applying…' : net.v ? `split ${groups}` : 'ring intact');
+
+  const ln = +$('#lie-node').value, liars = lyingNodes();
+  const lie = shown('lie-' + ln, liars.includes(ln));
+  setBtn($('#b-lie'), lie.v ? 'shield' : 'mask', lie.v ? `Stop node ${ln} lying` : 'Make it lie', lie.v, lie.v ? 'btn-stop-lie' : 'btn-lie');
+  $('#b-lie').classList.toggle('danger', !lie.v);
+  setTag($('#st-lie'), lie.pending ? 'brand' : liars.length ? 'bad' : 'ok', lie.pending ? 'applying…' : liars.length ? `node ${liars.join(', ')} lying` : 'all honest');
+  for (const o of $('#lie-node').options) o.textContent = `node ${o.value} · ${camArea(+o.value)}${liars.includes(+o.value) ? ' (lying)' : ''}`;
+
+  const cn = +$('#lens-node').value, cov = coveredNodes();
+  const lens = shown('lens-' + cn, cov.includes(cn));
+  setBtn($('#b-lens'), lens.v ? 'eye' : 'cover', lens.v ? `Uncover cam ${cn}` : 'Cover lens', lens.v, lens.v ? 'btn-unlens' : 'btn-lens');
+  $('#b-lens').classList.toggle('danger', !lens.v);
+  setTag($('#st-lens'), lens.pending ? 'brand' : cov.length ? 'bad' : 'ok', lens.pending ? 'applying…' : cov.length ? `cam ${cov.join(', ')} covered` : 'all clear');
+  for (const o of $('#lens-node').options) o.textContent = `cam ${o.value} · ${camArea(+o.value)}${cov.includes(+o.value) ? ' (covered)' : ''}`;
+}
+function wireControls() {
+  const groups = CFG.partition_groups.map(g => '{' + g.join(',') + '}').join(' | ');
+  setBtn($('#b-net'), 'scissors', 'Split network', false);
+  setBtn($('#b-lie'), 'mask', 'Make it lie', false); $('#b-lie').classList.add('danger');
+  setBtn($('#b-lens'), 'cover', 'Cover lens', false); $('#b-lens').classList.add('danger');
+  $('#b-net').onclick = async e => {
+    const b = e.currentTarget, healing = b.classList.contains('on');
+    const r = healing
+      ? await Starling.act(b, '/api/heal', {}, ['Network healed', 'All links up. Anti-entropy fills the gaps.'])
+      : await Starling.act(b, '/api/partition', {}, ['Network split', `${groups}: replicas now diverge.`]);
+    if (r && r.ok !== false) expect('net', !healing);
+    renderControls();
+  };
+  $('#b-lie').onclick = async e => {
+    const b = e.currentTarget, n = +$('#lie-node').value, stopping = b.classList.contains('on');
+    const r = stopping
+      ? await Starling.act(b, '/api/stop_lie', { node_id: n }, [`Node ${n} honest again`, 'Its reputation recovers as honest claims arrive.'])
+      : await Starling.act(b, '/api/lie', { node_id: n }, [`Node ${n} is lying`, 'It now fabricates claims. Watch its reputation fall.']);
+    if (r && r.ok !== false) expect('lie-' + n, !stopping);
+    renderControls();
+  };
+  $('#b-lens').onclick = async e => {
+    const b = e.currentTarget, n = +$('#lens-node').value, clearing = b.classList.contains('on');
+    const r = clearing
+      ? await Starling.act(b, '/api/world/unblock', { node_id: n }, [`Camera ${n} uncovered`, 'It resumes attesting once its pixels look healthy.'])
+      : await Starling.act(b, '/api/world/block', { node_id: n }, [`Camera ${n} covered`, 'A tarp in the 3D world. The node has to notice from its pixels.']);
+    if (r && r.ok !== false) expect('lens-' + n, !clearing);
+    renderControls();
+  };
+  $('#lie-node').onchange = renderControls;
+  $('#lens-node').onchange = renderControls;
+  setBtn($('#b-break'), 'walk', 'Send on a break', false);
+  $('#b-break').onclick = async e => {
+    const b = e.currentTarget, id = $('#brk-emp').value, name = $('#brk-emp').selectedOptions[0].textContent;
+    b.classList.add('busy');
+    try {
+      const r = await Starling.post('/api/world/break', { employee_id: id });
+      if (r && r.ok) Starling.toast(`${esc(name)} is going on a break`, 'Walking out through the staff entrance.', 'ok', 3500);
+      else Starling.toast(`${esc(name)} cannot leave right now`, 'Try again in a moment.', 'bad');
+    } catch (err) { Starling.toast('No answer from the dashboard', esc(String(err)), 'bad'); }
+    finally { b.classList.remove('busy'); }
+  };
+  setBtn($('#b-reset'), 'refresh', 'Reset view', false);
+  $('#b-reset').title = 'Heal every link, stop every lie, and restart the dashboard\'s own observer';
+  $('#b-reset').onclick = async e => {
+    const r = await Starling.act(e.currentTarget, '/api/reset', {}, ['Dashboard view reset', 'Links healed, lies stopped, observer restarted.']);
+    if (r && r.ok !== false) { expect('net', false); for (const n of CFG.node_ids) expect('lie-' + n, false); }
+    renderControls();
+  };
+  $('#ask').onclick = async e => {
+    const b = e.currentTarget; b.classList.add('busy'); $('#answer').textContent = '…';
+    try {
+      const r = await Starling.post('/api/query', { text: $('#q').value, purpose: $('#purpose').value });
+      $('#answer').textContent = r.status === 'answered' ? `${r.display_note ? r.display_note + '\n\n' : ''}${r.text}` : `REFUSED: ${r.reason}${r.display_note ? '\n' + r.display_note : ''}`;
+    } catch (err) { $('#answer').textContent = 'No answer: ' + err; }
+    finally { b.classList.remove('busy'); }
+  };
+}
+
+function render() {
+  if (!S || !S.ready || !S.world || !CFG) return;
+  const cv = S.convergence, cb = $('#conv');
+  cb.className = 'pill ' + (cv.any_partitioned ? 'bad' : cv.converged ? 'ok' : 'warn');
+  cb.lastElementChild.textContent = cv.any_partitioned ? 'Split: replicas diverge' : cv.converged ? `Converged · spread ${cv.spread}` : `Converging · spread ${cv.spread ?? '–'} · gaps ${cv.holes_total}`;
+  renderControls(); updatePipe(); updateCams(); updateMap(); drawNet(); updateIds(); updateRegions(); updateAnchors(); updateEvents();
+}
+
+async function boot() {
+  CFG = await Starling.config();
+  $('#worldlink').href = CFG.world_url;
+  drawPipe(); buildCams(); drawStatic();
+  $('#lie-node').innerHTML = CFG.node_ids.map(n => `<option value="${n}">node ${n} · ${esc(camArea(n))}</option>`).join('');
+  $('#lens-node').innerHTML = CFG.node_ids.map(n => `<option value="${n}">cam ${n} · ${esc(camArea(n))}</option>`).join('');
+  $('#brk-emp').innerHTML = CFG.world.employees.map(e => `<option value="${e.id}">${esc(e.name)}</option>`).join('');
+  wireControls();
+  Starling.onState(s => { S = s; render(); });
+}
+boot();
+</script>
+</body>
+</html>
