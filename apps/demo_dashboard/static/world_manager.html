@@ -12,10 +12,57 @@
   .seg { display: inline-flex; background: var(--panel-2); border: 1px solid var(--line); border-radius: 9px; padding: 2px; margin-left: auto; }
   .seg button { font: inherit; font-size: 12.5px; font-weight: 650; color: var(--soft); background: none; border: 0; border-radius: 7px; padding: 5px 11px; cursor: pointer; }
   .seg button.on { background: var(--panel); color: var(--ink); box-shadow: var(--shadow); }
-  .stagewrap { display: grid; grid-template-columns: 1fr; }
-  .stagewrap.both { grid-template-columns: 1fr 1fr; }
-  #live3d { display: none; width: 100%; aspect-ratio: 30 / 21; border: 0; background: #0b0f15; }
-  .stagewrap.both #live3d { display: block; }
+  .duo { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.12fr); gap: 16px; align-items: start; }
+  @media (max-width: 1500px) { .duo { grid-template-columns: 1fr; } }
+  /* camera focus */
+  .fx-h { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  .fx-h h2 { margin: 0; font-size: 13px; letter-spacing: .06em; text-transform: uppercase; color: var(--soft); font-weight: 700; margin-right: 4px; }
+  .follow { display: flex; gap: 6px; align-items: center; }
+  .follow button { border: 2px solid transparent; background: var(--panel-2); border-radius: 999px; width: 34px; height: 34px; padding: 0; cursor: pointer; font-weight: 800; font-size: 12px; color: #111; display: grid; place-items: center; position: relative; }
+  .follow button.on { border-color: var(--brand); box-shadow: 0 0 0 3px var(--brand-soft); }
+  .follow button.unk { background: var(--bad); color: #fff; font-size: 16px; animation: pulse 1.4s ease-in-out infinite; }
+  .follow button.hid::after { content: ""; position: absolute; inset: -2px; border-radius: 50%; border: 2px dashed var(--faint); }
+  .follow .auto { width: auto; padding: 0 12px; font-weight: 650; color: var(--soft); }
+  .fx-tabs { margin-left: auto; }
+  .fx-stage { position: relative; aspect-ratio: 16 / 9; background: #05080c; overflow: hidden; }
+  .fx-zoom { position: absolute; inset: 0; transform-origin: 0 0; transition: transform .7s cubic-bezier(.3, .7, .2, 1); will-change: transform; }
+  .fx-zoom img { width: 100%; height: 100%; display: block; object-fit: cover; }
+  .fx-zoom canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .fx-chip { position: absolute; z-index: 3; padding: 5px 11px; border-radius: 999px; background: rgba(8, 12, 18, .72); color: #fff; font-size: 12.5px; font-weight: 700; display: flex; gap: 8px; align-items: center; backdrop-filter: blur(4px); }
+  .fx-chip.tl { left: 10px; top: 10px; } .fx-chip.tr { right: 10px; top: 10px; } .fx-chip.bl { left: 10px; bottom: 10px; }
+  .fx-chip .rec { width: 8px; height: 8px; border-radius: 50%; background: #ff3b30; animation: blink 1.4s infinite; }
+  .fx-chip.alarm { background: rgba(201, 48, 44, .92); }
+  .fx-hand { position: absolute; z-index: 4; left: 50%; top: 52px; transform: translateX(-50%); padding: 8px 18px; border-radius: 999px; background: var(--brand); color: #fff; font-weight: 700; font-size: 14px; opacity: 0; transition: opacity .3s; pointer-events: none; white-space: nowrap; }
+  .fx-hand.on { opacity: 1; }
+  .fx-view3d { position: absolute; inset: 0; z-index: 2; border: 0; width: 100%; height: 100%; background: #0b0f15; display: none; }
+  .fx-stage.is3d .fx-view3d { display: block; } .fx-stage.is3d .fx-zoom, .fx-stage.is3d .fx-chip, .fx-stage.is3d .fx-aisle { display: none; }
+  .fx-empty { position: absolute; inset: 0; display: none; place-items: center; color: #9aa7b9; font-size: 14px; text-align: center; padding: 20px; z-index: 2; }
+  /* aisle mode */
+  .fx-aisle { position: absolute; inset: 0; z-index: 3; display: none; grid-template-columns: 1fr 1fr; gap: 0; background: var(--panel); }
+  .fx-stage.hidden-mode .fx-aisle { display: grid; } .fx-stage.hidden-mode .fx-zoom { filter: blur(2px) brightness(.5); }
+  .ax-col { position: relative; min-width: 0; display: flex; flex-direction: column; }
+  .ax-col + .ax-col { border-left: 1px solid var(--line); }
+  .ax-cap { padding: 8px 12px; font-size: 12.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--soft); }
+  .ax-snap { flex: 1; min-height: 0; position: relative; background: #05080c; display: grid; place-items: center; color: #9aa7b9; font-size: 13px; }
+  .ax-snap canvas { width: 100%; height: 100%; object-fit: contain; display: block; }
+  .ax-snap .age { position: absolute; left: 8px; bottom: 8px; background: rgba(8, 12, 18, .75); color: #fff; padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+  .ax-map { flex: 1; min-height: 0; }
+  .ax-map svg { width: 100%; height: 100%; display: block; background: var(--floor); }
+  .fx-say { padding: 11px 14px; font-size: 15px; font-weight: 650; line-height: 1.4; border-top: 1px solid var(--line); min-height: 52px; }
+  .fx-say.bad { color: var(--bad); }
+  .fx-ctl { display: flex; gap: 8px; align-items: center; padding: 8px 14px; border-top: 1px solid var(--line); flex-wrap: wrap; }
+  .layers { display: inline-flex; background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; padding: 2px; gap: 2px; }
+  .layers button { font: inherit; font-size: 12.5px; font-weight: 650; color: var(--soft); background: none; border: 0; border-radius: 8px; padding: 5px 10px; cursor: pointer; }
+  .layers button.on { background: var(--brand); color: #fff; }
+  .fx-ctl .why { font-size: 12.5px; color: var(--soft); flex: 1 1 260px; }
+  .strip { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; padding: 10px 14px 14px; border-top: 1px solid var(--line); }
+  .thumb { position: relative; border-radius: 10px; overflow: hidden; border: 2px solid var(--line); cursor: pointer; background: #05080c; aspect-ratio: 16 / 9; }
+  .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .thumb.on { border-color: var(--brand); box-shadow: 0 0 0 3px var(--brand-soft); }
+  .thumb .nm { position: absolute; left: 0; right: 0; bottom: 0; padding: 12px 8px 4px; font-size: 11.5px; font-weight: 700; color: #fff; background: linear-gradient(transparent, rgba(0, 0, 0, .8)); }
+  .thumb .bd { position: absolute; right: 5px; top: 5px; padding: 2px 7px; border-radius: 999px; font-size: 10.5px; font-weight: 800; background: var(--ok); color: #fff; display: none; }
+  .thumb .bd.on { display: block; } .thumb .bd.warn { background: var(--warn); }
+  .thumb.dead img { filter: grayscale(1) brightness(.4); }
   .legend { display: flex; gap: 18px; flex-wrap: wrap; padding: 9px 16px; border-top: 1px solid var(--line); color: var(--soft); font-size: 12.5px; }
   .legend span { display: inline-flex; align-items: center; gap: 6px; }
   /* ask */
@@ -70,21 +117,39 @@
 
   <div class="grid">
     <section>
+      <div class="duo">
       <div class="card">
-        <div class="card-h"><h2>Warehouse floor</h2>
-          <div class="seg" id="viewseg"><button data-v="map" class="on">Floor plan</button><button data-v="both">With live 3D</button></div></div>
-        <div class="stagewrap" id="stagewrap">
-          <svg id="map" class="floor" data-testid="map" viewBox="-1.2 -1.8 32.4 23.6" role="img" aria-label="Live floor plan">
-            <g id="l-static"></g><g id="l-focus"></g><g id="l-regions"></g><g id="l-unknown"></g><g id="l-people"></g>
-          </svg>
-          <iframe id="live3d" title="Live 3D view of the warehouse" loading="lazy"></iframe>
-        </div>
+        <div class="card-h"><h2>Warehouse floor</h2></div>
+        <svg id="map" class="floor" data-testid="map" viewBox="-1.2 -1.8 32.4 23.6" role="img" aria-label="Live floor plan">
+          <g id="l-static"></g><g id="l-focus"></g><g id="l-regions"></g><g id="l-link"></g><g id="l-unknown"></g><g id="l-people"></g>
+        </svg>
         <div class="legend">
           <span><svg width="14" height="14"><circle cx="7" cy="7" r="6" fill="var(--brand)"/></svg>Seen now</span>
-          <span><svg width="14" height="14"><circle cx="7" cy="7" r="5.5" fill="none" stroke="var(--brand)" stroke-width="1.6" stroke-dasharray="2.4 2"/></svg>Hidden: shaded area shows where they must be</span>
+          <span><svg width="14" height="14"><circle cx="7" cy="7" r="5.5" fill="none" stroke="var(--brand)" stroke-width="1.6" stroke-dasharray="2.4 2"/></svg>Hidden: shaded area is where they must be</span>
           <span><svg width="14" height="14"><circle cx="7" cy="7" r="6" fill="var(--bad)"/></svg>Unknown person</span>
-          <span><svg width="14" height="14"><rect x="1" y="4" width="12" height="6" rx="1" fill="var(--rack)"/></svg>Racks (no cameras in the aisles)</span>
         </div>
+      </div>
+
+      <div class="card" id="focus" data-testid="camera-focus">
+        <div class="fx-h"><h2>Camera focus</h2><div class="follow" id="follow"></div>
+          <div class="seg fx-tabs" id="fx-tabs"><button data-t="cam" class="on">Camera</button><button data-t="3d">3D world</button></div></div>
+        <div class="fx-stage" id="fx-stage">
+          <div class="fx-zoom" id="fx-zoom"><img id="fx-img" alt="Live camera picture"><canvas id="fx-cv"></canvas></div>
+          <div class="fx-chip tl" id="fx-cam"><span class="rec"></span><span id="fx-cam-t">Camera</span></div>
+          <div class="fx-chip tr" id="fx-who" style="display:none"></div>
+          <div class="fx-hand" id="fx-hand"></div>
+          <div class="fx-aisle" id="fx-aisle">
+            <div class="ax-col"><div class="ax-cap">Last seen</div><div class="ax-snap" id="ax-snap"><canvas id="ax-cv" width="640" height="360"></canvas><span class="age" id="ax-age"></span></div></div>
+            <div class="ax-col"><div class="ax-cap" id="ax-mapcap">Where they must be</div><div class="ax-map"><svg id="ax-svg"><g id="ax-floor"></g><g id="ax-dyn"></g></svg></div></div>
+          </div>
+          <iframe class="fx-view3d" id="fx-3d" title="Live 3D world" loading="lazy"></iframe>
+        </div>
+        <div class="fx-say" id="fx-say">Pick a person above, or ask "Where is Priya?"</div>
+        <div class="fx-ctl" id="fx-ctl"><span class="muted" style="font-size:12.5px;font-weight:700">What Starling adds</span>
+          <div class="layers" id="layers"><button data-l="1">1 Detect</button><button data-l="2">2 Place</button><button data-l="3" class="on">3 Recognise</button><button data-l="4">4 Share</button></div>
+          <button class="btn" id="layer-play" style="padding:5px 11px;font-size:12.5px"></button><span class="why" id="layer-why"></span></div>
+        <div class="strip" id="strip"></div>
+      </div>
       </div>
 
       <div class="card" style="margin-top:16px" data-testid="behind">
@@ -210,6 +275,7 @@ function drawPeople(people) {
       m.txt = el('text', { 'font-size': 0.48, 'font-weight': 800, 'text-anchor': 'middle', y: 0.17, fill: '#111' }, m); m.txt.textContent = S_.initials(p.name);
       m.lbl = el('text', { 'font-size': 0.55, 'font-weight': 700, 'text-anchor': 'middle', y: 1.35, fill: 'var(--ink)', 'paint-order': 'stroke', stroke: 'var(--floor)', 'stroke-width': 0.2 }, m);
       m.addEventListener('click', () => ask(`Where is ${p.name.split(' ')[0]}?`));
+      m.style.cursor = 'pointer';
       markers[p.id] = m;
     }
     m.style.transform = `translate(${p.x}px, ${p.y}px)`;
@@ -270,6 +336,7 @@ function renderPeople(w) {
       <div style="flex:1;min-width:0"><div class="pn">${esc(p.name)} <span class="tag ${cls}">${txt}</span></div><div class="ps">${esc(shortWhere(p))} · ${esc(p.role)}</div></div></div>`;
   }).join('');
   document.querySelectorAll('.person[data-id]').forEach(d => d.onclick = () => { const p = w.people.find(x => x.id === d.dataset.id); ask(`Where is ${p.name.split(' ')[0]}?`); });
+  document.querySelectorAll('.person.intruder').forEach(d => d.onclick = () => ask("Is there anyone we don't know?"));
 }
 function renderAlerts(w) {
   $('#alerts-card').style.display = w.alerts.length ? '' : 'none';
@@ -283,6 +350,7 @@ function notifyUnknown(list) {
     if (Date.now() - booted < 3000) continue;
     const t = S_.toast(`${u.label}: not on the staff list`, `<div>Seen in ${esc(u.area)}. Never checked in at the gate.</div>`, 'bad', 10000);
     if (t) { t.style.cursor = 'pointer'; t.onclick = () => ask("Is there anyone we don't know?"); }
+    autoFollowStranger(u);
   }
 }
 
@@ -300,6 +368,7 @@ function render(s) {
   drawFocus(); drawRegions(s.regions || [], w.people, w.unverified || []); drawUnknown(w.unverified || []); drawPeople(w.people);
   if ($('#roll').classList.contains('on')) drawRollMap(s);
   window.__last = s;
+  focusRender(s);
 }
 
 // ── Ask Starling ─────────────────────────────────────────────────────
@@ -318,6 +387,7 @@ async function ask(text) {
       fetch('/api/ask_cameras').then(r => r.json()).catch(() => null),
     ]);
     lastAsk = cams; ANSWER = a; focus = a.focus || null;
+    followFromAnswer(a);
     if (a.kind === 'rollcall') openRoll(a);
     renderAnswer(a);
     if (window.__last) render(window.__last);
@@ -381,22 +451,218 @@ function drawRollMap(s) {
   for (const u of w.unverified || []) { el('circle', { cx: u.x, cy: u.y, r: 0.75, fill: 'var(--bad)', stroke: '#fff', 'stroke-width': 0.08 }, g); const q = el('text', { x: u.x, y: u.y + 0.27, 'font-size': 0.75, 'font-weight': 900, 'text-anchor': 'middle', fill: '#fff' }, g); q.textContent = '?'; }
 }
 
+// ═════════════ Camera focus: follow a person through the cameras ═════════════
+// Visible: the camera covering them opens, zooms to them and hands over to the next camera as
+// they walk. Hidden: no camera can show them, so the panel shows their last sighting and the
+// area they must be in, with the cameras that vouch it is empty elsewhere.
+const FX = { key: null, pin: null, cam: null, layer: 3, snaps: {}, perc: {}, claims: {}, pulseUntil: 0, tab: 'cam', lastUserPick: 0, handUntil: 0, lastSnapT: 0, sizes: [1, 1], threeOk: false, replay: null };
+const PERSON_RING = '#2f6fed';
+function fxTarget(s) {
+  const w = s.world; if (!FX.key) return null;
+  if (FX.key.startsWith('EMP')) {
+    const p = w.people.find(x => x.id === FX.key); if (!p || ['not_arrived', 'left'].includes(p.status)) return null;
+    return { kind: 'emp', p, id: p.id, name: p.name, first: p.name.split(' ')[0], colour: p.colour, visible: p.status === 'visible', x: p.x, y: p.y, cam: p.node ?? (p.identity || {}).node, region: (s.regions || []).find(r => r.id === p.id), alarm: false };
+  }
+  const u = (w.unverified || []).find(x => x.label === FX.key); if (!u) return null;
+  return { kind: 'unk', p: u, id: u.id, name: u.label, first: u.label, colour: '#d92d20', visible: u.status === 'visible', x: u.x, y: u.y, cam: u.node ?? (u.cameras || [])[0], region: (s.regions || []).find(r => r.id === u.id), alarm: true };
+}
+function followSet(key, byUser) {
+  if (FX.key === key) return;
+  FX.key = key; FX.pin = null; FX.cam = null; if (byUser) FX.lastUserPick = Date.now();
+  renderFollowRow(); tell3D();
+}
+function followFromAnswer(a) {
+  const f = a.focus || {}; const w = (window.__last || {}).world || {};
+  if (f.people && f.people.length === 1 && a.kind === 'where') followSet(f.people[0], true);
+  else if (a.kind === 'unknown' && f.unknown && f.unknown.length) { const u = (w.unverified || []).find(x => x.id === f.unknown[0]); if (u) followSet(u.label, true); }
+  else if (a.kind === 'where' && f.unknown && f.unknown.length) { const u = (w.unverified || []).find(x => x.id === f.unknown[0]); if (u) followSet(u.label, true); }
+}
+function autoFollowStranger(u) { if (Date.now() - FX.lastUserPick > 20000 || !FX.key) followSet(u.label, false); }
+function renderFollowRow() {
+  const w = (window.__last || {}).world; if (!w) return;
+  const rows = w.people.filter(p => !['not_arrived', 'left'].includes(p.status)).map(p => `<button data-k="${p.id}" class="${FX.key === p.id ? 'on' : ''} ${p.status === 'visible' ? '' : 'hid'}" style="background:${p.colour}" title="Follow ${esc(p.name)}">${S_.initials(p.name)}</button>`)
+    .concat((w.unverified || []).map(u => `<button data-k="${esc(u.label)}" class="unk ${FX.key === u.label ? 'on' : ''}" title="Follow ${esc(u.label)}">?</button>`));
+  $('#follow').innerHTML = rows.join('') + `<button class="auto ${FX.key ? '' : 'on'}" data-k="">Auto</button>`;
+  document.querySelectorAll('#follow button').forEach(b => b.onclick = () => followSet(b.dataset.k || null, true));
+}
+function tell3D() {
+  const f = $('#fx-3d'); if (!f.contentWindow || !FX.threeOk) return;
+  const s = window.__last; const t = s && fxTarget(s);
+  f.contentWindow.postMessage({ follow: t ? (t.kind === 'emp' ? t.id : 'VIS-01') : null, colour: t && t.alarm ? '#ff3b30' : PERSON_RING }, '*');
+}
+function focusInit() {
+  $('#layer-play').innerHTML = ic('play') + 'Replay';
+  const why = { 1: 'This is all ordinary object detection does: a box around a person.', 2: 'Starling also works out exactly where they stand on the floor.', 3: '...and who they are, matched against the staff list.', 4: '...and shares a small signed note, so every camera knows.' };
+  const setLayer = l => { FX.layer = l; document.querySelectorAll('#layers button').forEach(b => b.classList.toggle('on', +b.dataset.l === l)); $('#layer-why').textContent = why[l]; };
+  document.querySelectorAll('#layers button').forEach(b => b.onclick = () => { clearInterval(FX.replay); setLayer(+b.dataset.l); });
+  $('#layer-play').onclick = () => { clearInterval(FX.replay); let l = 1; setLayer(1); FX.replay = setInterval(() => { l++; if (l > 4) { clearInterval(FX.replay); return; } setLayer(l); }, 2600); };
+  setLayer(3);
+  document.querySelectorAll('#fx-tabs button').forEach(b => b.onclick = () => {
+    FX.tab = b.dataset.t; document.querySelectorAll('#fx-tabs button').forEach(x => x.classList.toggle('on', x === b));
+    $('#fx-stage').classList.toggle('is3d', FX.tab === '3d');
+    if (FX.tab === '3d') { const f = $('#fx-3d'); if (!f.src) { f.src = C.world_url + '/?embed=1&view=overview'; f.onload = () => { FX.threeOk = true; tell3D(); }; } else tell3D(); }
+    else { const f = $('#fx-3d'); f.src = 'about:blank'; FX.threeOk = false; f.removeAttribute('src'); }
+  });
+  $('#strip').innerHTML = C.node_ids.map(n => `<div class="thumb" data-n="${n}" id="th${n}"><img alt=""><span class="bd" id="bd${n}"></span><span class="nm">Camera ${n} · ${esc(S_.camName(C, n))}</span></div>`).join('');
+  document.querySelectorAll('.thumb').forEach(t => t.onclick = () => { FX.pin = FX.pin === +t.dataset.n ? null : +t.dataset.n; });
+  new ResizeObserver(() => { const r = $('#fx-stage').getBoundingClientRect(); FX.sizes = [r.width, r.height]; const cv = $('#fx-cv'); cv.width = r.width * devicePixelRatio; cv.height = r.height * devicePixelRatio; }).observe($('#fx-stage'));
+  setInterval(focusPoll, 650);
+  setInterval(() => { if (FX.tab === '3d' && !document.hidden) tell3D(); }, 2000);  // the 3D page may still be loading
+  setInterval(() => { if (!document.hidden) document.querySelectorAll('.thumb img').forEach((im, i) => { im.src = `/api/camera/${C.node_ids[i]}.jpg?t=${Date.now()}`; }); }, 1500);
+}
+function bestCamera(s) {
+  const c = {}; for (const p of s.world.people) if (p.status === 'visible' && p.node != null) c[p.node] = (c[p.node] || 0) + 1;
+  for (const u of s.world.unverified || []) if (u.status === 'visible' && u.node != null) c[u.node] = (c[u.node] || 0) + 2;
+  const best = Object.entries(c).sort((a, b) => b[1] - a[1])[0]; return best ? +best[0] : (FX.cam ?? 0);
+}
+async function focusPoll() {
+  const s = window.__last; if (!s || document.hidden || FX.tab === '3d') return;
+  const t = fxTarget(s);
+  const hiddenMode = !!t && !t.visible;
+  let cam = FX.pin ?? (t && t.visible ? t.cam : t ? (FX.cam ?? t.cam) : bestCamera(s));
+  if (cam == null) cam = FX.cam ?? 0;
+  if (cam !== FX.cam) {
+    const first = FX.cam == null; const from = FX.cam; FX.cam = cam;
+    if (!first && t) { const h = $('#fx-hand'); h.textContent = `${t.first} moved: switching to Camera ${cam} · ${S_.camName(C, cam)}`; h.classList.add('on'); setTimeout(() => h.classList.remove('on'), 2200); }
+    FX.zoom = null;
+  }
+  $('#fx-stage').classList.toggle('hidden-mode', hiddenMode);
+  $('#fx-img').src = `/api/camera/${cam}.jpg?t=${Date.now()}`;
+  let perc = null; try { perc = await (await fetch(`/api/node/${cam}/perception`, { cache: 'no-store' })).json(); } catch {}
+  if (perc && perc.claims_made != null) { if (FX.claims[cam] != null && perc.claims_made > FX.claims[cam]) FX.pulseUntil = performance.now() + 1100; FX.claims[cam] = perc.claims_made; }
+  FX.perc = perc || {};
+  fxDraw(s, t, cam, hiddenMode);
+}
+function fxLabelFor(s, d) {
+  const w = s.world; if (d.employee_name) { const p = w.people.find(x => x.id === d.employee_id); return { name: d.employee_name, colour: p ? p.colour : PERSON_RING, id: d.employee_id }; }
+  let best = null, bd = 2.0;
+  for (const p of w.people) { if (p.x == null || p.status !== 'visible') continue; const dd = Math.hypot(p.x - d.x, p.y - d.y); if (dd < bd) { bd = dd; best = { name: p.name, colour: p.colour, id: p.id }; } }
+  for (const u of w.unverified || []) { if (u.status !== 'visible') continue; const dd = Math.hypot(u.x - d.x, u.y - d.y); if (dd < bd) { bd = dd; best = { name: u.label, colour: '#d92d20', id: u.label, unk: true }; } }
+  return best;
+}
+function fxDraw(s, t, cam, hiddenMode) {
+  const cv = $('#fx-cv'), g = cv.getContext('2d'), [W, H] = FX.sizes, dpr = devicePixelRatio;
+  g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, W, H);
+  const dets = ((FX.perc || {}).detections || []).filter(d => d.bbox_norm);
+  let tdet = null;
+  if (t && t.visible) { let bd = 2.6; for (const d of dets) { const dd = Math.hypot(d.x - t.x, d.y - t.y); if (dd < bd) { bd = dd; tdet = d; } } }
+  // zoom on the followed person
+  let z = 1, tx = 0, ty = 0;
+  if (tdet) {
+    const [x1, y1, x2, y2] = tdet.bbox_norm, bh = Math.max(0.04, y2 - y1);
+    z = Math.max(1, Math.min(3.1, 0.34 / bh)); const cx = (x1 + x2) / 2 * W, cy = (y1 + y2) / 2 * H;
+    tx = Math.max(W - W * z, Math.min(0, W / 2 - cx * z)); ty = Math.max(H - H * z, Math.min(0, H / 2 - cy * z));
+    FX.zoom = { z, tx, ty };
+  } else if (FX.zoom && t && t.visible) { ({ z, tx, ty } = FX.zoom); }
+  $('#fx-zoom').style.transform = `translate(${tx}px, ${ty}px) scale(${z})`;
+  const lw = 1 / z;
+  const L = FX.layer, now = performance.now();
+  for (const d of dets) {
+    const lab = fxLabelFor(s, d), isT = d === tdet;
+    const [x1, y1, x2, y2] = d.bbox_norm, bx = x1 * W, by = y1 * H, bw = (x2 - x1) * W, bh = (y2 - y1) * H;
+    const col = lab ? (lab.unk ? '#ff3b30' : lab.colour) : '#ffffff';
+    const dim = t && !isT ? 0.55 : 1;
+    g.globalAlpha = dim; g.lineWidth = (isT ? 3.2 : 1.8) * lw; g.strokeStyle = L >= 3 && lab ? col : '#ffffff';
+    if (isT) { g.shadowColor = col; g.shadowBlur = 14 * lw; }
+    g.strokeRect(bx, by, bw, bh); g.shadowBlur = 0;
+    const fs = 11.5 * lw, pad = 4 * lw; g.font = `700 ${fs}px "Segoe UI", system-ui, sans-serif`;
+    const chip = (txt, x, y, bg, fg = '#fff') => { const tw = g.measureText(txt).width + pad * 2; g.fillStyle = bg; g.beginPath(); g.roundRect(x, y - fs - pad, tw, fs + pad * 1.6, 5 * lw); g.fill(); g.fillStyle = fg; g.fillText(txt, x + pad, y - pad * 0.35); return tw; };
+    const topLabel = L >= 3 && lab ? lab.name : `person ${Math.round((d.conf || 0) * 100)}%`;
+    chip(topLabel, bx, by - 2 * lw, L >= 3 && lab ? col : 'rgba(0,0,0,.7)');
+    if (L >= 2) {
+      const fx = bx + bw / 2, fy = by + bh; g.strokeStyle = col; g.lineWidth = 2.4 * lw; g.beginPath(); g.ellipse(fx, fy, bw * 0.55 + 4 * lw, bw * 0.16 + 2 * lw, 0, 0, 7); g.stroke();
+      if (d.x != null) chip(`on the floor: ${d.x.toFixed(1)} m, ${d.y.toFixed(1)} m`, bx, fy + fs * 2.6, 'rgba(8,12,18,.78)');
+    }
+    if (L >= 4 && d.claimed && now < FX.pulseUntil) {
+      const k = 1 - (FX.pulseUntil - now) / 1100; g.strokeStyle = col; g.lineWidth = 3 * lw; g.globalAlpha = 1 - k; g.beginPath(); g.ellipse(bx + bw / 2, by + bh / 2, bw * (0.7 + k * 1.4), bh * (0.6 + k * 1.1), 0, 0, 7); g.stroke();
+      g.globalAlpha = 1 - k * 0.6; chip('note signed and sent to 2 neighbours', bx, by + bh + fs * 5.2, 'rgba(47,111,237,.92)');
+    }
+    g.globalAlpha = 1;
+  }
+  // chips
+  const cname = S_.camName(C, cam);
+  $('#fx-cam-t').textContent = `Camera ${cam} · ${cname}`;
+  $('#fx-cam').classList.toggle('alarm', !!(t && t.alarm));
+  const who = $('#fx-who');
+  who.style.display = t ? '' : 'none';
+  if (t) who.innerHTML = `${ic(t.alarm ? 'alert' : 'eye')}${t.visible ? `Following ${esc(t.name)}` : `${esc(t.name)} is out of sight`}`;
+  who.classList.toggle('alarm', !!(t && t.alarm));
+  // snapshot of the last sighting, kept while they are in view
+  if (t && t.visible && tdet && now - FX.lastSnapT > 1400) {
+    FX.lastSnapT = now; const img = $('#fx-img'); if (img.naturalWidth) {
+      const [x1, y1, x2, y2] = tdet.bbox_norm, nw = img.naturalWidth, nh = img.naturalHeight, bw = (x2 - x1) * nw, bh = (y2 - y1) * nh;
+      const cw = Math.min(nw, Math.max(bw * 4.2, 360)), ch = cw * 9 / 16, sx = Math.max(0, Math.min(nw - cw, (x1 + x2) / 2 * nw - cw / 2)), sy = Math.max(0, Math.min(nh - ch, (y1 + y2) / 2 * nh - ch / 2));
+      const oc = document.createElement('canvas'); oc.width = 640; oc.height = 360; const og = oc.getContext('2d');
+      try { og.drawImage(img, sx, sy, cw, ch, 0, 0, 640, 360); og.strokeStyle = t.colour; og.lineWidth = 4; og.strokeRect((x1 * nw - sx) * 640 / cw, (y1 * nh - sy) * 360 / ch, bw * 640 / cw, bh * 360 / ch);
+        FX.snaps[t.id] = { c: oc, t: Date.now(), cam, area: t.p.area }; } catch {}
+    }
+  }
+  fxSay(s, t, cam, hiddenMode, !!tdet);
+  fxLink(s, t, cam);
+  // thumbnails: who sees what
+  for (const n of C.node_ids) {
+    const th = $('#th' + n), bd = $('#bd' + n), nd = s.nodes.find(x => x.id === n);
+    th.classList.toggle('on', n === cam); th.classList.toggle('dead', !nd || !nd.live);
+    bd.className = 'bd'; bd.textContent = '';
+    if (t && hiddenMode && t.region) { const ok = (t.region.healthy_nodes || []).includes(n); bd.className = 'bd on' + (ok ? '' : ' warn'); bd.textContent = ok ? 'sees nobody' : 'cannot vouch'; }
+    else if (t && t.visible && n === cam) { bd.className = 'bd on'; bd.textContent = 'sees ' + t.first; }
+  }
+}
+function fxSay(s, t, cam, hiddenMode, haveBox) {
+  const say = $('#fx-say'); say.classList.toggle('bad', !!(t && t.alarm));
+  const stage = $('#fx-stage'); const ctl = $('#fx-ctl');
+  if (!t) { say.textContent = FX.key ? 'That person is not inside right now.' : `Showing the busiest camera. Pick a person above to follow them, or ask "Where is Priya?"`; renderAisle(null); return; }
+  if (t.visible) {
+    say.textContent = t.alarm ? `${t.name} is not on the staff list. Following them from camera to camera.` : `${t.name}: ${t.p.area ? 'in ' + t.p.area : 'on the floor'}, seen by Camera ${cam}.${haveBox ? '' : ' (the detector missed a frame; the box returns in a moment)'}`;
+    renderAisle(null); return;
+  }
+  const r = t.region, sn = FX.snaps[t.id];
+  const hid = t.p.unseen_for_s != null ? Math.round(t.p.unseen_for_s) : null;
+  if (r && r.area_m2 >= 1) {
+    const inAisle = (r.aisles_area_m2 ?? r.blind_block_area_m2 ?? 0) / r.area_m2 >= 0.6;
+    say.textContent = inAisle ? `No camera can see inside the aisle. ${(r.healthy_nodes || []).length} cameras watch the ways out and none saw ${t.first} leave, so ${t.first} is in this ${Math.round(r.area_m2)} m² strip.`
+      : `${t.first} is out of sight. Working cameras ruled out everywhere else: ${t.first} must be in this ${Math.round(r.area_m2)} m² area.`;
+  } else say.textContent = `${t.first} left every camera's view ${hid ?? ''} s ago. Watching for ${t.first} to reappear.`;
+  renderAisle({ t, r, sn });
+}
+function renderAisle(o) {
+  if (!o || !o.t) return;
+  const { t, r, sn } = o;
+  const ac = $('#ax-cv').getContext('2d'); ac.fillStyle = '#05080c'; ac.fillRect(0, 0, 640, 360);
+  if (sn) { ac.drawImage(sn.c, 0, 0); $('#ax-age').textContent = `${Math.max(0, Math.round((Date.now() - sn.t) / 1000))} s ago · Camera ${sn.cam}`; $('#ax-age').style.display = ''; }
+  else { ac.fillStyle = '#9aa7b9'; ac.font = '600 22px "Segoe UI", sans-serif'; ac.textAlign = 'center'; ac.fillText('No picture kept yet (opened after they left view)', 320, 180); $('#ax-age').style.display = 'none'; }
+  const svg = $('#ax-svg');
+  if (r && r.area_m2 >= 1 && r.runs.length) {
+    const grid = C.grid; let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+    for (const [j, i0, i1] of r.runs) { const x = grid.origin[0] + i0 * grid.cell, y = grid.origin[1] + j * grid.cell; x0 = Math.min(x0, x); x1 = Math.max(x1, grid.origin[0] + (i1 + 1) * grid.cell); y0 = Math.min(y0, y); y1 = Math.max(y1, y + grid.cell); }
+    const pad = 2.2, w = Math.max(10, x1 - x0 + 2 * pad), h = Math.max(6, y1 - y0 + 2 * pad), cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
+    svg.setAttribute('viewBox', `${cx - w / 2} ${cy - h / 2} ${w} ${h}`);
+    if (!svg.dataset.drawn) { S_.drawFloor($('#ax-floor'), C, { labels: false, zones: false }); svg.dataset.drawn = '1'; }
+    const d = $('#ax-dyn'); d.innerHTML = '';
+    el('path', { d: S_.regionPath(C, r), fill: t.colour, opacity: 0.45, stroke: t.colour, 'stroke-width': 0.12, 'stroke-dasharray': '0.4 0.3' }, d);
+    for (const n of r.healthy_nodes || []) { const c = C.world.cameras.find(c => c.node_id === n); if (!c) continue; const [mx, my] = c.mount; const dx = cx - mx, dy = cy - my, k = Math.min(1, 6 / Math.hypot(dx, dy)); el('line', { x1: mx, y1: my, x2: mx + dx * 0.0, y2: my + dy * 0.0 }, d); }
+    const q = el('text', { x: cx, y: cy + 0.3, 'font-size': Math.max(0.5, w / 24), 'font-weight': 800, 'text-anchor': 'middle', fill: t.colour, 'paint-order': 'stroke', stroke: 'var(--floor)', 'stroke-width': Math.max(0.15, w / 90) }, d); q.textContent = `${t.first} is here`;
+    $('#ax-mapcap').textContent = `Where ${t.first} must be: ${Math.round(r.area_m2)} m²`;
+  } else { $('#ax-dyn').innerHTML = ''; svg.setAttribute('viewBox', '0 0 32 24'); $('#ax-mapcap').textContent = 'Just out of view'; }
+}
+function fxLink(s, t, cam) {
+  const g = $('#l-link'); g.innerHTML = '';
+  const c = C.world.cameras.find(c => c.node_id === cam); if (!c) return;
+  el('circle', { cx: c.mount[0], cy: c.mount[1], r: 0.9, fill: 'none', stroke: t && t.alarm ? 'var(--bad)' : 'var(--brand)', 'stroke-width': 0.18, class: 'pulse' }, g);
+  if (t && t.visible && t.x != null) el('line', { x1: c.mount[0], y1: c.mount[1], x2: t.x, y2: t.y, stroke: t.alarm ? 'var(--bad)' : 'var(--brand)', 'stroke-width': 0.12, 'stroke-dasharray': '0.35 0.25', opacity: 0.85 }, g);
+}
+function focusRender(s) { renderFollowRow(); if (!FX.key) { const u = (s.world.unverified || [])[0]; if (u && Date.now() - FX.lastUserPick > 20000) followSet(u.label, false); } }
+
 (async () => {
   C = await S_.config();
   S_.drawFloor($('#l-static'), C);
-  const setView = v => {
-    document.querySelectorAll('#viewseg button').forEach(b => b.classList.toggle('on', b.dataset.v === v));
-    $('#stagewrap').className = 'stagewrap ' + (v === 'both' ? 'both' : '');
-    if (v === 'both' && !$('#live3d').src) $('#live3d').src = C.world_url + '/?embed=1&view=overview';
-  };
-  document.querySelectorAll('#viewseg button').forEach(b => b.onclick = () => setView(b.dataset.v));
   const params = new URLSearchParams(location.search);
-  setView(params.get('view') === 'both' ? 'both' : 'map');
+  focusInit();
   $('#askform').onsubmit = e => { e.preventDefault(); const q = $('#askq').value.trim(); if (q) ask(q); };
   $('#sos').onclick = () => ask('Roll call');
   $('#roll-x').onclick = closeRoll;
   document.addEventListener('keydown', e => { if (e.key === 'Escape') closeRoll(); });
-  window.addEventListener('message', ev => { if (ev.origin !== location.origin || !ev.data) return; if (ev.data.ask) { $('#purpose').value = ev.data.purpose || 'safety'; ask(ev.data.ask); } if (ev.data.closeRoll) closeRoll(); });
+  window.addEventListener('message', ev => { if (ev.origin !== location.origin || !ev.data) return; if (ev.data.ask) { $('#purpose').value = ev.data.purpose || 'safety'; ask(ev.data.ask); } if (ev.data.closeRoll) closeRoll(); if (ev.data.layer) document.querySelector(`#layers button[data-l="${ev.data.layer}"]`)?.click(); });
   if (params.get('ask')) setTimeout(() => ask(params.get('ask')), 1200);
   S_.onState(render);
   feed();

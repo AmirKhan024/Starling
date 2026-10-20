@@ -128,6 +128,8 @@ _CORROBORATION_RADIUS_M = 4.0
 # first claims) once this many of its claims were accepted.
 _MIN_ESTABLISHED_CLAIMS = 3
 _MAX_TRACKS = 256
+# Rejected claims kept for display.
+_MAX_RECENT_REJECTIONS = 60
 # Anti-entropy delta replies are chunked by BYTE budget
 # (starling_net.anti_entropy.chunk_by_bytes), not a fixed claim count: the
 # wire cap (starling_proto.limits.MAX_MESSAGE_BYTES, 8192B) applies per
@@ -416,6 +418,9 @@ class _ReputationLoop:
         # the per-origin HLC monotonicity test below.
         self.catchup_ids: set[str] = set()
         self.rejected_by_node: Counter[int] = Counter()
+        # The most recent rejected claims (where, why, who contradicted them): shown by
+        # the dashboard so "a camera was caught lying" can be seen, not just counted.
+        self.recent_rejections: deque[dict[str, Any]] = deque(maxlen=_MAX_RECENT_REJECTIONS)
 
     def run_pass(self, now_t_media: float) -> None:
         """Evaluate every not-yet-evaluated remote claim against the
@@ -522,6 +527,7 @@ class _ReputationLoop:
                 ]
 
             result = None
+            contradicted_by: Optional[int] = None
             for position, t_baseline in candidates or [(None, None)]:
                 state = CorroboratedState(
                     last_position=position,
@@ -539,6 +545,7 @@ class _ReputationLoop:
             if result.passed and self.contradiction is not None:
                 contra = self.contradiction.check(claim, corroborators)
                 if contra is not None:
+                    contradicted_by = contra.by_node
                     key = (source_node, claim.get("local_track_id"))
                     last = self._contradicted_track_t.get(key)
                     if last is not None and claim["t_media"] - last < self.cfg.contradiction_track_cooldown_s:
@@ -561,6 +568,13 @@ class _ReputationLoop:
             self.evaluated_by_node[source_node] += 1
             if not result.passed:
                 self.rejected_by_node[source_node] += 1
+                if cx is not None and counts_for_reputation:
+                    self.recent_rejections.append({
+                        "t_media": round(claim["t_media"], 2), "node": source_node,
+                        "x": round(cx, 2), "y": round(cy, 2),
+                        "why": [f for f in result.failures if f != "freshness"] or list(result.failures),
+                        "contradicted_by": contradicted_by,
+                    })
                 _plausibility_log.info(
                     "plausibility_rejected", about_node=source_node, track=claim.get("local_track_id"),
                     failures=result.failures, t_media=round(claim["t_media"], 2),

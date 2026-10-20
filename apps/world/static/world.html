@@ -342,13 +342,36 @@ function frame(now) {
         const target = V(w.x, w.y, 1.0);
         const delta = target.clone().sub(controls.target).multiplyScalar(0.08);
         controls.target.add(delta); camera.position.add(delta);
-      }
-    }
+        if (followAssist) {  // fly in close, once, then let the viewer orbit freely
+          const dist = camera.position.distanceTo(controls.target);
+          if (dist > 9.5) camera.position.lerp(controls.target.clone().add(new THREE.Vector3(-4.5, 5.5, 6.5)), 0.06);
+          else followAssist = false;
+        }
+        spot.visible = true; spot.position.set(w.x, 0.06, w.y);
+        const k = 0.5 + 0.5 * Math.sin(now / 260); spot.scale.setScalar(1 + 0.25 * k);
+      } else spot.visible = false;
+    } else spot.visible = false;
   }
   if (controls.enabled) controls.update();
   renderer.render(wh.scene, camera);
 }
 requestAnimationFrame(frame);
+// The dashboard (the parent page) can ask this view to follow a person: it flies in
+// close and rings them, so "where is Priya" can also be answered in the real warehouse.
+//   postMessage({ follow: "EMP-1041", colour: "#2f6fed" })  or  ({ follow: null })
+const spotMat = new THREE.MeshBasicMaterial({ color: '#2f6fed', transparent: true, opacity: 0.9, depthTest: false, side: THREE.DoubleSide });
+const spot = new THREE.Mesh(new THREE.RingGeometry(0.75, 0.95, 40), spotMat);
+spot.rotation.x = -Math.PI / 2; spot.visible = false; spot.renderOrder = 11; wh.world.add(spot);
+let followAssist = false;
+window.addEventListener('message', ev => {
+  const d = ev.data || {};
+  if (!('follow' in d)) return;
+  const nf = d.follow || null; if (nf !== follow) followAssist = !!nf;  // fly in only when the target changes
+  follow = nf;
+  if (d.colour) spotMat.color.set(d.colour);
+  if (mode.startsWith('cam')) setView('overview');
+  document.querySelectorAll('.p').forEach(p => p.classList.toggle('follow', p.dataset.id === follow));
+});
 window.__world = { meta, wh, setView };
 </script>
 </body>

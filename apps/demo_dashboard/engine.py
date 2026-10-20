@@ -137,6 +137,7 @@ class DashboardEngine:
         # processes this dashboard (re)started on an operator's request.
         self._world_status: Optional[dict[str, Any]] = None
         self._children: list[subprocess.Popen] = []
+        self._killed_at: dict[int, float] = {}
         self.showcase: Optional[Showcase] = Showcase(self) if self.world_view is not None else None
 
     # ── lifecycle ──────────────────────────────────────────────────────
@@ -317,14 +318,21 @@ class DashboardEngine:
     def kill_node(self, node_id: int) -> dict[str, Any]:
         """Pull a camera node's plug: its own operator endpoint stops the process."""
         ok = self._post(node_id, "/shutdown", {})
+        self._killed_at[node_id] = time.monotonic()
         self._log_event("node", f"node {node_id} POWERED OFF ({'ok' if ok else 'it was already down'})")
         return {"ok": True, "node_id": node_id}
 
     def restart_node(self, node_id: int) -> dict[str, Any]:
+        # A node that was just told to stop still answers for a moment and holds its ports:
+        # give it time to exit before starting its replacement.
+        wait = self.cfg.node_exit_grace_s - (time.monotonic() - self._killed_at.get(node_id, -1e9))
+        if wait > 0:
+            self._stop.wait(wait)
         with self._lock:
             reachable = self._control.get(node_id, {}).get("reachable")
-        if reachable:
+        if reachable and node_id not in self._killed_at:
             return {"ok": True, "note": "already running"}
+        self._killed_at.pop(node_id, None)
         args = self._manifest().get("nodes", {}).get(str(node_id))
         if not args:
             return {"ok": False, "error": f"no launch command for node {node_id} in {self.cfg.launch_manifest}"}
@@ -611,6 +619,25 @@ class DashboardEngine:
             "fps": {str(n): round(a, 2) for n, a, _ in rates},
             "target_fps": rates[0][2] if rates else None,
         }
+
+    def _rejections(self, now_t: float) -> list[dict[str, Any]]:
+        """Recent notes the cameras refused to believe, with a plain reason."""
+        out = []
+        for r in list(self._loop.recent_rejections):
+            if now_t - r["t_media"] > self.cfg.rejection_show_s:
+                continue
+            why = set(r["why"])
+            if r.get("contradicted_by") is not None:
+                text = f"Camera {r['contradicted_by']} vouched that this spot was empty"
+            elif {"reachability", "kinematics"} & why:
+                text = "Nobody could have walked there that fast"
+            elif "corroboration" in why:
+                text = "No other camera saw anyone there"
+            else:
+                text = "Does not fit what the other cameras saw"
+            where = self.world_view.where(r["x"], r["y"])["area"] if self.world_view is not None else None
+            out.append({**r, "text": text, "area": where})
+        return out[-self.cfg.rejection_show_n :]
 
     def _central_world(self) -> dict[str, Any]:
         with self._lock:
@@ -1018,6 +1045,7 @@ class DashboardEngine:
             "world": None if self.world_view is None else self.world_view.compute(
                 identities, regions, nodes, gt, now_t,
                 cfg.partition_groups if any(nd["partitioned"] for nd in nodes) else None, self.gt_at),
+            "rejections": self._rejections(now_t),
             "nodes_live": sum(1 for nd in nodes if nd["live"]),
             "health": self._health(nodes),
             "mean_error_m": None if not errs else round(float(np.mean(errs)), 2),

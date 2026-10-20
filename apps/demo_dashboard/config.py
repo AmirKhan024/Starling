@@ -103,6 +103,9 @@ class DemoDashboardConfig(DashboardConfig):
     unverified_min_claims: int = 30
     # ...and stays listed (out of view) this many media seconds after its last sighting.
     unknown_keep_s: float = 45.0
+    # A stranger already listed stays listed (as hidden) this long (media s) after their last
+    # sighting even when the search area is small, so a walk behind racks does not drop them.
+    unknown_hold_s: float = 20.0
     # ...but only while its search region is still at least this big (a region attested
     # down to nothing means a stale fragment, not a hidden person).
     unknown_min_region_m2: float = 1.0
@@ -147,6 +150,11 @@ class DemoDashboardConfig(DashboardConfig):
     overload_fps_fraction: float = 0.7
     # Comparison page: someone unseen this briefly (media s) still counts as placed on both sides.
     compare_recent_s: float = 10.0
+    # Rejected ("not believed") notes shown for this many media seconds, at most this many.
+    # A node told to stop is given this long (wall s) to exit before it is started again.
+    node_exit_grace_s: float = 8.0
+    rejection_show_s: float = 30.0
+    rejection_show_n: int = 12
     # The site's named camera-less aisles (configs/world/warehouse.yaml `areas`).
     aisles_area_name: str = "Storage aisles"
     # "Is anyone in <area>": the area is reported EMPTY only if healthy

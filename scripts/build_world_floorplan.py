@@ -140,7 +140,7 @@ match:
   anchor_adopt_max_age_s: 10.0
   # Two cameras naming one person at the same instant differ by their combined
   # position error: not a conflict (starling_crdt.resolver).
-  anchor_continue_slack_m: 2.0
+  anchor_continue_slack_m: 3.5
   lost_threshold_s: 120.0
   ema_alpha: 0.10
 

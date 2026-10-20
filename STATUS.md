@@ -127,6 +127,23 @@ Fixes found on the way:
 * **The comparison page** now counts someone missed for under 10 s as still
   placed on both sides, so detector flicker does not dominate it.
 
+## 1e. Latest — camera focus, stranger, scenario stories (2026-10-20)
+
+* **Stranger:** flagged about 6 s after entering (was ~25 s: `unverified_min_claims`
+  30 -> 14), stays listed while behind racks (`unknown_hold_s`), and in the 3D
+  world carries a pulsing red ring, a light beam and a large tag.
+* **Camera focus** (Live monitor): follow any person or the stranger; the
+  covering camera opens, zooms and hands over; hidden people get their last
+  sighting plus the area they must be in; layers 1-4 show what Starling adds
+  to plain detection. `GET /api/camera/{n}.jpg` proxies a camera's live picture.
+  The 3D page accepts `postMessage({follow: id})` to fly to and ring a person.
+* **Scenario stories** (Inside): cut, lie and switch-off each have a step
+  strip driven by live state; `nodes`' recent rejected notes (where, why, which
+  camera contradicted) are exposed as `rejections` in `/api/state`.
+* **Autopilot** on the Present tab runs the whole demo hands-free.
+* `anchor_continue_slack_m` raised to 3.5 m (far-camera positions differ more).
+* Restarting a node within 8 s of switching it off now waits for it to exit.
+
 ## 2. History so far
 
 - **Origin**: the repo began as `multicam-reid`, an open-source centralized

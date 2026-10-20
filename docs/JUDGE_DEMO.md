@@ -33,7 +33,12 @@ or its Next button to move between chapters.
 > for itself, they share only small signed facts, and together they still
 > know where everyone is, even someone no camera can see.**
 
-## The presentation (Present tab, 10 steps)
+## The presentation (Present tab, 11 steps)
+
+Press **Autopilot** (bottom left) and the whole presentation runs by itself in
+about five minutes: it opens each page, presses each scenario button and
+restores everything at the end, so you can simply talk. Press any step or
+Stop to take control.
 
 Each step shows a title, one sentence, one or two buttons and a live check
 that turns green. "Presenter note" (hidden by default) holds the line to say.
@@ -43,15 +48,16 @@ that turns green. "Presenter note" (hidden by default) holds the line to say.
 | 1 | A warehouse with four cameras | — | all four cameras running |
 | 2 | Much more than spotting people | — | notes flowing, zero video |
 | 3 | Everyone, named and placed | — | employees checked in at the gate |
-| 4 | No boss computer | **Ask every camera** | all four give the identical answer |
-| 5 | Finding someone no camera can see | **Ask: Where is Priya?** | Priya hidden, her area known |
-| 6 | When something breaks | **The server room fails**, **Cut the network** | server down, Starling still places everyone |
-| 7 | A camera that lies | **Make camera 2 lie**, then **Stop** | camera 2's trust falls |
-| 8 | A stranger walks in | **Send a stranger in** | stranger detected and followed |
-| 9 | Emergency roll call | **Press roll call** | roll call answered |
-| 10 | Private by design | **Ask how hard Daniel worked** | refused by every camera |
+| 4 | Ask, and the right camera opens | **Follow Priya** | the camera panel follows her; press 1 Detect to 4 Share |
+| 5 | No boss computer | **Ask every camera** | all four give the identical answer |
+| 6 | Finding someone no camera can see | **Ask: Where is Priya?** | Priya hidden, her area known |
+| 7 | When something breaks | **The server room fails**, **Cut the network** | server down, Starling still places everyone |
+| 8 | A camera that lies | **Make camera 2 lie**, then **Stop** | camera 2's trust falls |
+| 9 | A stranger walks in | **Send a stranger in** | stranger detected and followed |
+| 10 | Emergency roll call | **Press roll call** | roll call answered |
+| 11 | Private by design | **Ask how hard Daniel worked** | refused by every camera |
 
-Short slot? Do steps 2, 4, 5, 6 and 9.
+Short slot? Do steps 2, 4, 7, 9 and 10.
 
 ## What is real and what is simulated
 

@@ -276,7 +276,8 @@ class WorldView:
             if i["id"] in self.employees or (i["status"] != "seen" and i["age_s"] > cfg.unknown_keep_s):
                 continue
             reg = regions_by_id.get(i["id"])
-            if i["status"] != "seen" and (reg is None or reg["area_m2"] < cfg.unknown_min_region_m2):
+            held = i["id"] in self._unknown_numbers and i["age_s"] <= cfg.unknown_hold_s
+            if i["status"] != "seen" and not held and (reg is None or reg["area_m2"] < cfg.unknown_min_region_m2):
                 # Every place it could be is attested empty (or it was never located): a stale
                 # duplicate fragment, or a stranger who has left through an unwatched door.
                 continue

@@ -17,6 +17,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Optional
 
+import requests
 import uvicorn
 from fastapi import FastAPI
 from fastapi.responses import FileResponse, JSONResponse, Response
@@ -84,6 +85,16 @@ def create_app(cfg: DemoDashboardConfig) -> FastAPI:
         """The full technical view: claim counts, gaps, reputation, forks,
         convergence, partition state. This is what the automated review reads."""
         return FileResponse(_STATIC / ("world_tech.html" if world else "engineer.html"), headers={"Cache-Control": "no-store"})
+
+    @app.get("/api/camera/{node_id}.jpg")
+    def camera_feed(node_id: int) -> Response:
+        """A camera's live picture (the CCTV monitor tap on the world server), for the
+        presenter's "follow a person" view. Not part of the Starling network."""
+        try:
+            r = requests.get(f"{cfg.world_url}/api/camera/{node_id}/latest.jpg", timeout=1.5)
+            return Response(r.content, status_code=r.status_code, media_type="image/jpeg", headers={"Cache-Control": "no-store"})
+        except requests.RequestException:
+            return Response(status_code=503)
 
     @app.get("/api/node/{node_id}/preview.jpg")
     def node_preview(node_id: int) -> Response:

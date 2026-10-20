@@ -52,11 +52,11 @@ Every page shares one header with five tabs:
 
 | Tab | What it shows |
 |---|---|
-| **Live monitor** `/` | The warehouse floor: who is where, hidden people's search areas, unknown people, alerts. **Ask Starling** ("Where is Priya?", "Is anyone in Packing?") and the **emergency roll call**. A strip under the map, *What is happening behind this picture*, lights up the six stages (see, place, recognise, share, agree, reason) as real notes flow: object detection is only stage one |
-| **Inside the system** `/inside` | The four cameras talking: every dot is a real note between cameras; each camera's own answer (all four agree); a note "opened up" next to the size of a video frame; buttons to cut the network, make a camera lie, switch a camera off |
+| **Live monitor** `/` | The warehouse floor beside **Camera focus**: ask "Where is Priya?" and the camera that sees her opens and zooms to her, handing over to the next camera as she walks; if she is in a camera-less aisle it shows her last sighting and the strip she must be in, with the cameras that vouch the rest is empty. A *What Starling adds* selector (1 Detect, 2 Place, 3 Recognise, 4 Share) shows that object detection is only the first layer. A stranger is flagged within seconds and the panel switches to them by itself. Also **Ask Starling** and the **emergency roll call** |
+| **Inside the system** `/inside` | The four cameras talking, plus a story for each thing you can break: cutting the network (two halves, a wall, counters that diverge, then a live merge), a lying camera (ghost people it invents, trust meters, refused notes) and a camera switched off |
 | **What if…** `/compare` | A traditional central-server system next to Starling, same cameras, same moment, with buttons for a failing server room, a cut network, a covered camera and a stranger |
 | **How it works** `/how` | Seven animated diagrams, one sentence each, plus the measured scaling chart and honest limits |
-| **Present** `/tour` | The guided presentation: 10 short steps, each with one action and one live check that turns green. Presenter notes are hidden behind a toggle. Playbook: [docs/JUDGE_DEMO.md](docs/JUDGE_DEMO.md) |
+| **Present** `/tour` | The guided presentation: 11 short steps, each with one action and one live check that turns green. **Autopilot** runs the whole thing hands-free (about 5 minutes). Playbook: [docs/JUDGE_DEMO.md](docs/JUDGE_DEMO.md) |
 
 `/engineer` keeps every internal number for technical questions, and the 3D
 world itself is at `http://127.0.0.1:8770`.

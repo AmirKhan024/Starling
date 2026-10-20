@@ -449,7 +449,23 @@ export function buildWarehouse(meta, opts = {}) {
       label.position.set(0, e.look.height_m + 0.75, 0);
       ch.add(label);
     }
-    people[e.id] = { obj: ch, meta: e, label, visitor };
+    // A stranger must be impossible to miss, even behind racking: a pulsing red
+    // floor ring, a tall beam of light and a big tag (viewer only: the cameras
+    // that film this world never see these markers).
+    let beacon = null;
+    if (visitor && opts.labels) {
+      beacon = new THREE.Group();
+      const ringMat = new THREE.MeshBasicMaterial({ color: '#ff3b30', transparent: true, opacity: 0.9, depthTest: false, side: THREE.DoubleSide });
+      const ring = new THREE.Mesh(new THREE.RingGeometry(0.85, 1.05, 48), ringMat);
+      ring.rotation.x = -Math.PI / 2; ring.position.y = 0.04; ring.renderOrder = 9;
+      const beamMat = new THREE.MeshBasicMaterial({ color: '#ff3b30', transparent: true, opacity: 0.22, depthTest: false });
+      const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 9, 16, 1, true), beamMat);
+      beam.position.y = 4.5; beam.renderOrder = 9;
+      beacon.add(ring, beam); ch.add(beacon);
+      if (label) { label.scale.set(3.9, 1.22, 1); label.position.y = e.look.height_m + 1.1; }
+      beacon.userData = { ring, ringMat, beamMat };
+    }
+    people[e.id] = { obj: ch, meta: e, label, visitor, beacon };
   }
   const agvs = {};
   for (const a of meta.agvs) {
@@ -470,6 +486,12 @@ export function buildWarehouse(meta, opts = {}) {
       if (!p) continue;
       p.obj.visible = !!w.present;
       if (!w.present) continue;
+      if (p.beacon) {
+        const k = 0.5 + 0.5 * Math.sin(state.t * 5);
+        p.beacon.userData.ring.scale.setScalar(1 + 0.35 * k);
+        p.beacon.userData.ringMat.opacity = 0.95 - 0.5 * k;
+        p.beacon.userData.beamMat.opacity = 0.14 + 0.16 * k;
+      }
       p.obj.position.copy(V(w.x, w.y, 0));
       p.obj.rotation.y = w.heading;
       animateCharacter(p.obj, dt, w.speed, w.speed > 0.05 ? 'walk' : w.action, w.carry);

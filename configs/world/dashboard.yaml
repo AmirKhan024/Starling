@@ -39,12 +39,14 @@ match:
   gate_extra_slack_m: 0.6
   anchor_adopt_radius_m: 2.0
   anchor_adopt_max_age_s: 10.0
-  anchor_continue_slack_m: 2.0   # must match the nodes (same recipe, same answer)
+  anchor_continue_slack_m: 3.5   # must match the nodes (same recipe, same answer)
 
 # Cameras deliver 3 frames/s and a detector misses the odd frame: an identity
 # is "unseen" only after this many media seconds without a claim.
 unseen_after_s: 2.5
 min_identity_claims: 8
+# A person nobody checked in at the gate is flagged after this many sightings (about 8 s on camera).
+unverified_min_claims: 14
 hide_unseen_after_s: 60.0
 resolve_window_s: 60.0
 converge_tolerance_claims: 40

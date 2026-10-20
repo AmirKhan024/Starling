@@ -399,9 +399,9 @@ def test_two_cameras_naming_one_person_at_once_is_not_a_conflict_within_measurem
         _claim(0, 1, 11.0, world_xy=(10.5, 10.0), pos_sigma=0.2),
     ]
     near = base + [_claim(1, 0, 11.0, world_xy=(12.0, 10.0), pos_sigma=0.2, anchor_type="FACE_ANCHOR", identity_ref="EMP-1")]
-    far = base + [_claim(1, 0, 11.0, world_xy=(16.0, 10.0), pos_sigma=0.2, anchor_type="FACE_ANCHOR", identity_ref="EMP-1")]
+    far = base + [_claim(1, 0, 11.0, world_xy=(22.0, 10.0), pos_sigma=0.2, anchor_type="FACE_ANCHOR", identity_ref="EMP-1")]
     strict = MatchConfig()
-    tolerant = MatchConfig(anchor_continue_slack_m=2.0)
+    tolerant = MatchConfig(anchor_continue_slack_m=3.5)
     assert resolve(_claim_set(near), geo, None, None, strict)[1].all_forks()
     assert not resolve(_claim_set(near), geo, None, None, tolerant)[1].all_forks()
     assert resolve(_claim_set(far), geo, None, None, tolerant)[1].all_forks()
