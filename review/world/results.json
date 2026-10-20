@@ -1,0 +1,383 @@
+{
+ "results": {
+  "1_checkin": {
+   "verdict": "PASS",
+   "what": "Each of the four employees is verified at the entrance gate from the pixels and named on the manager view.",
+   "measures": {
+    "seconds_until_all_4_verified": 48.7,
+    "verified_on_site": 4,
+    "check_ins": [
+     [
+      "07:00:39",
+      "Rahul Mehta",
+      0
+     ],
+     [
+      "07:00:31",
+      "Daniel Kowalski",
+      0
+     ],
+     [
+      "07:00:26",
+      "Marcus Bell",
+      0
+     ],
+     [
+      "07:00:14",
+      "Priya Sharma",
+      0
+     ]
+    ],
+    "unverified_alerts": []
+   }
+  },
+  "2_tracking": {
+   "verdict": "FAIL",
+   "what": "All four employees stay accounted for (in view, or out of view with a reason); believed positions track the truth.",
+   "measures": {
+    "samples": 35,
+    "position_error_vs_truth_m": {
+     "median": 0.29,
+     "p90": 0.75,
+     "n": 104
+    },
+    "min_employees_accounted_for": 3,
+    "unnamed_identities_seen": 0,
+    "max_open_forks": 1,
+    "untrusted_camera_alerts_with_no_liar": 0
+   }
+  },
+  "3_deadzone": {
+   "verdict": "PASS",
+   "what": "While she is hidden, healthy cameras' attested absence keeps her search area inside the aisles; she is re-acquired as the SAME named identity.",
+   "measures": {
+    "summary_shown_to_manager": "In the storage aisles (no cameras there) \u00b7 Priya must still be inside: every camera around the aisles is working and none has seen Priya come out",
+    "region_m2": 16.69,
+    "reachable_m2": 232.56,
+    "in_aisles_fraction": 1.0,
+    "healthy_zone_overlap_m2": 0,
+    "reacquired_as_same_identity_after_s": 23.5
+   }
+  },
+  "4_lens": {
+   "verdict": "PASS",
+   "what": "The node notices the covered lens from its own pixels and stops vouching for its zone (silence is not evidence); it resumes when cleared.",
+   "measures": {
+    "seconds_to_stop_attesting": 6.1,
+    "manager_alert": "Dock camera cannot vouch for its area (view blocked or degraded). Anyone there may be missed; the system will not assume the area is empty.",
+    "seconds_to_resume_after_clearing": 4.1
+   }
+  },
+  "5_partition": {
+   "verdict": "PASS",
+   "what": "Both halves keep tracking while cut off; after healing, anti-entropy brings every replica to the same claim set.",
+   "measures": {
+    "seconds_until_split_shown": 2.1,
+    "employees_still_accounted_for_during_split": 4,
+    "manager_alert": "Network split between Entrance + Dock and Packing + Outbound. Each side keeps tracking on its own; the views merge automatically when the link returns.",
+    "seconds_to_reconverge_after_heal": 5.2,
+    "spread_after": 5,
+    "gaps_after": 0
+   }
+  },
+  "6_lie": {
+   "verdict": "PASS",
+   "what": "Peers catch physically implausible claims; only the liar's reputation falls.",
+   "measures": {
+    "seconds_until_reputation_below_alert": 22.3,
+    "liar_reputation": 0.84,
+    "liar_rejected": 24,
+    "honest_reputations": {
+     "0": 1.0,
+     "1": 0.958,
+     "3": 0.994
+    },
+    "manager_alert": "Packing camera is reporting sightings the other cameras contradict. Its reports are being discounted."
+   }
+  },
+  "7_break": {
+   "verdict": "FAIL",
+   "what": "Leaving through the staff door is recognised as 'left'; coming back, the employee is verified again at the gate.",
+   "measures": {
+    "seconds_until_shown_as_left": null,
+    "summary": null,
+    "seconds_until_back_and_re_verified": 17.4
+   }
+  },
+  "8_query": {
+   "verdict": "PASS",
+   "what": "A safety query is answered (confirmed vs inferred); a productivity query and an unknown person are refused with reasons.",
+   "measures": {
+    "safety": "Subject:          EMP-1041\nLast confirmed:   (2.1, 16.1) m, t=411.0, confidence 0.85, node 2\nAnchor:           face, node 2, t=411.0\nCompleteness:     4 of 4 nodes responded",
+    "productivity": "purpose 'productivity' is not authorised for querying (allowed: ['audit', 'incident', 'safety'])",
+    "unknown": "subject 'EMP-9999' was never enrolled \u2014 no claims found for this identity"
+   }
+  },
+  "9_every_camera": {
+   "verdict": "PASS",
+   "what": "Each camera node, asked directly, resolves its OWN replica over the same window; all four return the identical answer fingerprint (C1: same claims, same deterministic answer).",
+   "measures": {
+    "attempts": 1,
+    "groups_per_attempt": [
+     [
+      [
+       0,
+       1,
+       2,
+       3
+      ]
+     ]
+    ],
+    "fingerprint": "97ead04b",
+    "ms_per_node": [
+     313,
+     329,
+     329,
+     297
+    ],
+    "claims_in_window": [
+     226,
+     226,
+     226,
+     226
+    ]
+   }
+  },
+  "10_intruder": {
+   "verdict": "PASS",
+   "what": "A person who is not enrolled and never passes the gate is tracked as an unknown identity, raises a manager alert, and is answered for in plain English.",
+   "measures": {
+    "seconds_until_flagged": 54.1,
+    "seconds_until_followed_across_cameras": 1.0,
+    "cameras": [
+     1,
+     2,
+     3
+    ],
+    "answer": "Yes \u2014 1 unknown person is on site: Unknown #1 in North dock.",
+    "alerts": [
+     "Unknown #1: unrecognised person in North dock \u2014 not verified at the entrance. Followed across 3 cameras."
+    ],
+    "named_employee_truth_errors_m": []
+   }
+  },
+  "11_area_query": {
+   "verdict": "PASS",
+   "what": "An area question is answered with its evidence (seen / attested clear / silent); the camera-less aisles are never declared empty.",
+   "measures": {
+    "packing": "No \u2014 Packing is empty. That's not a guess: the cameras vouch for 100% of it and saw nobody.",
+    "packing_evidence": [
+     "ATTESTED",
+     "ATTESTED",
+     "NETWORK"
+    ],
+    "aisles": "Nobody is visible in Storage aisles, but the cameras can vouch for only 39% of it \u2014 I can't say it's empty."
+   }
+  },
+  "12_rollcall": {
+   "verdict": "PASS",
+   "what": "The roll call counts exactly the people really inside (employees, hidden ones, unknown people).",
+   "measures": {
+    "headline": "5 people inside: 0 confirmed by camera, 1 hidden but provably inside (search areas shown), 1 unknown person and 3 to find.",
+    "staff_inside": 4,
+    "truth_staff_inside": 4,
+    "counts": {
+     "confirmed": 0,
+     "search": 1,
+     "unknown": 3,
+     "check": 0,
+     "intruder": 1,
+     "left": 0
+    }
+   }
+  },
+  "14_recognition": {
+   "verdict": "PASS",
+   "what": "Every camera (not only the gate camera) recognises enrolled employees, so a name lost to a track break is restored by whichever camera sees the person next; nobody is left 'missing'.",
+   "measures": {
+    "recognised_by_camera": {
+     "0": [
+      "EMP-1002",
+      "EMP-1033",
+      "EMP-1041"
+     ],
+     "1": [
+      "EMP-1002",
+      "EMP-1027",
+      "EMP-1033",
+      "EMP-1041"
+     ],
+     "2": [
+      "EMP-1002",
+      "EMP-1027",
+      "EMP-1033",
+      "EMP-1041"
+     ],
+     "3": [
+      "EMP-1002",
+      "EMP-1027",
+      "EMP-1033"
+     ]
+    },
+    "missing_employees": [],
+    "needs_a_check": [],
+    "unknown_people": [
+     "Unknown #1"
+    ]
+   }
+  },
+  "13_failures": {
+   "verdict": "PASS",
+   "what": "Killing the central server blinds it entirely while Starling keeps tracking; powering off one camera loses only that camera (three still answer); powered back on, it catches up and every replica converges.",
+   "measures": {
+    "central_down_after_s": 2.1,
+    "starling_tracking_while_central_down": 4,
+    "node2_offline_after_s": 5.2,
+    "cameras_answering_with_node2_off": 3,
+    "starling_tracking_with_node2_off": 4,
+    "node2_back_live_after_s": 10.1,
+    "central_back_after_s": 2.0,
+    "converged_after_s": 21.5
+   }
+  }
+ },
+ "performance": {
+  "world": {
+   "t_media": 525.5,
+   "rig": {
+    "connected": true,
+    "render_ms": 244.9,
+    "frames_requested": 1050,
+    "frames_skipped_busy": 2,
+    "frames_published": {
+     "0": 1049,
+     "1": 1049,
+     "2": 1049,
+     "3": 1049
+    },
+    "bytes_published": {
+     "0": 159223040,
+     "1": 158107860,
+     "2": 166239172,
+     "3": 170897953
+    },
+    "video_bytes_per_s": {
+     "0": 303099.3,
+     "1": 308472.7,
+     "2": 314151.6,
+     "3": 331564.5
+    },
+    "video_bytes_per_s_total": 1257288.1
+   }
+  },
+  "nodes": {
+   "0": {
+    "process_ms": 450.0,
+    "achieved_fps": 1.9,
+    "target_fps": 2.0,
+    "dropped_total": 121,
+    "claims_made": 607,
+    "frames": 928
+   },
+   "1": {
+    "process_ms": 437.8,
+    "achieved_fps": 1.9,
+    "target_fps": 2.0,
+    "dropped_total": 125,
+    "claims_made": 633,
+    "frames": 925
+   },
+   "2": {
+    "process_ms": 394.9,
+    "achieved_fps": 1.45,
+    "target_fps": 2.0,
+    "dropped_total": 3,
+    "claims_made": 2,
+    "frames": 8
+   },
+   "3": {
+    "process_ms": 492.9,
+    "achieved_fps": 1.9,
+    "target_fps": 2.0,
+    "dropped_total": 122,
+    "claims_made": 455,
+    "frames": 928
+   }
+  },
+  "dashboard_compute_ms": 406.0
+ },
+ "shots": [
+  {
+   "file": "screenshots/00_world_gate_view.jpg",
+   "caption": "Camera 0's view of the entrance gate (the 3D world)."
+  },
+  {
+   "file": "screenshots/01_manager_all_checked_in.jpg",
+   "caption": "Manager view after the four employees checked in."
+  },
+  {
+   "file": "screenshots/02_tech_tracking.jpg",
+   "caption": "Technical view: pipeline counters, each node's own annotated view, belief vs ground truth, gossip ring, resolver output."
+  },
+  {
+   "file": "screenshots/03_manager_in_aisles.jpg",
+   "caption": "Manager view: Priya is in the storage aisles \u2014 not visible, but accounted for."
+  },
+  {
+   "file": "screenshots/04_tech_c4_region.jpg",
+   "caption": "Technical view: the C4 candidate region vs plain reachability."
+  },
+  {
+   "file": "screenshots/05_world_tarp.jpg",
+   "caption": "The 3D world: camera 1 seen through its own pose with the tarp over the lens."
+  },
+  {
+   "file": "screenshots/06_tech_lens_covered.jpg",
+   "caption": "Technical view: node 1 notices from its own pixels (illumination / occlusion) and stops attesting."
+  },
+  {
+   "file": "screenshots/07_manager_lens_alert.jpg",
+   "caption": "Manager view: the camera problem in plain words."
+  },
+  {
+   "file": "screenshots/08_tech_partitioned.jpg",
+   "caption": "Technical view during the split: two cut links, replicas diverging."
+  },
+  {
+   "file": "screenshots/09_manager_partitioned.jpg",
+   "caption": "Manager view during the split."
+  },
+  {
+   "file": "screenshots/10_tech_healed.jpg",
+   "caption": "Technical view after healing: replicas converged again."
+  },
+  {
+   "file": "screenshots/11_tech_lying.jpg",
+   "caption": "Technical view: node 2's reputation, as its peers report it, falls; its claims are rejected."
+  },
+  {
+   "file": "screenshots/12_manager_on_break.jpg",
+   "caption": "Manager view: Marcus left through the staff entrance."
+  },
+  {
+   "file": "screenshots/13_network_every_camera.jpg",
+   "caption": "Camera network: every camera answers from its own copy; fingerprints match."
+  },
+  {
+   "file": "screenshots/14_manager_intruder.jpg",
+   "caption": "Manager view: an unknown person, flagged and tracked."
+  },
+  {
+   "file": "screenshots/15_manager_rollcall.jpg",
+   "caption": "Emergency roll call: everyone inside, where to look, unknown people included."
+  },
+  {
+   "file": "screenshots/16_network_central_down.jpg",
+   "caption": "Central server killed: every feed lost. Starling unaffected."
+  },
+  {
+   "file": "screenshots/17_network_node_off.jpg",
+   "caption": "Camera 2 powered off: only its area goes unwatched; the other three still answer."
+  }
+ ]
+}

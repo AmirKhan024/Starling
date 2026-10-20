@@ -36,7 +36,7 @@ for _p in (REPO, REPO / "packages"):
     if str(_p) not in sys.path:
         sys.path.insert(0, str(_p))
 
-from scripts.run_world_demo import LIGHT_FPS, LOW_MEMORY_WARN_GB, WorldDemoLauncher  # noqa: E402
+from scripts.run_world_demo import LIGHT_FPS, WorldDemoLauncher  # noqa: E402
 
 OUT = REPO / "review" / "world"
 SHOTS = OUT / "screenshots"
@@ -501,7 +501,9 @@ class Review:
         tags = [e["tag"] for e in pk.get("evidence", [])]
         self.verdict(
             "11_area_query",
-            pk.get("status") == "answered" and ai.get("status") == "answered" and not ai["headline"].startswith("No"),
+            # The camera-less aisles must never be declared EMPTY ("No — ... is empty");
+            # "Nobody is visible ... cannot vouch" is the honest answer.
+            pk.get("status") == "answered" and ai.get("status") == "answered" and not ai["headline"].startswith("No —"),
             "An area question is answered with its evidence (seen / attested clear / silent); the "
             "camera-less aisles are never declared empty.",
             {"packing": pk.get("headline"), "packing_evidence": tags, "aisles": ai.get("headline")},
@@ -567,13 +569,16 @@ class Review:
             p = requests.get(f"{self.dash}/api/node/{n}/perception", timeout=5).json()
             per[n] = sorted({e["employee_id"] for e in p.get("events", []) if e.get("kind") == "recognised" and e.get("employee_id")})
         s = self.state()
-        lost = [p["name"] for p in s["world"]["people"] if p["status"] in ("lost", "conflict")]
+        lost = [p["name"] for p in s["world"]["people"] if p["status"] == "lost"]
+        # A conflict ("needs a check": two namings disagree) is reported, not hidden; it is a
+        # separate question from whether a lost name comes back.
+        checks = [p["name"] for p in s["world"]["people"] if p["status"] == "conflict"]
         self.verdict(
             "14_recognition",
             all(per[n] for n in per) and not lost,
             "Every camera (not only the gate camera) recognises enrolled employees, so a name lost to a "
             "track break is restored by whichever camera sees the person next; nobody is left 'missing'.",
-            {"recognised_by_camera": per, "missing_employees": lost, "unknown_people": [u["label"] for u in s["world"]["unverified"]]},
+            {"recognised_by_camera": per, "missing_employees": lost, "needs_a_check": checks, "unknown_people": [u["label"] for u in s["world"]["unverified"]]},
         )
 
     def write(self, perf: dict) -> None:
@@ -623,11 +628,9 @@ def main(argv: Optional[list] = None) -> int:
     SHOTS.mkdir(parents=True, exist_ok=True)
     for old in SHOTS.glob("*.jpg"):
         old.unlink()
-    light = args.light
-    if not light and not args.full:
-        import psutil
-
-        light = psutil.virtual_memory().available / 2**30 < LOW_MEMORY_WARN_GB
+    # The review runs its own five-page browser on top of the demo, so it uses the
+    # launcher's light frame rate unless told otherwise (--full).
+    light = args.light or not args.full
     print(f"review mode: {'light (cameras at ' + str(LIGHT_FPS) + ' fps)' if light else 'full'}", flush=True)  # CLI banner
     launcher = WorldDemoLauncher(detector="yolo11n.pt" if args.fast else None, fps=LIGHT_FPS if light else None)
     launcher.prepare()
