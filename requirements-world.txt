@@ -1,0 +1,21 @@
+# =======================================================
+#  Starling - LIVE 3D WORLD demo requirements
+#  (scripts/run_world_demo.py)
+#
+#  The camera nodes run a real person detector on rendered
+#  frames, so this demo needs torch + ultralytics (CPU is
+#  fine). The camera rig renders the cameras in a headless
+#  Chromium driven by Playwright; after installing, run once:
+#
+#      python -m playwright install chromium
+#
+#  Detector weights (yolo11s.pt, ~19 MB) are fetched by the
+#  launcher on first run.
+# =======================================================
+-r requirements-sim.txt
+
+torch>=2.0.0
+torchvision>=0.15.0
+ultralytics>=8.3.0          # YOLO11 + ByteTrack
+playwright>=1.44.0          # headless camera rig
+websockets>=12.0            # WebSocket support for the world server (uvicorn)

@@ -1,0 +1,355 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Live Warehouse World</title>
+<style>
+  :root{
+    --ink:#eef2f7; --soft:#a9b4c2; --panel:rgba(14,19,27,.78); --line:rgba(255,255,255,.12);
+    --accent:#5b9dff; --ok:#3ddc97; --warn:#ffb648; --bad:#ff6b5b; --chip:rgba(255,255,255,.08);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:#0b0f15;color:var(--ink);font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;overflow:hidden}
+  #c{position:fixed;inset:0;display:block}
+  .panel{position:fixed;background:var(--panel);backdrop-filter:blur(8px);border:1px solid var(--line);border-radius:14px}
+  #top{left:14px;top:14px;padding:12px 16px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;max-width:calc(100% - 28px)}
+  #top h1{margin:0;font-size:16px;font-weight:650;letter-spacing:-.01em}
+  #top .sub{color:var(--soft);font-size:12.5px}
+  .live{display:inline-flex;align-items:center;gap:7px;font-weight:700;font-size:12px;letter-spacing:.08em;color:#ff5d5d}
+  .live i{width:9px;height:9px;border-radius:50%;background:#ff3b3b;box-shadow:0 0 0 0 rgba(255,59,59,.7);animation:pulse 1.6s infinite}
+  @keyframes pulse{70%{box-shadow:0 0 0 9px rgba(255,59,59,0)}100%{box-shadow:0 0 0 0 rgba(255,59,59,0)}}
+  .clock{font-variant-numeric:tabular-nums;font-weight:650;font-size:15px;padding:4px 10px;border-radius:8px;background:var(--chip)}
+  .tag{font-size:11.5px;color:var(--soft);border:1px solid var(--line);padding:3px 8px;border-radius:999px}
+  #people{left:14px;top:84px;width:282px;padding:12px 14px}
+  h2{margin:0 0 8px;font-size:11.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--soft);font-weight:650}
+  .p{display:flex;align-items:center;gap:10px;padding:7px 0;border-top:1px solid var(--line);cursor:pointer}
+  .p:first-of-type{border-top:0}
+  .av{width:30px;height:30px;border-radius:50%;flex:none;display:grid;place-items:center;font-weight:700;font-size:12px;color:#111;border:2px solid rgba(255,255,255,.35)}
+  .p .n{font-weight:600}
+  .p .s{color:var(--soft);font-size:12px}
+  .p.follow .n{color:var(--accent)}
+  .p.visitor .av{background:var(--bad);color:#fff;border-color:rgba(255,255,255,.6);font-size:15px}
+  .p.visitor .n{color:var(--bad)}
+  #controls{right:14px;top:14px;width:292px;padding:12px 14px;max-height:calc(100% - 210px);overflow:auto}
+  .row{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+  button{font:inherit;font-size:12.5px;color:var(--ink);background:var(--chip);border:1px solid var(--line);border-radius:8px;padding:6px 10px;cursor:pointer}
+  button:hover{border-color:var(--accent)}
+  button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  button.danger.on{background:var(--bad);border-color:var(--bad)}
+  .hint{color:var(--soft);font-size:12px;margin:-4px 0 10px}
+  #cams{left:14px;right:14px;bottom:14px;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;background:none;border:0;backdrop-filter:none}
+  .cam{position:relative;background:#000;border:1px solid var(--line);border-radius:10px;overflow:hidden;aspect-ratio:16/9;cursor:pointer}
+  .cam img{width:100%;height:100%;object-fit:cover;display:block}
+  .cam .lbl{position:absolute;left:8px;top:6px;font-size:11.5px;font-weight:650;text-shadow:0 1px 3px #000;letter-spacing:.02em}
+  .cam .rec{position:absolute;right:8px;top:6px;font-size:10.5px;font-weight:700;color:#ff5d5d;text-shadow:0 1px 2px #000}
+  .cam .warn{position:absolute;inset:auto 0 0 0;background:rgba(255,107,91,.92);color:#fff;font-weight:700;font-size:12px;text-align:center;padding:3px;display:none}
+  .cam.blocked .warn{display:block}
+  .cam .nofeed{position:absolute;inset:0;display:grid;place-items:center;color:var(--soft);font-size:12px}
+  #events{right:14px;bottom:calc((100vw - 28px - 30px)/4*9/16 + 28px);width:292px;padding:10px 14px;max-height:180px;overflow:auto;font-size:12.5px}
+  #events div{padding:3px 0;border-top:1px solid var(--line);color:var(--soft)}
+  #events div:first-of-type{border-top:0}
+  #events b{color:var(--ink);font-weight:600}
+  body.embed #people,body.embed #controls,body.embed #events,body.embed #cams{display:none}
+  body.embed #top{padding:7px 11px;top:10px;left:10px}
+  body.embed #top .sub,body.embed #top .tag{display:none}
+  @media (max-width:900px){#people,#events{display:none}#controls{width:220px}#cams{grid-template-columns:repeat(2,1fr)}}
+</style>
+<script type="importmap">{"imports":{"three":"/static/vendor/three.module.min.js"}}</script>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<div class="panel" id="top" data-testid="world-top">
+  <span class="live"><i></i>LIVE</span>
+  <div>
+    <h1 id="title">Virtual warehouse</h1>
+    <div class="sub">Reality — the world the four cameras are filming</div>
+  </div>
+  <span class="clock" id="clock" data-testid="world-clock">--:--:--</span>
+  <span class="tag" id="rigtag">camera rig: connecting…</span>
+</div>
+
+<div class="panel" id="people" data-testid="world-people">
+  <h2>People on site (ground truth)</h2>
+  <div id="plist"></div>
+</div>
+
+<div class="panel" id="controls">
+  <h2>View</h2>
+  <div class="row" id="views">
+    <button data-view="overview" class="on">Overview</button>
+    <button data-view="top">Top-down</button>
+    <button data-view="cam0">CAM 0</button><button data-view="cam1">CAM 1</button>
+    <button data-view="cam2">CAM 2</button><button data-view="cam3">CAM 3</button>
+  </div>
+  <div class="row">
+    <button id="t-labels" class="on">Name tags</button>
+    <button id="t-zones">Camera zones</button>
+    <button id="t-frusta">Camera cones</button>
+  </div>
+  <h2>Physical world</h2>
+  <div class="hint">Things that happen in the building. Starling is not told — it has to notice from the pixels.</div>
+  <div class="row" id="lens"></div>
+  <div class="row" id="breaks"></div>
+  <div class="row" id="intruders"></div>
+</div>
+
+<div class="panel" id="events" data-testid="world-events"><h2>World events</h2><div id="elist"></div></div>
+<div class="panel" id="cams" data-testid="world-cams"></div>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from '/static/vendor/OrbitControls.js';
+import { buildWarehouse, V } from '/static/js/scene.js';
+
+const params = new URLSearchParams(location.search);
+if (params.get('embed')) document.body.classList.add('embed');
+
+const meta = await (await fetch('/api/world')).json();
+document.getElementById('title').textContent = `${meta.company.name} · ${meta.company.site}`;
+const W = meta.building.width_m, D = meta.building.depth_m;
+
+const canvas = document.getElementById('c');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
+
+const wh = buildWarehouse(meta, { cutaway: true, labels: true, helpers: true });
+wh.helpers.zones.visible = false;
+wh.helpers.frusta.visible = false;
+
+const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 400);
+const controls = new OrbitControls(camera, canvas);
+controls.enableDamping = true; controls.dampingFactor = 0.08;
+controls.maxPolarAngle = Math.PI * 0.495;
+controls.minDistance = 4; controls.maxDistance = 90;
+
+const VIEWS = {
+  overview: { pos: V(W * 0.5 - 9, D + 11, 17), target: V(W * 0.5, D * 0.5, 0) },
+  top: { pos: V(W / 2, D / 2 + 0.01, 42), target: V(W / 2, D / 2, 0) },
+};
+let mode = params.get('view') || 'overview';
+let follow = null;
+function setView(v) {
+  mode = v; follow = null;
+  document.querySelectorAll('#views button').forEach(b => b.classList.toggle('on', b.dataset.view === v));
+  document.querySelectorAll('.p').forEach(p => p.classList.remove('follow'));
+  if (v.startsWith('cam')) {
+    const pc = wh.cams[Number(v.slice(3))];
+    camera.position.copy(pc.position); camera.quaternion.copy(pc.quaternion);
+    camera.fov = pc.fov; camera.updateProjectionMatrix();
+    controls.enabled = false;
+  } else {
+    controls.enabled = true;
+    camera.fov = 42; camera.updateProjectionMatrix();
+    camera.position.copy(VIEWS[v].pos); controls.target.copy(VIEWS[v].target);
+  }
+}
+document.querySelectorAll('#views button').forEach(b => b.onclick = () => setView(b.dataset.view));
+setView(mode);
+
+function toggle(id, fn, initial) {
+  const b = document.getElementById(id); let on = initial;
+  b.classList.toggle('on', on);
+  b.onclick = () => { on = !on; b.classList.toggle('on', on); fn(on); };
+  fn(on);
+}
+toggle('t-labels', on => Object.values(wh.people).forEach(p => p.label && (p.label.visible = on)), true);
+toggle('t-zones', on => wh.helpers.zones.visible = on, params.get('zones') === '1');
+toggle('t-frusta', on => wh.helpers.frusta.visible = on, false);
+
+function resize() {
+  const w = window.innerWidth, h = window.innerHeight;
+  renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix();
+}
+window.addEventListener('resize', resize); resize();
+
+// ── people list / controls ───────────────────────────────────────────────
+const initials = n => n.split(' ').map(s => s[0]).join('').slice(0, 2);
+const plist = document.getElementById('plist');
+const breaks = document.getElementById('breaks');
+for (const e of meta.employees) {
+  const d = document.createElement('div'); d.className = 'p'; d.dataset.id = e.id;
+  d.innerHTML = `<div class="av" style="background:${e.look.vest || e.look.shirt}">${initials(e.name)}</div>
+    <div style="min-width:0"><div class="n">${e.name}</div><div class="s" data-s>${e.role}</div></div>`;
+  d.onclick = () => {
+    follow = follow === e.id ? null : e.id;
+    document.querySelectorAll('.p').forEach(p => p.classList.toggle('follow', p.dataset.id === follow));
+    if (mode.startsWith('cam')) setView('overview');
+  };
+  plist.appendChild(d);
+  const b = document.createElement('button'); b.textContent = `Break: ${e.name.split(' ')[0]}`;
+  b.title = `${e.name} leaves the building for a short break, then comes back through the gate`;
+  b.onclick = () => fetch('/api/control/break', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ employee_id: e.id }) });
+  breaks.appendChild(b);
+}
+// visitors (not employees): listed only while on site; one button each to send them in
+const visitors = meta.visitors || [];
+const intruders = document.getElementById('intruders');
+const visitorBtns = {};
+const doorName = v => v.entry === 'staff' ? 'the staff door' : `dock door ${Number(v.entry.split(':')[1]) + 1}`;
+for (const v of visitors) {
+  const d = document.createElement('div'); d.className = 'p visitor'; d.dataset.id = v.id; d.style.display = 'none';
+  d.innerHTML = `<div class="av">?</div>
+    <div style="min-width:0"><div class="n">${v.name}</div><div class="s" data-s>${v.role}</div></div>`;
+  d.onclick = () => {
+    follow = follow === v.id ? null : v.id;
+    document.querySelectorAll('.p').forEach(p => p.classList.toggle('follow', p.dataset.id === follow));
+    if (mode.startsWith('cam')) setView('overview');
+  };
+  plist.appendChild(d);
+  const b = document.createElement('button'); b.className = 'danger';
+  b.textContent = v.entry === 'staff' ? 'Tailgater via staff door' : 'Intruder via dock';
+  b.title = `${v.name} (${v.role.toLowerCase()}) walks in through ${doorName(v)}, wanders the building once, then leaves`;
+  b.onclick = () => fetch('/api/control/visitor', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ visitor_id: v.id }) });
+  intruders.appendChild(b); visitorBtns[v.id] = b;
+}
+const lens = document.getElementById('lens');
+const lensBtns = {};
+for (const c of meta.cameras) {
+  const b = document.createElement('button'); b.className = 'danger'; b.textContent = `Cover CAM ${c.node_id} lens`;
+  b.title = `Throw a tarp over camera ${c.node_id} (${c.name})`;
+  b.onclick = () => {
+    const on = b.classList.contains('on');
+    fetch(on ? '/api/control/unblock' : '/api/control/block', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ node_id: c.node_id }) });
+  };
+  lens.appendChild(b); lensBtns[c.node_id] = b;
+}
+
+// camera feed tiles: the exact JPEGs each camera last sent to its node
+const camsEl = document.getElementById('cams');
+const tiles = {};
+for (const c of meta.cameras) {
+  const t = document.createElement('div'); t.className = 'cam'; t.dataset.testid = `cam-${c.node_id}`;
+  t.innerHTML = `<div class="nofeed">waiting for camera…</div><img alt=""><span class="lbl">CAM ${c.node_id} · ${c.name}</span><span class="rec">● REC</span><div class="warn">LENS COVERED</div>`;
+  t.onclick = () => setView('cam' + c.node_id);
+  camsEl.appendChild(t); tiles[c.node_id] = t;
+}
+if (!document.body.classList.contains('embed')) {
+  setInterval(() => {
+    for (const c of meta.cameras) {
+      const img = new Image();
+      img.onload = () => { const t = tiles[c.node_id]; const old = t.querySelector('img'); old.replaceWith(img); t.querySelector('.nofeed')?.remove(); };
+      img.src = `/api/camera/${c.node_id}/latest.jpg?ts=${Date.now()}`;
+    }
+  }, 450);
+}
+
+// ── live state + interpolation ────────────────────────────────────────────
+const buf = [];
+const DELAY = 140;
+let latest = null;
+function connect() {
+  const ws = new WebSocket(`ws://${location.host}/ws/view`);
+  ws.onmessage = ev => {
+    const s = JSON.parse(ev.data);
+    if (s.type !== 'state') return;
+    buf.push({ wall: performance.now(), s }); if (buf.length > 30) buf.shift();
+    latest = s;
+  };
+  ws.onclose = () => setTimeout(connect, 1000);
+}
+connect();
+
+const lerpAng = (a, b, f) => { let d = ((b - a + Math.PI) % (2 * Math.PI)) - Math.PI; if (d < -Math.PI) d += 2 * Math.PI; return a + d * f; };
+function interpolated(now) {
+  const t = now - DELAY;
+  if (buf.length < 2) return latest;
+  let i = buf.length - 1;
+  while (i > 0 && buf[i - 1].wall > t) i--;
+  if (i === 0) return buf[0].s;
+  const a = buf[i - 1], b = buf[i];
+  if (b.wall < t) return b.s;
+  const f = Math.min(1, Math.max(0, (t - a.wall) / Math.max(1, b.wall - a.wall)));
+  const byId = new Map(a.s.workers.map(w => [w.id, w]));
+  const agvA = new Map(a.s.agvs.map(x => [x.id, x]));
+  return {
+    ...b.s,
+    t: a.s.t + (b.s.t - a.s.t) * f,
+    workers: b.s.workers.map(w => { const o = byId.get(w.id); if (!o || o.present !== w.present) return w;
+      return { ...w, x: o.x + (w.x - o.x) * f, y: o.y + (w.y - o.y) * f, heading: lerpAng(o.heading, w.heading, f) }; }),
+    agvs: b.s.agvs.map(x => { const o = agvA.get(x.id); if (!o) return x;
+      return { ...x, x: o.x + (x.x - o.x) * f, y: o.y + (x.y - o.y) * f, heading: lerpAng(o.heading, x.heading, f) }; }),
+  };
+}
+
+const [h0, m0] = meta.company.shift_start_clock.split(':').map(Number);
+// the racking block (for "in the aisles"): between the outer rows' inner faces
+const RB = { x0: Math.min(...meta.racks.map(r => r.x0)), x1: Math.max(...meta.racks.map(r => r.x1)),
+             y0: Math.min(...meta.racks.map(r => r.y1)), y1: Math.max(...meta.racks.map(r => r.y0)) };
+const clockText = t => { const s = Math.floor(h0 * 3600 + m0 * 60 + t); const p = n => String(n).padStart(2, '0'); return `${p(Math.floor(s / 3600) % 24)}:${p(Math.floor(s / 60) % 60)}:${p(s % 60)}`; };
+const ACT = { walk: 'walking', pick: 'picking stock', work: 'working', scan: 'scanning', idle: 'standing' };
+function describe(w) {
+  if (w.state === 'offsite') return 'outside the building';
+  if (w.state === 'arriving') return w.inside ? 'walking to the gate' : 'arriving outside';
+  if (w.state === 'at_gate') return 'at the entrance gate';
+  if (w.state === 'leaving') return w.inside ? 'heading out' : 'leaving the site';
+  const inAisle = w.x > RB.x0 && w.x < RB.x1 && w.y > RB.y0 && w.y < RB.y1;
+  return (ACT[w.action] || w.action) + (w.carry ? ' (carrying a tote)' : '') + (inAisle ? ' · in the racking aisles' : '');
+}
+function describeVisitor(w, v) {
+  if (w.state === 'arriving') return w.inside ? `coming in through ${doorName(v)}` : `outside ${doorName(v)}`;
+  if (w.state === 'leaving') return w.inside ? `heading back out through ${doorName(v)}` : 'leaving the site';
+  if (w.state === 'offsite') return 'gone';
+  return describe(w) + ' · never checked in at the gate';
+}
+
+let lastUi = 0;
+function updateUi(s) {
+  document.getElementById('clock').textContent = clockText(s.t);
+  const r = s.rig || {};
+  document.getElementById('rigtag').textContent = s.running === false ? 'waiting for the camera nodes — shift not started' : r.connected ? `camera rig: live · ${r.render_ms ?? '–'} ms/frame set` : 'camera rig: OFFLINE (cameras dark)';
+  for (const w of s.workers) {
+    const el = plist.querySelector(`[data-id="${w.id}"] [data-s]`);
+    const e = meta.employees.find(x => x.id === w.id) || visitors.find(x => x.id === w.id);
+    if (!e) continue;
+    if (w.visitor) {
+      plist.querySelector(`[data-id="${w.id}"]`).style.display = w.present ? '' : 'none';
+      const b = visitorBtns[w.id];
+      if (b) { b.classList.toggle('on', !!w.present); b.disabled = !!w.present; }
+    }
+    if (el) el.textContent = `${e.role} — ${w.visitor ? describeVisitor(w, e) : describe(w)}`;
+  }
+  const blocked = new Set(s.blocked_cameras || []);
+  for (const [n, b] of Object.entries(lensBtns)) {
+    const on = blocked.has(Number(n)); b.classList.toggle('on', on);
+    b.textContent = on ? `Clear CAM ${n} lens` : `Cover CAM ${n} lens`;
+    tiles[n].classList.toggle('blocked', on);
+  }
+  document.getElementById('elist').innerHTML = (s.events || []).slice().reverse()
+    .map(e => `<div><b>${clockText(e.t)}</b> ${e.text}</div>`).join('') || '<div>—</div>';
+}
+
+let lastFrame = performance.now();
+// The presenter's view is capped at 30 fps: the GPU is shared with the
+// camera rig, whose frames the nodes depend on.
+const MIN_FRAME_MS = 1000 / 30;
+function frame(now) {
+  requestAnimationFrame(frame);
+  if (now - lastFrame < MIN_FRAME_MS - 1) return;
+  const dt = Math.min(0.1, (now - lastFrame) / 1000); lastFrame = now;
+  const s = interpolated(now);
+  if (s) {
+    wh.apply(s, dt);
+    if (now - lastUi > 250) { updateUi(s); lastUi = now; }
+    if (follow) {
+      const w = s.workers.find(x => x.id === follow);
+      if (w && w.present) {
+        const target = V(w.x, w.y, 1.0);
+        const delta = target.clone().sub(controls.target).multiplyScalar(0.08);
+        controls.target.add(delta); camera.position.add(delta);
+      }
+    }
+  }
+  if (controls.enabled) controls.update();
+  renderer.render(wh.scene, camera);
+}
+requestAnimationFrame(frame);
+window.__world = { meta, wh, setView };
+</script>
+</body>
+</html>

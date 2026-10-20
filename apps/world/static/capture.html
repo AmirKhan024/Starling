@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>World Capture</title>
+<style>html,body{margin:0;background:#000}</style>
+<script type="importmap">{"imports":{"three":"/static/vendor/three.module.min.js"}}</script>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script type="module">
+// Offline capture page (scripts/enroll_employees.py,
+// scripts/calibrate_world_appearance.py): renders chosen people at chosen
+// poses through one of the world's cameras, with exactly the rig's renderer
+// settings, and returns the JPEG. Nothing here talks to a node.
+import * as THREE from 'three';
+import { buildWarehouse } from '/static/js/scene.js';
+
+const meta = await (await fetch('/api/world')).json();
+const FW = meta.camera_frames.width_px, FH = meta.camera_frames.height_px, Q = meta.camera_frames.jpeg_quality;
+const canvas = document.getElementById('c');
+// identical to the camera rig's renderer (rig.html), so enrollment sees what nodes see
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, preserveDrawingBuffer: true });
+renderer.setPixelRatio(1); renderer.setSize(FW, FH, false);
+renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.05;
+const wh = buildWarehouse(meta, { cutaway: false, labels: false, helpers: false });
+
+// people: [{id, x, y, heading, speed, action, carry, phase_steps}]
+window.capture = async (nodeId, people) => {
+  const workers = meta.employees.map(e => {
+    const p = people.find(q => q.id === e.id);
+    return p ? { id: e.id, present: true, x: p.x, y: p.y, heading: p.heading, speed: p.speed || 0, action: p.action || 'idle', carry: !!p.carry }
+             : { id: e.id, present: false, x: 0, y: 0, heading: 0, speed: 0, action: 'idle', carry: false };
+  });
+  const state = { t: 0, workers, agvs: meta.agvs.map(a => ({ id: a.id, x: -50, y: -50, heading: 0, speed: 0 })), blocked_cameras: [] };
+  for (const p of people) for (let k = 0; k < (p.phase_steps || 0); k++) wh.apply({ ...state, t: 0 }, 0.05);
+  wh.apply(state, 0);
+  renderer.render(wh.scene, wh.cams[nodeId]);
+  return canvas.toDataURL('image/jpeg', Q);
+};
+window.ready = true;
+</script>
+</body>
+</html>

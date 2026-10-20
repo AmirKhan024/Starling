@@ -1,0 +1,274 @@
+# Starling live 3D world — the virtual warehouse that stands in for the
+# physical building, its people and its four cameras.
+#
+# This one file is the single source of truth for the world: the 3D scene
+# (apps/world/static/js/scene.js), the walkable floor plan / camera zones
+# (scripts/build_world_floorplan.py -> data/floorplan/warehouse_world.geojson),
+# every camera's calibration (configs/calib/world/node-0N.yaml) and the
+# employees' appearance are all generated from it.
+#
+# Floor coordinates are metres: x runs east, y runs south, origin at the
+# building's north-west corner. Heights (z) are metres above the floor.
+
+company:
+  name: "Kestrel Logistics"
+  site: "Fulfilment Centre KL-3"
+  shift_name: "Morning shift"
+  shift_start_clock: "07:00"   # display only: media time 0 is shown as this wall-clock time
+
+building:
+  width_m: 30.0
+  depth_m: 20.0
+  wall_height_m: 7.5
+
+floorplan_path: "data/floorplan/warehouse_world.geojson"
+navmesh_cell_m: 0.25
+
+# Staff entrance: a door in the west wall and, just inside it, the gate the
+# entrance camera (node 0) verifies employees at.
+entrance:
+  door_y: 7.4          # door centre on the west wall (x = 0)
+  door_width_m: 2.2
+  outside_spawn: [-7.0, 7.4]   # where an arriving worker first appears (outside, untracked)
+  # Placed well out from under the entrance camera: a person detector is
+  # unreliable on steep top-down views (see camera_frames.max_depression_deg).
+  gate: {node_id: 0, x: 4.8, y: 7.4, radius_m: 2.0}
+
+# The central storage block: three rows of tall pallet racking. The cores of
+# its two aisles are NOT covered by any camera — this is where negative
+# evidence (C4) earns its keep. Each zone is computed, not drawn: see
+# starling_world.layout and docs/world_coverage.png.
+racks:
+  - {name: "Row A", x0: 9.6, y0: 6.00,  x1: 20.4, y1: 7.10,  height_m: 5.0, levels: 3}
+  - {name: "Row B", x0: 9.6, y0: 9.45,  x1: 20.4, y1: 10.55, height_m: 5.0, levels: 3}
+  - {name: "Row C", x0: 9.6, y0: 12.90, x1: 20.4, y1: 14.00, height_m: 5.0, levels: 3}
+
+# Static obstacles (rendered and cut out of the walkable floor).
+# kind: pallet | table | lockers | cage | wrapper | desk | conveyor
+props:
+  # North-west: staff entrance, lockers, inbound pallets
+  - {kind: lockers,  x0: 1.2,  y0: 0.15, x1: 4.2,  y1: 0.75, height_m: 2.0}
+  - {kind: pallet,   x0: 6.4,  y0: 0.8,  x1: 7.6,  y1: 2.0,  height_m: 1.5}
+  - {kind: pallet,   x0: 8.4,  y0: 0.8,  x1: 9.6,  y1: 2.0,  height_m: 1.1}
+  # North strip: receiving
+  - {kind: pallet,   x0: 11.4, y0: 0.8,  x1: 12.6, y1: 2.0,  height_m: 1.7}
+  - {kind: wrapper,  x0: 14.2, y0: 0.6,  x1: 15.6, y1: 2.0,  height_m: 2.2}
+  - {kind: pallet,   x0: 17.4, y0: 0.8,  x1: 18.6, y1: 2.0,  height_m: 1.3}
+  - {kind: desk,     x0: 21.4, y0: 0.4,  x1: 23.2, y1: 1.2,  height_m: 0.8}
+  # South-west: packing
+  - {kind: table,    x0: 0.6,  y0: 11.4, x1: 1.6,  y1: 13.8, height_m: 0.95}
+  - {kind: table,    x0: 0.6,  y0: 15.0, x1: 1.6,  y1: 17.4, height_m: 0.95}
+  - {kind: conveyor, x0: 3.6,  y0: 18.7, x1: 9.0,  y1: 19.5, height_m: 0.9}
+  # South strip: outbound staging
+  - {kind: cage,     x0: 11.4, y0: 18.2, x1: 12.8, y1: 19.4, height_m: 1.8}
+  - {kind: pallet,   x0: 14.4, y0: 18.2, x1: 15.6, y1: 19.4, height_m: 1.4}
+  - {kind: cage,     x0: 17.2, y0: 18.2, x1: 18.6, y1: 19.4, height_m: 1.8}
+  # East: dock staging
+  - {kind: pallet,   x0: 25.8, y0: 6.0,  x1: 27.0, y1: 7.2,  height_m: 1.5}
+  - {kind: pallet,   x0: 25.8, y0: 12.6, x1: 27.0, y1: 13.8, height_m: 1.3}
+  - {kind: cage,     x0: 21.6, y0: 18.2, x1: 23.0, y1: 19.4, height_m: 1.8}
+
+# Dock doors in the east wall (x = 30); a shipping container is backed up
+# to each one, outside the building.
+dock_doors:
+  - {y: 3.2,  width_m: 3.0, container: "#8c2f2f"}
+  - {y: 10.0, width_m: 3.0, container: "#2f5d8c"}
+  - {y: 16.8, width_m: 3.0, container: "#3d7a46"}
+
+# The four cameras = the four Starling nodes, one in each corner, 5 m up,
+# looking in towards the racking. `look_at` is a floor point (z = 0). The
+# rendered frames and the calibration both come from exactly these numbers.
+cameras:
+  - {node_id: 0, name: "North-west · Entrance", mount: [0.35, 0.35, 5.0],   look_at: [9.0, 9.0, 0.0],  hfov_deg: 96}
+  - {node_id: 1, name: "North-east · Dock",     mount: [29.65, 0.35, 5.0],  look_at: [21.0, 9.0, 0.0], hfov_deg: 96}
+  - {node_id: 2, name: "South-west · Packing",  mount: [0.35, 19.65, 5.0],  look_at: [9.0, 11.0, 0.0], hfov_deg: 96}
+  - {node_id: 3, name: "South-east · Outbound", mount: [29.65, 19.65, 5.0], look_at: [21.0, 11.0, 0.0], hfov_deg: 96}
+
+camera_frames:
+  width_px: 1280
+  height_px: 720
+  fps: 3.0                 # media frames per second each camera delivers (4 YOLO nodes share one laptop CPU)
+  jpeg_quality: 0.86
+  # A floor cell belongs to a camera's zone only if a standing person there is
+  # fully in frame, unoccluded and at least this many pixels tall.
+  min_person_px: 48
+  # ...and is seen from no more than this far below the horizontal (at the
+  # feet): steeper, near top-down views defeat a COCO-trained person detector.
+  max_depression_deg: 47
+  person_height_m: 1.75
+
+# Named floor areas — what a manager calls each part of the building (used
+# for "where is she" in plain words; first match wins). Independent of which
+# camera happens to cover a spot.
+areas:
+  - {name: "Storage aisles",   x0: 9.6,  y0: 6.0,  x1: 20.4, y1: 14.0}
+  - {name: "Staff entrance",   x0: 0.0,  y0: 0.0,  x1: 9.6,  y1: 10.0}
+  - {name: "Packing",          x0: 0.0,  y0: 10.0, x1: 9.6,  y1: 20.0}
+  - {name: "Receiving",        x0: 9.6,  y0: 0.0,  x1: 20.4, y1: 6.0}
+  - {name: "Outbound staging", x0: 9.6,  y0: 14.0, x1: 20.4, y1: 20.0}
+  - {name: "North dock",       x0: 20.4, y0: 0.0,  x1: 30.0, y1: 10.0}
+  - {name: "South dock",       x0: 20.4, y0: 10.0, x1: 30.0, y1: 20.0}
+
+# Points of interest the workers' routines refer to (floor x, y).
+pois:
+  gate:        [4.8, 7.4]
+  lockers:     [2.7, 1.6]
+  inbound_nw:  [8.0, 3.0]
+  pack_1:      [2.4, 12.6]
+  pack_2:      [2.4, 16.2]
+  conveyor:    [6.3, 17.9]
+  west_mid:    [6.0, 9.8]
+  aisle1_w:    [8.6, 8.27]
+  aisle1_a:    [13.6, 8.27]
+  aisle1_b:    [16.2, 8.27]
+  aisle1_e:    [21.4, 8.27]
+  aisle2_w:    [8.6, 11.72]
+  aisle2_a:    [13.8, 11.72]
+  aisle2_b:    [16.4, 11.72]
+  aisle2_e:    [21.4, 11.72]
+  recv_1:      [12.0, 2.9]
+  recv_2:      [16.4, 2.9]
+  recv_wrap:   [14.9, 2.9]
+  recv_desk:   [22.3, 1.9]
+  stage_1:     [12.1, 17.4]
+  stage_2:     [15.0, 17.4]
+  stage_3:     [17.9, 17.4]
+  out_cage:    [22.3, 17.4]
+  dock_1:      [28.4, 3.2]
+  dock_2:      [28.4, 10.0]
+  dock_3:      [28.4, 16.8]
+  east_n:      [24.2, 8.4]
+  east_s:      [24.2, 11.8]
+
+# The company's four employees. `look` drives the 3D model only; nodes know
+# an employee solely through the appearance gallery enrolled from rendered
+# onboarding views (scripts/enroll_employees.py).
+employees:
+  - id: "EMP-1041"
+    name: "Priya Sharma"
+    role: "Order picker"
+    arrive_at_s: 3
+    look: {height_m: 1.64, build: female, skin: "#c68642", hair: "#151010", hair_style: ponytail,
+           shirt: "#6b3fa0", vest: "#c8ec16", trousers: "#1c1c22", shoes: "#2a2a2a", hat: "#f5f5f5"}
+    # Picks in the (camera-less) racking aisles, carries totes to packing.
+    routine:
+      - {go: aisle1_w}
+      - {go: aisle1_a, act: pick, dur: [9, 12]}
+      - {go: aisle1_b, act: pick, dur: [8, 11]}
+      - {go: aisle1_w, carry: true}
+      - {go: pack_1, carry: true, act: work, dur: [9, 12]}
+      - {go: west_mid}
+      - {go: aisle2_w}
+      - {go: aisle2_a, act: pick, dur: [8, 11]}
+      - {go: aisle2_b, act: pick, dur: [8, 11]}
+      - {go: aisle2_e, carry: true}
+      - {go: east_s, carry: true}
+      - {go: stage_3, carry: true}
+      - {go: stage_1, carry: true}
+      - {go: pack_2, carry: true, act: work, dur: [9, 12]}
+      - {go: conveyor, act: work, dur: [5, 7]}
+  - id: "EMP-1027"
+    name: "Marcus Bell"
+    role: "Dock loader"
+    arrive_at_s: 11
+    look: {height_m: 1.84, build: male, skin: "#5a3825", hair: "#0e0e0e", hair_style: short,
+           shirt: "#59626c", vest: "#ff6a13", trousers: "#2f4f7f", shoes: "#1b1b1b", hat: "#ff8a1c"}
+    routine:
+      - {go: stage_2, act: work, dur: [5, 7]}
+      - {go: dock_3, carry: true, act: work, dur: [6, 8]}
+      - {go: out_cage, act: work, dur: [4, 6]}
+      - {go: stage_1, act: work, dur: [5, 7]}
+      - {go: east_s, carry: true}
+      - {go: dock_2, carry: true, act: work, dur: [6, 8]}
+      - {go: east_n}
+      - {go: dock_1, act: idle, dur: [5, 7]}
+      - {go: east_s}
+  - id: "EMP-1033"
+    name: "Daniel Kowalski"
+    role: "Receiving clerk"
+    arrive_at_s: 19
+    look: {height_m: 1.76, build: male, skin: "#efc6a0", hair: "#9a4f1e", hair_style: beard,
+           shirt: "#ececec", vest: "#1fa64a", trousers: "#5b4a2e", shoes: "#3a2a1a", hat: "#1f5fbf"}
+    routine:
+      - {go: recv_1, act: scan, dur: [6, 8]}
+      - {go: recv_wrap, act: work, dur: [5, 7]}
+      - {go: recv_2, act: scan, dur: [6, 8]}
+      - {go: recv_desk, act: idle, dur: [6, 9]}
+      - {go: dock_1, act: scan, dur: [5, 7]}
+      - {go: east_n}
+      - {go: inbound_nw, act: scan, dur: [5, 7]}
+  - id: "EMP-1002"
+    name: "Rahul Mehta"
+    role: "Shift supervisor"
+    arrive_at_s: 27
+    look: {height_m: 1.87, build: male, skin: "#d9a066", hair: "#1e1410", hair_style: short,
+           shirt: "#b3202b", vest: null, trousers: "#1b2433", shoes: "#111111", hat: "#ffd400"}
+    routine:
+      - {go: pack_2, act: idle, dur: [5, 7]}
+      - {go: west_mid}
+      - {go: recv_1, act: idle, dur: [4, 6]}
+      - {go: recv_desk, act: idle, dur: [5, 7]}
+      - {go: dock_2, act: idle, dur: [5, 7]}
+      - {go: east_s}
+      - {go: stage_2, act: idle, dur: [4, 6]}
+      - {go: conveyor, act: idle, dur: [4, 6]}
+
+# People who are NOT employees. Never enrolled (only `employees` above are),
+# never verified at the gate, and only ever sent in on the operator's demand
+# (POST /api/control/visitor). Each walks its route once, then leaves through
+# the door it came in by. entry: "staff" (through the staff door, straight
+# past the gate: a tailgater) or "dock:N" (through dock_doors[N], from
+# outside the east wall).
+visitors:
+  - id: "VIS-01"
+    name: "Unknown person"
+    role: "Not an employee"
+    entry: "dock:1"            # the middle dock door (y = 10)
+    # No uniform: no hi-vis vest, no hard hat — a teal hoodie and jeans. The
+    # cameras follow people by clothing colour (a deliberately simple signature,
+    # see docs/LIVE_WORLD.md), so the stranger wears a hue no employee wears:
+    # in an earlier charcoal outfit their track merged with Marcus's grey shirt
+    # where the two crossed at the dock.
+    look: {height_m: 1.80, build: male, skin: "#a8714a", hair: "#2a1e16", hair_style: short,
+           shirt: "#138a96", vest: null, trousers: "#2c3e5c", shoes: "#151515", hat: null}
+    # In past the dock staging, a loiter in outbound staging, into the
+    # camera-less core of aisle 2, then up to the receiving desk and out.
+    routine:
+      - {go: dock_2}
+      - {go: east_s}
+      - {go: stage_2, act: idle, dur: [4, 6]}
+      - {go: aisle2_e}
+      - {go: aisle2_b, act: idle, dur: [5, 7]}
+      - {go: aisle2_e}
+      - {go: east_n}
+      - {go: recv_desk, act: idle, dur: [5, 7]}
+      - {go: dock_2}
+
+# Autonomous forklifts (AGVs) — driverless, so they are never people.
+# They shuttle between their two stops and stop for anyone in front of them.
+agvs:
+  - {id: "AGV-1", colour: "#f2b705", stops: [[10.6, 4.4], [26.6, 4.4]],  speed_m_s: 1.3, dwell_s: 7, start_offset_s: 0}
+  - {id: "AGV-2", colour: "#f2b705", stops: [[10.6, 15.6], [26.6, 15.6]], speed_m_s: 1.3, dwell_s: 7, start_offset_s: 9}
+agv_safety:
+  stop_distance_m: 2.2     # an AGV pauses while a person is this close ahead of it
+  stop_half_angle_deg: 55
+
+# Walking model
+walk:
+  speed_m_s: [1.05, 1.3]    # per-worker cruising speed range
+  gate_dwell_s: 4.0         # pause at the gate (badge tap, turnstile) on every entry
+  break_outside_s: 45       # how long a worker sent on break stays outside
+  dock_outside_m: 1.5       # a dock-door visitor appears this far outside the east wall...
+  dock_inside_m: 0.7        # ...and steps this far inside before crossing the floor
+
+sim:
+  tick_hz: 20.0             # world update rate (media time)
+  speed: 1.0                # wall-clock multiplier
+  seed: 7
+
+endpoints:
+  http_host: "127.0.0.1"
+  http_port: 8770
+  # PUB socket: one topic per camera ("cam:N", JPEG frames) — a node
+  # subscribes to its own camera only — plus the ground-truth topic.
+  frames_bind: "tcp://127.0.0.1:5570"

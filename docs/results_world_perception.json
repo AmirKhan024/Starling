@@ -1,0 +1,50 @@
+{
+ "detector": "yolo11s.pt",
+ "detection_recall_in_zone": {
+  "0": 0.734,
+  "1": 0.797,
+  "2": 0.75,
+  "3": 0.672
+ },
+ "detection_recall_overall": 0.738,
+ "localisation_error_m": {
+  "median": 0.181,
+  "p90": 0.365,
+  "n": 189
+ },
+ "appearance_cross_camera": {
+  "auc": 0.9965,
+  "youden_threshold": 0.7019,
+  "tpr_at_youden": 0.9697,
+  "fpr_at_youden": 0.005,
+  "n_same": 3403,
+  "n_diff": 9976,
+  "same_median": 0.899,
+  "diff_median": 0.53
+ },
+ "gate_verification": {
+  "threshold": 0.8,
+  "margin": 0.06,
+  "frames_per_decision": 3,
+  "genuine_median": 0.989,
+  "genuine_p10": 0.984,
+  "impostor_max": 0.647,
+  "impostor_p90": 0.645,
+  "decisions": 15,
+  "correct_accepts": 15,
+  "false_accepts": 0,
+  "rejected": 0
+ },
+ "recognition_all_cameras": {
+  "threshold": 0.8,
+  "margin": 0.12,
+  "frames_per_decision": 4,
+  "genuine_median": 0.911,
+  "genuine_p10": 0.858,
+  "impostor_max": 0.628,
+  "decisions": 41,
+  "correct": 41,
+  "false": 0,
+  "abstained": 0
+ }
+}

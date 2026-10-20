@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Camera Rig</title>
+<style>html,body{margin:0;background:#000;color:#9aa;font:12px monospace}#c{display:block}</style>
+<script type="importmap">{"imports":{"three":"/static/vendor/three.module.min.js"}}</script>
+</head>
+<body>
+<canvas id="c"></canvas>
+<pre id="log">camera rig starting…</pre>
+<script type="module">
+// The CAMERA RIG: renders every camera's view of the world at each frame
+// tick the world server asks for, encodes it as JPEG, and sends it back.
+// The world server forwards each camera's frames to that camera's node only.
+// This page has no UI; apps/world/rig.py runs it in a headless browser.
+import * as THREE from 'three';
+import { buildWarehouse } from '/static/js/scene.js';
+
+const meta = await (await fetch('/api/world')).json();
+const FW = meta.camera_frames.width_px, FH = meta.camera_frames.height_px, Q = meta.camera_frames.jpeg_quality;
+const canvas = document.getElementById('c');
+// No MSAA on camera frames: the person detector does not need it, and the
+// integrated GPU is shared with the presenter's own 3D view.
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, preserveDrawingBuffer: true });
+renderer.setPixelRatio(1);
+renderer.setSize(FW, FH, false);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+// The scene is identical for all four cameras of a frame set: render the
+// shadow map once per set, not once per camera.
+renderer.shadowMap.autoUpdate = false;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
+
+const wh = buildWarehouse(meta, { cutaway: false, labels: false, helpers: false });
+const nodeIds = meta.cameras.map(c => c.node_id);
+const stats = { frames: 0, last_ms: null, connected: false, errors: 0 };
+window.rigStats = stats;
+const logEl = document.getElementById('log');
+
+const toBlob = () => new Promise(res => canvas.toBlob(res, 'image/jpeg', Q));
+const enc = new TextEncoder();
+
+async function renderFrame(ws, msg) {
+  const t0 = performance.now();
+  wh.apply(msg.state);
+  renderer.shadowMap.needsUpdate = true;
+  for (const n of nodeIds) {
+    renderer.render(wh.scene, wh.cams[n]);
+    const blob = await toBlob();
+    const jpeg = new Uint8Array(await blob.arrayBuffer());
+    const header = enc.encode(JSON.stringify({ node_id: n, frame_idx: msg.frame_idx, t: msg.t }));
+    const out = new Uint8Array(4 + header.length + jpeg.length);
+    new DataView(out.buffer).setUint32(0, header.length, false);
+    out.set(header, 4); out.set(jpeg, 4 + header.length);
+    if (ws.readyState === 1) ws.send(out);
+  }
+  stats.frames++; stats.last_ms = performance.now() - t0;
+  if (ws.readyState === 1) ws.send(JSON.stringify({ type: 'done', frame_idx: msg.frame_idx, render_ms: stats.last_ms }));
+  if (stats.frames % 25 === 1) logEl.textContent = `camera rig: ${stats.frames} frame sets, ${stats.last_ms.toFixed(0)} ms each`;
+}
+
+function connect() {
+  const ws = new WebSocket(`ws://${location.host}/ws/rig`);
+  ws.binaryType = 'arraybuffer';
+  let busy = Promise.resolve();
+  ws.onopen = () => { stats.connected = true; };
+  ws.onmessage = ev => {
+    const msg = JSON.parse(ev.data);
+    if (msg.type !== 'render') return;
+    busy = busy.then(() => renderFrame(ws, msg)).catch(e => { stats.errors++; console.error(e); });
+  };
+  ws.onclose = () => { stats.connected = false; setTimeout(connect, 800); };
+}
+connect();
+</script>
+</body>
+</html>
