@@ -33,6 +33,8 @@ This repository ships two demos:
 | C4 | **Negative evidence** — reasoning from *attested* absence. Silence is never evidence of absence; only a confident attestation shrinks the "could be here" region. | Moment 2 |
 | C5 | Calibrated, capability-scoped query that separates confirmed from inferred and names unreachable nodes. | Moment 5 |
 
+> **New to the project? Start with the [complete project guide](docs/PROJECT_GUIDE.md):** every screen explained with screenshots, the technical ideas, measured results, real-world deployment, scalability, cloud design and interview questions.
+
 ## Live 3D world demo
 
 ```bash
